@@ -1,14 +1,69 @@
 #ifndef EFT_CAFE_WRAPPER_H_
 #define EFT_CAFE_WRAPPER_H_
 
-#include <nw/eft/eft_Enum.h>
+#include <nw/eft/eft_Data.h>
+#include <nw/eft/eft_Heap.h>
 
-#define INCLUDE_CAFE
-#include <nw/eft/eft_typeDef.h>
+BOOL _DEMOGFDReadVertexShader(nw::eft::Heap* heap, GX2VertexShader** shader, u32 index, const void* binary);
+BOOL _DEMOGFDReadPixelShader(nw::eft::Heap* heap, GX2PixelShader** shader, u32 index, const void* binary);
+BOOL _DEMOGFDReadGeometryShader(nw::eft::Heap* heap, GX2GeometryShader** shader, u32 index, const void* binary);
 
 namespace nw { namespace eft {
 
-class Heap;
+class TextureSampler
+{
+public:
+    TextureSampler();
+    ~TextureSampler();
+
+    bool Setup(TextureFilterMode filterMode, TextureWrapMode wrapModeX, TextureWrapMode wrapModeY);
+    bool SetupLOD(f32 maxLOD, f32 biasLOD);
+
+    GX2Sampler sampler;
+};
+static_assert(sizeof(TextureSampler) == 0xC, "TextureSampler size mismatch");
+
+struct TextureRes;
+struct FragmentTextureLocation;
+
+class RenderContext
+{
+public:
+    RenderContext();
+
+    void SetupCommonState();
+    void SetupBlendType(BlendType blendType);
+    void SetupZBufATest(ZBufATestType zBufATestType);
+    void SetupDisplaySideType(DisplaySideType displaySideType) const;
+    inline void _SetupFragmentTexture(const GX2Texture* texture, const GX2Sampler* sampler, TextureSlot slot, FragmentTextureLocation samplerLocation) const;
+    void SetupTexture(const TextureRes* texture, TextureSlot slot, FragmentTextureLocation samplerLocation);
+    void SetupTexture(const GX2Texture* texture, TextureSlot slot, FragmentTextureLocation samplerLocation);
+
+    TextureSampler textureSampler;
+    TextureSampler textureSampler2;
+    BlendType blendType;
+    ZBufATestType zBufATestType;
+};
+static_assert(sizeof(RenderContext) == 0x20, "RenderContext size mismatch");
+
+class VertexBuffer
+{
+public:
+    VertexBuffer();
+
+    void* AllocateVertexBuffer(Heap* heap, u32 bufSize, u32 size);
+    void Finalize(Heap* heap);
+    void Invalidate();
+    void BindBuffer(u32 index, u32 size, u32 stride);
+
+    static void BindExtBuffer(u32 index, u32 size, u32, u32 stride, void* buffer);
+
+    u32 _unused;
+    u32 size;
+    u32 bufferSize;
+    void* buffer;
+};
+static_assert(sizeof(VertexBuffer) == 0x10, "VertexBuffer size mismatch");
 
 class Shader
 {
@@ -43,19 +98,6 @@ public:
 };
 static_assert(sizeof(Shader) == 0x278, "Shader size mismatch");
 
-class TextureSampler
-{
-public:
-    TextureSampler();
-    ~TextureSampler();
-
-    bool Setup(TextureFilterMode filterMode, TextureWrapMode wrapModeX, TextureWrapMode wrapModeY);
-    bool SetupLOD(f32 maxLOD, f32 biasLOD);
-
-    GX2Sampler sampler;
-};
-static_assert(sizeof(TextureSampler) == 0xC, "TextureSampler size mismatch");
-
 class UniformBlock
 {
 public:
@@ -89,31 +131,6 @@ public:
 };
 static_assert(sizeof(UniformBlock) == 0x10, "UniformBlock size mismatch");
 
-class Heap;
-
-class VertexBuffer
-{
-public:
-    VertexBuffer();
-
-    void* AllocateVertexBuffer(Heap* heap, u32 bufSize, u32 size);
-    void Finalize(Heap* heap);
-    void Invalidate();
-    void BindBuffer(u32 index, u32 size, u32 stride);
-
-    static void BindExtBuffer(u32 index, u32 size, u32, u32 stride, void* buffer);
-
-    u32 _unused;
-    u32 size;
-    u32 bufferSize;
-    void* buffer;
-};
-static_assert(sizeof(VertexBuffer) == 0x10, "VertexBuffer size mismatch");
-
 } } // namespace nw::eft
-
-BOOL _DEMOGFDReadVertexShader(nw::eft::Heap* heap, GX2VertexShader** shader, u32 index, const void* binary);
-BOOL _DEMOGFDReadPixelShader(nw::eft::Heap* heap, GX2PixelShader** shader, u32 index, const void* binary);
-BOOL _DEMOGFDReadGeometryShader(nw::eft::Heap* heap, GX2GeometryShader** shader, u32 index, const void* binary);
 
 #endif // EFT_CAFE_WRAPPER_H_

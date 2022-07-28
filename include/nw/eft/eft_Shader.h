@@ -9,6 +9,16 @@ namespace nw { namespace eft {
 
 struct VertexShaderKey
 {
+    u8 transformMode;
+    u8 rotationMode;
+    u8 shaderUserSetting;
+    u8 stripeType;
+    bool stripeEmitterCoord;
+    bool isPrimitive;
+    u32 shaderUserFlag;
+    u32 shaderUserSwitchFlag;
+    char shaderUserMacro[16];
+
     void InitializeSimple(const SimpleEmitterData* data)
     {
         transformMode = data->vertexTransformMode;
@@ -101,21 +111,61 @@ struct VertexShaderKey
                 && isPrimitive == other.isPrimitive
                 && strcmp(shaderUserMacro, other.shaderUserMacro) == 0);
     }
-
-    u8 transformMode;
-    u8 rotationMode;
-    u8 shaderUserSetting;
-    u8 stripeType;
-    bool stripeEmitterCoord;
-    bool isPrimitive;
-    u32 shaderUserFlag;
-    u32 shaderUserSwitchFlag;
-    char shaderUserMacro[16];
 };
 static_assert(sizeof(VertexShaderKey) == 0x20, "VertexShaderKey size mismatch");
 
 struct FragmentShaderKey
 {
+    u8 shaderMode;
+    bool softEdge;
+    u8 textureMode;
+    u8 colorMode;
+    u8 alphaMode;
+    u8 shaderUserSetting;
+    bool isPrimitive;
+    u8 textureColorBlend;
+    u8 textureAlphaBlend;
+    u8 primitiveColorBlend;
+    u8 primitiveAlphaBlend;
+    u8 texture0ColorSrc;
+    u8 texture1ColorSrc;
+    u8 primitiveColorSrc;
+    u8 texture0AlphaSrc;
+    u8 texture1AlphaSrc;
+    u8 primitiveAlphaSrc;
+    u8 refractionApplyAlpha;
+    u16 _unused0;
+    u32 shaderUserFlag;
+    u32 shaderUserSwitchFlag;
+    char shaderUserMacro[16];
+    u16 _unused1;
+    //u8 pad[2];
+
+    bool operator==(const FragmentShaderKey& other)
+    {
+        return (shaderMode == other.shaderMode
+                && softEdge == other.softEdge
+                && textureMode == other.textureMode
+                && colorMode == other.colorMode
+                && alphaMode == other.alphaMode
+                && shaderUserSetting == other.shaderUserSetting
+                && isPrimitive == other.isPrimitive
+                && textureColorBlend == other.textureColorBlend
+                && textureAlphaBlend == other.textureAlphaBlend
+                && primitiveColorBlend == other.primitiveColorBlend
+                && primitiveAlphaBlend == other.primitiveAlphaBlend
+                && texture0ColorSrc == other.texture0ColorSrc
+                && texture1ColorSrc == other.texture1ColorSrc
+                && primitiveColorSrc == other.primitiveColorSrc
+                && texture0AlphaSrc == other.texture0AlphaSrc
+                && texture1AlphaSrc == other.texture1AlphaSrc
+                && primitiveAlphaSrc == other.primitiveAlphaSrc
+                && refractionApplyAlpha == other.refractionApplyAlpha
+                && shaderUserFlag == other.shaderUserFlag
+                && shaderUserSwitchFlag == other.shaderUserSwitchFlag
+                && strcmp(shaderUserMacro, other.shaderUserMacro) == 0);
+    }
+
     void InitializeSimple(const SimpleEmitterData* data)
     {
         shaderMode = data->fragmentShaderMode;
@@ -239,56 +289,6 @@ struct FragmentShaderKey
         else
             shaderUserMacro[0] = '\0';
     }
-
-    bool operator==(const FragmentShaderKey& other)
-    {
-        return (shaderMode == other.shaderMode
-                && softEdge == other.softEdge
-                && textureMode == other.textureMode
-                && colorMode == other.colorMode
-                && alphaMode == other.alphaMode
-                && shaderUserSetting == other.shaderUserSetting
-                && isPrimitive == other.isPrimitive
-                && textureColorBlend == other.textureColorBlend
-                && textureAlphaBlend == other.textureAlphaBlend
-                && primitiveColorBlend == other.primitiveColorBlend
-                && primitiveAlphaBlend == other.primitiveAlphaBlend
-                && texture0ColorSrc == other.texture0ColorSrc
-                && texture1ColorSrc == other.texture1ColorSrc
-                && primitiveColorSrc == other.primitiveColorSrc
-                && texture0AlphaSrc == other.texture0AlphaSrc
-                && texture1AlphaSrc == other.texture1AlphaSrc
-                && primitiveAlphaSrc == other.primitiveAlphaSrc
-                && refractionApplyAlpha == other.refractionApplyAlpha
-                && shaderUserFlag == other.shaderUserFlag
-                && shaderUserSwitchFlag == other.shaderUserSwitchFlag
-                && strcmp(shaderUserMacro, other.shaderUserMacro) == 0);
-    }
-
-    u8 shaderMode;
-    bool softEdge;
-    u8 textureMode;
-    u8 colorMode;
-    u8 alphaMode;
-    u8 shaderUserSetting;
-    bool isPrimitive;
-    u8 textureColorBlend;
-    u8 textureAlphaBlend;
-    u8 primitiveColorBlend;
-    u8 primitiveAlphaBlend;
-    u8 texture0ColorSrc;
-    u8 texture1ColorSrc;
-    u8 primitiveColorSrc;
-    u8 texture0AlphaSrc;
-    u8 texture1AlphaSrc;
-    u8 primitiveAlphaSrc;
-    u8 refractionApplyAlpha;
-    u16 _unused0;
-    u32 shaderUserFlag;
-    u32 shaderUserSwitchFlag;
-    char shaderUserMacro[16];
-    u16 _unused1;
-    //u8 pad[2];
 };
 static_assert(sizeof(FragmentShaderKey) == 0x30, "FragmentShaderKey size mismatch");
 
@@ -316,18 +316,6 @@ struct ShaderProgram // Actual name not known
     u32 binOffs;
 };
 static_assert(sizeof(ShaderProgram) == 0x5C, "ShaderProgram size mismatch");
-
-struct VertexTextureLocation
-{
-    u32 location;
-};
-static_assert(sizeof(VertexTextureLocation) == 4, "VertexTextureLocation size mismatch");
-
-struct FragmentTextureLocation
-{
-    u32 location;
-};
-static_assert(sizeof(FragmentTextureLocation) == 4, "FragmentTextureLocation size mismatch");
 
 class Heap;
 

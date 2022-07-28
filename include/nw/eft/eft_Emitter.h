@@ -2,6 +2,7 @@
 #define EFT_EMITTER_H_
 
 #include <nw/eft/eft_Data.h>
+#include <nw/eft/eft_AnimKeyFrame.h>
 #include <nw/eft/eft_Particle.h>
 #include <nw/eft/eft_Random.h>
 
@@ -12,7 +13,6 @@ class EmitterController;
 struct EmitterDynamicUniformBlock;
 class EmitterSet;
 struct EmitterStaticUniformBlock;
-struct KeyFrameAnimArray;
 class ParticleShader;
 class Primitive;
 struct PtclAttributeBuffer;
@@ -20,32 +20,6 @@ class StripeVertexBuffer;
 
 struct EmitterInstance
 {
-    void Init(const SimpleEmitterData* data);
-    inline void UpdateEmitterStaticUniformBlock(EmitterStaticUniformBlock* uniformBlock, const SimpleEmitterData* data);
-    inline void UpdateChildStaticUniformBlock(EmitterStaticUniformBlock* uniformBlock, const ChildData* data);
-    void UpdateResInfo();
-
-    const ComplexEmitterData* GetComplexEmitterData() const
-    {
-        if (data->type != EmitterType_Complex)
-            return NULL;
-
-        return static_cast<const ComplexEmitterData*>(data);
-    }
-
-    bool HasChild() const
-    {
-        return data->type != EmitterType_Simple && (static_cast<const ComplexEmitterData*>(data)->childFlags & 1);
-    }
-
-    const ChildData* GetChildData() const
-    {
-        if (!HasChild())
-            return NULL;
-
-        return reinterpret_cast<const ChildData*>(static_cast<const ComplexEmitterData*>(data) + 1);
-    }
-
     f32 counter;
     f32 counter2;
     f32 emitCounter;
@@ -103,6 +77,32 @@ struct EmitterInstance
     EmitterStaticUniformBlock* childEmitterStaticUniformBlock;
     EmitterDynamicUniformBlock* emitterDynamicUniformBlock;
     EmitterDynamicUniformBlock* childEmitterDynamicUniformBlock;
+
+    void Init(const SimpleEmitterData* data);
+    inline void UpdateEmitterStaticUniformBlock(EmitterStaticUniformBlock* uniformBlock, const SimpleEmitterData* data);
+    inline void UpdateChildStaticUniformBlock(EmitterStaticUniformBlock* uniformBlock, const ChildData* data);
+    void UpdateResInfo();
+
+    const ComplexEmitterData* GetComplexEmitterData() const
+    {
+        if (data->type != EmitterType_Complex)
+            return NULL;
+
+        return static_cast<const ComplexEmitterData*>(data);
+    }
+
+    bool HasChild() const
+    {
+        return data->type != EmitterType_Simple && (static_cast<const ComplexEmitterData*>(data)->childFlags & 1);
+    }
+
+    const ChildData* GetChildData() const
+    {
+        if (!HasChild())
+            return NULL;
+
+        return reinterpret_cast<const ChildData*>(static_cast<const ComplexEmitterData*>(data) + 1);
+    }
 };
 static_assert(sizeof(EmitterInstance) == 0x220, "EmitterInstance size mismatch");
 

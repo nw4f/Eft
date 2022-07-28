@@ -1,4 +1,4 @@
-#include <nw/eft/eft_Enum.h>
+#include <nw/eft/eft_Data.h>
 #include <nw/eft/eft_Shader.h>
 
 namespace nw { namespace eft {

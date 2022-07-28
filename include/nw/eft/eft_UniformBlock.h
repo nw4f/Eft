@@ -1,8 +1,6 @@
 #ifndef EFT_UNIFORM_BLOCK_H_
 #define EFT_UNIFORM_BLOCK_H_
 
-#include <nw/math/math_Matrix44.h>
-#include <nw/math/math_Vector4.h>
 #include <nw/eft/eft_typeDef.h>
 
 namespace nw { namespace eft {
@@ -36,20 +34,6 @@ struct ViewUniformBlock
     math::VEC4 viewParam;
 };
 static_assert(sizeof(ViewUniformBlock) == 0x110, "ViewUniformBlock size mismatch");
-
-struct PtclAttributeBuffer
-{
-    math::VEC4 wldPos;
-    math::VEC4 scl;
-    math::VEC4 color0;
-    math::VEC4 color1;
-    math::VEC4 texAnim;
-    math::VEC4 wldPosDf;
-    math::VEC4 rot;
-    math::VEC4 subTexAnim;
-    math::MTX34 emtMat;
-};
-static_assert(sizeof(PtclAttributeBuffer) == 0xB0, "PtclAttributeBuffer size mismatch");
 
 struct StripeUniformBlock
 {

@@ -1,10 +1,7 @@
 #ifndef EFT_RENDERER_H_
 #define EFT_RENDERER_H_
 
-#include <nw/math/math_Matrix44.h>
-#include <nw/math/math_Vector2.h>
-#include <nw/math/math_Vector3.h>
-#include <nw/eft/eft_RenderContext.h>
+#include <nw/eft/cafe/eft_CafeWrapper.h>
 #include <nw/eft/eft_TemporaryBuffer.h>
 
 namespace nw { namespace eft {

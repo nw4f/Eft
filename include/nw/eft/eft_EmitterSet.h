@@ -1,11 +1,7 @@
 #ifndef EFT_EMITTER_SET_H_
 #define EFT_EMITTER_SET_H_
 
-#include <nw/math/math_Matrix34.h>
-#include <nw/math/math_Vector2.h>
-#include <nw/math/math_Vector3.h>
-#include <nw/ut/ut_Color.h>
-#include <nw/eft/eft_Enum.h>
+#include <nw/eft/eft_Data.h>
 
 namespace nw { namespace eft {
 

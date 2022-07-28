@@ -1,7 +1,6 @@
 #ifndef EFT_RANDOM_H_
 #define EFT_RANDOM_H_
 
-#include <nw/math/math_Vector3.h>
 #include <nw/eft/eft_typeDef.h>
 
 namespace nw { namespace eft {

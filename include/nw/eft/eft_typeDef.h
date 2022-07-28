@@ -24,4 +24,11 @@ struct __alignment_of
 
 #define alignof(Type) offsetof(__alignment_of<Type>, a)
 
+#include <nw/math/math_Matrix34.h>
+#include <nw/math/math_Matrix44.h>
+#include <nw/math/math_Vector2.h>
+#include <nw/math/math_Vector3.h>
+#include <nw/math/math_Vector4.h>
+#include <nw/ut/ut_Color.h>
+
 #endif // EFT_TYPES_H_

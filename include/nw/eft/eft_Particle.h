@@ -1,13 +1,42 @@
 #ifndef EFT_PARTICLE_H_
 #define EFT_PARTICLE_H_
 
-#include <nw/math/math_Matrix34.h>
-#include <nw/math/math_Vector2.h>
-#include <nw/math/math_Vector3.h>
-#include <nw/ut/ut_Color.h>
-#include <nw/eft/eft_Enum.h>
+#include <nw/eft/eft_Data.h>
 
 namespace nw { namespace eft {
+
+struct PtclInstance;
+
+struct PtclStripeSliceHistory // Actual name not known
+{
+    math::VEC3 pos;
+    f32 scale;
+    math::MTX34 emitterMatrixSRT;
+    math::VEC3 outer;
+    math::VEC3 dir;
+};
+static_assert(sizeof(PtclStripeSliceHistory) == 0x58, "PtclStripeSliceHistory size mismatch");
+
+struct PtclStripe
+{
+    PtclInstance* particle;
+    u32 queueFront;
+    u32 queueRear;
+    PtclStripeSliceHistory queue[256];
+    u32 queueCount;
+    u32 groupID;
+    const ComplexEmitterData* data;
+    s32 counter;
+    math::MTX34 emitterMatrixSRT;
+    math::VEC3 currentSliceDir;
+    math::VEC3 pos0;
+    math::VEC3 pos1;
+    PtclStripe* prev;
+    PtclStripe* next;
+    u32 drawFirstVertex;
+    u32 numDraw;
+};
+static_assert(sizeof(PtclStripe) == 0x5880, "PtclStripe size mismatch");
 
 struct AlphaAnim
 {
@@ -37,9 +66,6 @@ struct TexUVParam // Actual name not known
 static_assert(sizeof(TexUVParam) == 0x1C, "TexUVParam size mismatch");
 
 struct EmitterInstance;
-struct PtclAttributeBuffer;
-struct PtclStripe;
-struct SimpleEmitterData;
 
 struct PtclInstance
 {
@@ -88,39 +114,6 @@ struct PtclInstance
     u8 _unusedPad[0x180 - 0x16C];
 };
 static_assert(sizeof(PtclInstance) == 0x180, "PtclInstance size mismatch");
-
-struct PtclStripeSliceHistory // Actual name not known
-{
-    math::VEC3 pos;
-    f32 scale;
-    math::MTX34 emitterMatrixSRT;
-    math::VEC3 outer;
-    math::VEC3 dir;
-};
-static_assert(sizeof(PtclStripeSliceHistory) == 0x58, "PtclStripeSliceHistory size mismatch");
-
-struct ComplexEmitterData;
-
-struct PtclStripe
-{
-    PtclInstance* particle;
-    u32 queueFront;
-    u32 queueRear;
-    PtclStripeSliceHistory queue[256];
-    u32 queueCount;
-    u32 groupID;
-    const ComplexEmitterData* data;
-    s32 counter;
-    math::MTX34 emitterMatrixSRT;
-    math::VEC3 currentSliceDir;
-    math::VEC3 pos0;
-    math::VEC3 pos1;
-    PtclStripe* prev;
-    PtclStripe* next;
-    u32 drawFirstVertex;
-    u32 numDraw;
-};
-static_assert(sizeof(PtclStripe) == 0x5880, "PtclStripe size mismatch");
 
 } } // namespace nw::eft
 

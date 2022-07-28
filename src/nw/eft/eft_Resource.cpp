@@ -1,7 +1,3 @@
-#include <nw/math/math_Vector4.h>
-#include <nw/eft/eft_Data.h>
-#include <nw/eft/eft_Heap.h>
-#include <nw/eft/eft_Primitive.h>
 #include <nw/eft/eft_Resource.h>
 #include <nw/eft/eft_Shader.h>
 
@@ -9,18 +5,19 @@
 
 namespace nw { namespace eft {
 
-Resource::Resource(Heap* heap, void* resource, u32 resourceID, System* system)
+Resource::Resource(Heap* heap, void* bin, s32 resourceID, System* ptclSys)
 {
-    Initialize(heap, resource, resourceID, system);
+    Initialize(heap, bin, resourceID, ptclSys);
 }
 
 Resource::~Resource()
 {
+    Finalize(NULL);
 }
 
-void Resource::CreateFtexbTextureHandle(Heap* heap, void* data, TextureRes& texture)
+void Resource::CreateFtexbTextureHandle(Heap* heap, void* texture_data, TextureRes& texRes)
 {
-    GX2SurfaceFormat formats[] = {
+    GX2SurfaceFormat texture_format_table[] = {
         GX2_SURFACE_FORMAT_TCS_R8_G8_B8_A8_UNORM,
         GX2_SURFACE_FORMAT_TCS_R8_G8_B8_A8_UNORM,
         GX2_SURFACE_FORMAT_TCS_R8_G8_B8_A8_UNORM,
@@ -39,343 +36,445 @@ void Resource::CreateFtexbTextureHandle(Heap* heap, void* data, TextureRes& text
         GX2_SURFACE_FORMAT_TCS_R8_G8_B8_A8_SRGB,
     };
 
-    GX2SurfaceFormat format = GX2_SURFACE_FORMAT_TCS_R8_G8_B8_A8_UNORM;
-    if (TextureResFormat_Invalid < texture.cafeTexFormat && texture.cafeTexFormat < TextureResFormat_Max)
-        format = formats[texture.cafeTexFormat];
+    GX2SurfaceFormat texformat = GX2_SURFACE_FORMAT_TCS_R8_G8_B8_A8_UNORM;
+    if (texRes.nativeDataFormat <= EFT_TEXTURE_FORMAT_SRGB_8_8_8_8 && texRes.nativeDataFormat > EFT_TEXTURE_FORMAT_NONE)
+        texformat = texture_format_table[texRes.nativeDataFormat];
 
-    GX2InitTexture(&texture.gx2Texture, texture.width, texture.height, 1, texture.numMips, format, GX2_SURFACE_DIM_2D);
-    texture.gx2Texture.surface.tileMode = texture.tileMode;
+    GX2InitTexture(&texRes.gx2Texture, texRes.width, texRes.height, 1, texRes.mipLevel, texformat, GX2_SURFACE_DIM_2D);
+    texRes.gx2Texture.surface.tileMode = texRes.tileMode;
 
-    GX2CalcSurfaceSizeAndAlignment(&texture.gx2Texture.surface);
-    GX2SetSurfaceSwizzle(&texture.gx2Texture.surface, texture.swizzle);
-    GX2InitTexturePtrs(&texture.gx2Texture, data, NULL);
-    GX2InitTextureCompSel(&texture.gx2Texture, texture.compSel);
-    GX2InitTextureRegs(&texture.gx2Texture);
-    DCFlushRange(texture.gx2Texture.surface.imagePtr, texture.gx2Texture.surface.imageSize + texture.gx2Texture.surface.mipSize);
+    GX2CalcSurfaceSizeAndAlignment(&texRes.gx2Texture.surface);
+    GX2SetSurfaceSwizzle(&texRes.gx2Texture.surface, texRes.swizzle);
+    GX2InitTexturePtrs(&texRes.gx2Texture, texture_data, NULL);
 
-    texture.initialized = 1;
+    for (s32 i = 0; i < 13; i++)
+        texRes.gx2Texture.surface.mipOffset[i] = texRes.mipOffset[i];
+
+    GX2InitTextureCompSel(&texRes.gx2Texture, texRes.compSel);
+    GX2InitTextureRegs(&texRes.gx2Texture);
+
+    DCFlushRange(texRes.gx2Texture.surface.imagePtr, texRes.gx2Texture.surface.imageSize + texRes.gx2Texture.surface.mipSize);
+
+    texRes.handle = 1;
 }
 
-void Resource::CreateOriginalTextureHandle(Heap* heap, void* data, TextureRes& texture)
+void Resource::CreateOriginalTextureHandle(Heap* heap, void* texture_data, TextureRes& texRes)
 {
-    GX2SurfaceFormat format = GX2_SURFACE_FORMAT_TCS_R8_G8_B8_A8_UNORM;
-    GX2InitTexture(&texture.gx2Texture, texture.width, texture.height, 1, 0, format, GX2_SURFACE_DIM_2D);
-    texture.gx2Texture.surface.tileMode = GX2_TILE_MODE_LINEAR_ALIGNED;
+    GX2InitTexture(&texRes.gx2Texture, texRes.width, texRes.height, 1, 0, GX2_SURFACE_FORMAT_TCS_R8_G8_B8_A8_UNORM, GX2_SURFACE_DIM_2D);
+    texRes.gx2Texture.surface.tileMode = GX2_TILE_MODE_LINEAR_ALIGNED;
 
-    GX2CalcSurfaceSizeAndAlignment(&texture.gx2Texture.surface);
-    GX2InitTextureRegs(&texture.gx2Texture);
+    GX2CalcSurfaceSizeAndAlignment(&texRes.gx2Texture.surface);
+    GX2InitTextureRegs(&texRes.gx2Texture);
 
-    void* data_aligned = heap->Alloc(texture.gx2Texture.surface.imageSize, texture.gx2Texture.surface.alignment);
-    GX2InitTexturePtrs(&texture.gx2Texture, data_aligned, NULL);
+    void* texAddr = heap->Alloc(texRes.gx2Texture.surface.imageSize, texRes.gx2Texture.surface.alignment);
+    GX2InitTexturePtrs(&texRes.gx2Texture, texAddr, NULL);
 
-    const u8* dataU8 = static_cast<const u8*>(data);
+    u8* col8 = static_cast<u8*>(texture_data);
+    u8 r = 0;
+    u8 g = 0;
+    u8 b = 0;
+    u8 a = 0;
 
-    if (texture.originalTexFormat == TextureResFormat_RGBA8_Unorm)
+    if (texRes.originalDataFormat == EFT_TEXTURE_FORMAT_32BIT_COLOR)
     {
-        for (u32 y = 0; y < texture.height; y++)
-            for (u32 x = 0; x < texture.width; x++)
-                ((u32*)data_aligned)[y * texture.gx2Texture.surface.pitch + x] = (  *dataU8++ << 24
-                                                                                  | *dataU8++ << 16
-                                                                                  | *dataU8++ << 8
-                                                                                  | *dataU8++  );
+        for (u32 y = 0; y < texRes.height; y++)
+        {
+            for (u32 x = 0; x < texRes.width; x++)
+            {
+                r = *col8; col8++;
+                g = *col8; col8++;
+                b = *col8; col8++;
+                a = *col8; col8++;
+
+                ((u32*)texAddr)[y * texRes.gx2Texture.surface.pitch + x] = (r << 24 |
+                                                                            g << 16 |
+                                                                            b <<  8 |
+                                                                            a);
+            }
+        }
     }
     else
     {
-        for (u32 y = 0; y < texture.height; y++)
-            for (u32 x = 0; x < texture.width; x++)
-                ((u32*)data_aligned)[y * texture.gx2Texture.surface.pitch + x] = (  *dataU8++ << 24
-                                                                                  | *dataU8++ << 16
-                                                                                  | *dataU8++ << 8
-                                                                                  | 0xFF  );
-    }
-
-    DCFlushRange(texture.gx2Texture.surface.imagePtr, texture.gx2Texture.surface.imageSize);
-
-    texture.initialized = 1;
-}
-
-void Resource::Initialize(Heap* argHeap, void* argResource, u32 argResourceID, System* argSystem)
-{
-    system = argSystem;
-    heap = argHeap;
-    shaders = NULL;
-    numShader = 0;
-    primitives = NULL;
-    numPrimitive = 0;
-
-    resource = reinterpret_cast<Header*>(argResource);
-    strTbl = reinterpret_cast<char*>((u32)argResource + resource->strTblOffs);
-    textureDataTbl = reinterpret_cast<u8*>((u32)argResource + resource->textureDataTblOffs);
-
-    resourceID = argResourceID;
-
-    if (resource->numEmitterSet == 0)
-        return;
-
-    ShaderTable* shaderTbl = reinterpret_cast<ShaderTable*>((u32)argResource + resource->shaderTblOffs);
-    ShaderProgram* program = reinterpret_cast<ShaderProgram*>((u32)shaderTbl + shaderTbl->shaderProgOffs);
-    u8* const baseShaderBinary = reinterpret_cast<u8*>(program + shaderTbl->numShaderProg);
-
-    numShader = shaderTbl->numShaderProg;
-    //if (numShader != 0)
-    {
-        shaders = static_cast<ParticleShader**>(heap->Alloc(sizeof(ParticleShader*) * numShader));
-
-        for (u32 i = 0; i < numShader; i++)
+        for (u32 y = 0; y < texRes.height; y++)
         {
-            shaders[i] = new (heap->Alloc(sizeof(ParticleShader))) ParticleShader();
-            shaders[i]->vertexShaderKey = program[i].vertexShaderKey;
-            shaders[i]->fragmentShaderKey = program[i].fragmentShaderKey;
-            shaders[i]->geometryShaderKey = program[i].geometryShaderKey;
-            shaders[i]->SetupShaderResource(heap, baseShaderBinary + program[i].binOffs, program[i].binSize);
-        }
-    }
-
-    PrimitiveTable* primitiveTbl = reinterpret_cast<PrimitiveTable*>((u32)argResource + resource->primitiveTblOffs);
-    PrimitiveData* primitiveData = reinterpret_cast<PrimitiveData*>((u32)primitiveTbl + primitiveTbl->primitiveOffs);
-    u8* const baseAttribBuff = reinterpret_cast<u8*>(primitiveData + primitiveTbl->numPrimitive);
-
-    numPrimitive = primitiveTbl->numPrimitive;
-    if (numPrimitive != 0)
-    {
-        primitives = static_cast<Primitive**>(heap->Alloc(sizeof(Primitive*) * numPrimitive));
-
-        for (u32 i = 0; i < numPrimitive; i++)
-        {
-            primitives[i] = new (heap->Alloc(sizeof(Primitive))) Primitive();
-
-            f32* const pos = reinterpret_cast<f32*>(baseAttribBuff + primitiveData[i].pos.bufferOffs);
-            f32* const texCoord = reinterpret_cast<f32*>(baseAttribBuff + primitiveData[i].texCoord.bufferOffs);
-            u32* const index = reinterpret_cast<u32*>(baseAttribBuff + primitiveData[i].index.bufferOffs);
-
-            f32* const normal = (primitiveData[i].normal.bufferOffs != 0) ? reinterpret_cast<f32*>(baseAttribBuff + primitiveData[i].normal.bufferOffs) : NULL;
-            f32* const color = (primitiveData[i].color.bufferOffs != 0) ? reinterpret_cast<f32*>(baseAttribBuff + primitiveData[i].color.bufferOffs) : NULL;
-
-            const u32 posBufSize = primitiveData[i].pos.bufferSize;
-            const u32 normalBufSize = primitiveData[i].normal.bufferSize;
-            const u32 colorBufSize = primitiveData[i].color.bufferSize;
-            const u32 texCoordBufSize = primitiveData[i].texCoord.bufferSize;
-            const u32 indexBufSize = primitiveData[i].index.bufferSize;
-
-            if (pos != NULL && texCoord != NULL && index != NULL)
+            for (u32 x = 0; x < texRes.width; x++)
             {
-                Primitive* primitive = primitives[i];
-                primitive->initialized = true;
-                primitive->numIndex = primitiveData[i].index.count;
+                a = 255;
+                r = *col8; col8++;
+                g = *col8; col8++;
+                b = *col8; col8++;
 
-                if (pos != NULL)
-                {
-                    void* posBuf = primitive->vbPos.AllocateVertexBuffer(argHeap, posBufSize, 3);
-                    memcpy(posBuf, pos, posBufSize);
-                    primitive->pos = reinterpret_cast<f32*>(posBuf);
-                    primitive->vbPos.Invalidate();
-                }
-
-                if (normal != NULL)
-                {
-                    void* normalBuf = primitive->vbNormal.AllocateVertexBuffer(argHeap, normalBufSize, 3);
-                    memcpy(normalBuf, normal, normalBufSize);
-                    primitive->normal = reinterpret_cast<f32*>(normalBuf);
-                    primitive->vbNormal.Invalidate();
-                }
-
-                if (color != NULL)
-                {
-                    void* colorBuf = primitive->vbColor.AllocateVertexBuffer(argHeap, colorBufSize, 4);
-                    memcpy(colorBuf, color, colorBufSize);
-                    primitive->color = reinterpret_cast<f32*>(colorBuf);
-                    primitive->vbColor.Invalidate();
-                }
-                else
-                {
-                    void* colorBuf = primitive->vbColor.AllocateVertexBuffer(argHeap, sizeof(math::VEC4) * primitive->numIndex, 4);
-                    for (u32 j = 0; j < primitive->numIndex; j++)
-                        ((math::VEC4*)colorBuf)[j] = (math::VEC4){ 1.0f, 1.0f, 1.0f, 1.0f };
-                    //primitive->color = reinterpret_cast<f32*>(colorBuf); <-- NSMBU doesn't do this, but MK8 does. Bug in older Eft?
-                    primitive->vbColor.Invalidate();
-                }
-
-                if (texCoord != NULL && texCoordBufSize != 0)
-                {
-                    void* texCoordBuf = primitive->vbTexCoord.AllocateVertexBuffer(argHeap, texCoordBufSize, 2);
-                    memcpy(texCoordBuf, texCoord, texCoordBufSize);
-                    primitive->texCoord = reinterpret_cast<f32*>(texCoordBuf);
-                    primitive->vbTexCoord.Invalidate();
-                }
-
-                if (index != NULL && indexBufSize != 0)
-                {
-                    void* indexBuf = primitive->vbIndex.AllocateVertexBuffer(argHeap, indexBufSize, 1);
-                    memcpy(indexBuf, index, indexBufSize);
-                    primitive->index = reinterpret_cast<u32*>(indexBuf);
-                    primitive->vbIndex.Invalidate();
-                }
+                ((u32*)texAddr)[y * texRes.gx2Texture.surface.pitch + x] = (r << 24 |
+                                                                            g << 16 |
+                                                                            b <<  8 |
+                                                                            a);
             }
         }
     }
 
-    EmitterSetData* emitterSetData = reinterpret_cast<EmitterSetData*>(resource + 1);
+    DCFlushRange(texRes.gx2Texture.surface.imagePtr, texRes.gx2Texture.surface.imageSize);
 
-    const u32 numEmitterSet = resource->numEmitterSet;
-    //if (numEmitterSet != 0)
+    texRes.handle = 1;
+}
+
+void Resource::Initialize(Heap* heap, void* bin, s32 resourceID, System* ptclSys)
+{
+    mSystem       = ptclSys;
+    mHeap         = heap;
+    mShader       = NULL;
+    mShaderNum    = 0;
+    mPrimitive    = NULL;
+    mPrimitiveNum = 0;
+
+    mResourceID = resourceID;
+
+    mHeader     = reinterpret_cast<HeaderData*>(bin);
+    mNameTbl    = reinterpret_cast<char*>((u32)bin + mHeader->nameTblPos);
+    mTextureTbl = reinterpret_cast<char*>((u32)bin + mHeader->textureTblPos);
+
+    if (mHeader->numEmitterSet == 0)
+        return;
+
     {
-        emitterSets = static_cast<Resource::EmitterSet*>(heap->Alloc(sizeof(Resource::EmitterSet) * numEmitterSet));
+        ShaderImageInformation* shaderImageInfo = reinterpret_cast<ShaderImageInformation*>((u32)bin + mHeader->shaderTblPos);
+        ShaderInformation* shaderInfo = reinterpret_cast<ShaderInformation*>((u32)shaderImageInfo + shaderImageInfo->offsetShaderBinInfo);
+        char* binTop = reinterpret_cast<char*>(shaderInfo + shaderImageInfo->shaderNum);
 
-        for (u32 i = 0; i < numEmitterSet; i++)
+        mShaderNum = shaderImageInfo->shaderNum;
+        mShader = static_cast<ParticleShader**>(heap->Alloc(sizeof(ParticleShader*) * mShaderNum));
+
+        for (u32 i = 0; i < mShaderNum; i++)
         {
-            Resource::EmitterSet* emitterSet = &emitterSets[i];
-            emitterSet->data = &emitterSetData[i];
-            emitterSet->name = (emitterSet->data->name = &strTbl[emitterSet->data->nameOffs]);
-            emitterSet->numEmitter = emitterSet->data->numEmitter;
-            emitterSet->userData = emitterSet->data->userData;
-            emitterSet->_unused = 0;
-            emitterSet->shaders = shaders;
-            emitterSet->numShader = numShader;
-            emitterSet->primitives = primitives;
-            emitterSet->numPrimitive = numPrimitive;
+            mShader[i] = new (heap->Alloc(sizeof(ParticleShader))) ParticleShader();
+            mShader[i]->SetVertexShaderKey(&shaderInfo->vertexShaderKey);
+            mShader[i]->SetFragmentShaderKey(&shaderInfo->fragmentShaderKey);
+            mShader[i]->SetGeometryShaderKey(&shaderInfo->geometryShaderKey);
+            mShader[i]->SetupShaderResource(mHeap, binTop + shaderInfo->offset, shaderInfo->shaderSize);
+            shaderInfo++;
+        }
+    }
 
-            if(emitterSet->data->emitterRefOffs != 0)
+    {
+        PrimitiveImageInformation* imageInfo = reinterpret_cast<PrimitiveImageInformation*>((u32)bin + mHeader->primitiveTblPos);
+        PrimitiveTableInfo* infoTop = reinterpret_cast<PrimitiveTableInfo*>((u32)imageInfo + imageInfo->offsetPrimitiveTableInfo);
+        char* primitiveTableStart = reinterpret_cast<char*>(infoTop + imageInfo->primitiveNum);
+
+        mPrimitiveNum = imageInfo->primitiveNum;
+        if (mPrimitiveNum != 0)
+        {
+            mPrimitive = static_cast<Primitive**>(heap->Alloc(sizeof(Primitive*) * mPrimitiveNum));
+
+            for (u32 i = 0; i < mPrimitiveNum; i++)
             {
-                emitterSet->emitterRef = (/*emitterSet->data->emitterRef =*/ reinterpret_cast<EmitterTblData*>((u32)argResource + emitterSet->data->emitterRefOffs));
+                mPrimitive[i] = new (heap->Alloc(sizeof(Primitive))) Primitive();
 
-                for (u32 j = 0; j < emitterSet->numEmitter; j++)
+                PrimitiveTableInfo* info = &infoTop[i];
+
+                f32* position = reinterpret_cast<f32*>(info->pos.offset      + primitiveTableStart);
+                f32* texCrd   = reinterpret_cast<f32*>(info->texCoord.offset + primitiveTableStart);
+                u32* index    = reinterpret_cast<u32*>(info->index.offset    + primitiveTableStart);
+
+                f32* normal = NULL;
+                if (info->normal.offset > 0)
+                    normal = reinterpret_cast<f32*>(info->normal.offset + primitiveTableStart);
+
+                f32* color = NULL;
+                if (info->color.offset > 0)
+                    color = reinterpret_cast<f32*>(info->color.offset + primitiveTableStart);
+
+                mPrimitive[i]->Initialize(heap, info->index.count,
+                    position, info->pos.size,
+                    normal,   info->normal.size,
+                    color,    info->color.size,
+                    texCrd,   info->texCoord.size,
+                    index,    info->index.size);
+            }
+        }
+    }
+
+    mResEmitterSet = static_cast<ResourceEmitterSet*>(mHeap->Alloc(sizeof(ResourceEmitterSet) * mHeader->numEmitterSet));
+
+    for (s32 i = 0; i < mHeader->numEmitterSet; i++)
+    {
+        ResourceEmitterSet* resSet = &mResEmitterSet[i];
+        void* texture_addr = NULL;
+
+        resSet->setData        = &((reinterpret_cast<EmitterSetData*>(mHeader + 1))[i]);
+        resSet->setData->name  = &mNameTbl[resSet->setData->namePos];
+        resSet->setName        = resSet->setData->name;
+        resSet->numEmitter     = resSet->setData->numEmitter;
+        resSet->userData       = resSet->setData->userData;
+        resSet->isShowDetail   = false;
+
+        resSet->shaderArray    = mShader;
+        resSet->shaderNum      = mShaderNum;
+
+        resSet->primitiveArray = mPrimitive;
+        resSet->primitiveNum   = mPrimitiveNum;
+
+        if (resSet->setData->emitterTblPos != 0)
+        {
+            resSet->tblData = (/*resSet->setData->emitterTbl =*/ reinterpret_cast<EmitterTblData*>((u32)bin + resSet->setData->emitterTblPos));
+
+            for (s32 j = 0; j < resSet->numEmitter; j++)
+            {
+                EmitterTblData* e = &resSet->tblData[j];
+
+                if (e->emitterPos == 0)
+                    e->emitter = NULL;
+
+                else
                 {
-                    EmitterTblData* emitterRef = &emitterSet->emitterRef[j];
+                    e->emitter = reinterpret_cast<CommonEmitterData*>((u32)bin + e->emitterPos);
+                    e->emitter->name = &mNameTbl[e->emitter->namePos];
 
-                    if (emitterRef->dataOffs == 0)
-                        emitterRef->data = NULL;
-
-                    else
+                    if (e->emitter->texRes[EFT_TEXTURE_SLOT_0].nativeDataSize > 0)
                     {
-                        emitterRef->data = reinterpret_cast<EmitterData*>((u32)argResource + emitterRef->dataOffs);
-                        emitterRef->data->name = &strTbl[emitterRef->data->nameOffs];
+                        texture_addr = mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_0].nativeDataPos;
+                        CreateFtexbTextureHandle(heap, texture_addr, e->emitter->texRes[EFT_TEXTURE_SLOT_0]);
+                    }
+                    else if (e->emitter->texRes[EFT_TEXTURE_SLOT_0].originalDataSize > 0)
+                    {
+                        texture_addr = mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_0].originalDataPos;
+                        CreateOriginalTextureHandle(heap, texture_addr, e->emitter->texRes[EFT_TEXTURE_SLOT_0]);
+                    }
 
+                    if (e->emitter->texRes[EFT_TEXTURE_SLOT_1].nativeDataSize > 0)
+                    {
+                        texture_addr = mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_1].nativeDataPos;
+                        CreateFtexbTextureHandle(heap, texture_addr, e->emitter->texRes[EFT_TEXTURE_SLOT_1]);
+                    }
+                    else if (e->emitter->texRes[EFT_TEXTURE_SLOT_1].originalDataSize > 0)
+                    {
+                        texture_addr = mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_1].originalDataPos;
+                        CreateOriginalTextureHandle(heap, texture_addr, e->emitter->texRes[EFT_TEXTURE_SLOT_1]);
+                    }
+
+                    if (e->emitter->type == EFT_EMITTER_TYPE_COMPLEX)
+                    {
+                        ComplexEmitterData* complex = static_cast<ComplexEmitterData*>(e->emitter);
+                        if (complex->childFlg & EFT_CHILD_FLAG_ENABLE)
                         {
-                            TextureRes* const texture = &emitterRef->data->textures[0];
-
-                            if (texture->cafeTexDataSize > 0)
-                                CreateFtexbTextureHandle(heap, textureDataTbl + texture->cafeTexDataOffs, *texture);
-
-                            else if (texture->originalTexDataSize > 0)
-                                CreateOriginalTextureHandle(heap, textureDataTbl + texture->originalTexDataOffs, *texture);
+                            ChildData* cres = reinterpret_cast<ChildData*>(complex + 1);
+                            if (cres->childTex.nativeDataSize > 0)
+                            {
+                                texture_addr = mTextureTbl + cres->childTex.nativeDataPos;
+                                CreateFtexbTextureHandle(heap, texture_addr, cres->childTex);
+                            }
+                            else if (cres->childTex.originalDataSize > 0)
+                            {
+                                texture_addr = mTextureTbl + cres->childTex.originalDataPos;
+                                CreateOriginalTextureHandle(heap, texture_addr, cres->childTex);
+                            }
                         }
+                    }
 
-                        {
-                            TextureRes* const texture = &emitterRef->data->textures[1];
-
-                            if (texture->cafeTexDataSize > 0)
-                                CreateFtexbTextureHandle(heap, textureDataTbl + texture->cafeTexDataOffs, *texture);
-
-                            else if (texture->originalTexDataSize > 0)
-                                CreateOriginalTextureHandle(heap, textureDataTbl + texture->originalTexDataOffs, *texture);
-                        }
-
-                        if (emitterRef->data->type == EmitterType_Complex
-                            && (static_cast<ComplexEmitterData*>(emitterRef->data)->childFlags & 1))
-                        {
-                            TextureRes* const texture = &reinterpret_cast<ChildData*>(static_cast<ComplexEmitterData*>(emitterRef->data) + 1)->texture;
-
-                            if (texture->cafeTexDataSize > 0)
-                                CreateFtexbTextureHandle(heap, textureDataTbl + texture->cafeTexDataOffs, *texture);
-
-                            else if (texture->originalTexDataSize > 0)
-                                CreateOriginalTextureHandle(heap, textureDataTbl + texture->originalTexDataOffs, *texture);
-                        }
-
-                        if (emitterRef->data->keyAnimArray.size != 0)
-                            emitterRef->data->keyAnimArray.ptr = reinterpret_cast<void*>((u32)argResource + resource->keyAnimArrayTblOffs + emitterRef->data->keyAnimArray.offset);
+                    if (e->emitter->animKeyTable.dataSize)
+                    {
+                        char* animkeyTble = reinterpret_cast<char*>((u32)bin + mHeader->animkeyTblPos);
+                        e->emitter->animKeyTable.animKeyTable = animkeyTble + e->emitter->animKeyTable.animPos;
                     }
                 }
             }
-            else
-            {
-                emitterSet->emitterRef = (/*emitterSet->data->emitterRef =*/ NULL);
-            }
-
-            emitterSet->_data = emitterSet->data;
-            emitterSet->_emitterRef = emitterSet->emitterRef;
-            emitterSet->_numEmitter = emitterSet->numEmitter;
-            emitterSet->_userData = emitterSet->userData;
         }
+        else
+        {
+            resSet->tblData = (/*resSet->resSet->emitterTbl =*/ NULL);
+        }
+
+        resSet->setDataROM    = resSet->setData;
+        resSet->tblDataROM    = resSet->tblData;
+        resSet->numEmitterROM = resSet->numEmitter;
+        resSet->userDataROM   = resSet->userData;
     }
 }
 
-void Resource::DeleteTextureHandle(Heap* heap, TextureRes& texture, bool originalTexture)
+void Resource::DeleteTextureHandle(Heap* heap, TextureRes& texRes, bool isOriginalTexture)
 {
-    if (heap != NULL && originalTexture)
-        heap->Free(texture.gx2Texture.surface.imagePtr);
+    if (heap != NULL && isOriginalTexture)
+        heap->Free(texRes.gx2Texture.surface.imagePtr);
 
-    texture.initialized = 0;
+    texRes.handle = 0;
 }
 
 void Resource::Finalize(Heap* heap)
 {
-    if (heap == NULL)
-        heap = this->heap;
+    Heap* heapTemp = NULL;
+    if (heap)
+        heapTemp = heap;
+    else
+        heapTemp = mHeap;
 
-    for (s32 i = 0; i < resource->numEmitterSet; i++)
+    for (s32 i = 0; i < mHeader->numEmitterSet; i++)
     {
-        Resource::EmitterSet* emitterSet = &emitterSets[i];
-        for (s32 j = 0; j < emitterSet->data->numEmitter; j++)
+        ResourceEmitterSet* resSet = &mResEmitterSet[i];
+        for (s32 j = 0; j < resSet->setData->numEmitter; j++)
         {
-            EmitterTblData* emitterRef = &emitterSet->emitterRef[j];
+            EmitterTblData* e = &resSet->tblData[j];
 
+            if (e->emitter->texRes[EFT_TEXTURE_SLOT_0].handle)
             {
-                TextureRes* const texture = &emitterRef->data->textures[0];
-                if (texture->initialized)
-                    DeleteTextureHandle(heap, *texture, !texture->cafeTexDataSize);
+                bool isOriginalTexture = (e->emitter->texRes[EFT_TEXTURE_SLOT_0].nativeDataSize == 0) ? true : false;
+                DeleteTextureHandle(heapTemp, e->emitter->texRes[EFT_TEXTURE_SLOT_0], isOriginalTexture);
             }
 
+            if (e->emitter->texRes[EFT_TEXTURE_SLOT_1].handle)
             {
-                TextureRes* const texture = &emitterRef->data->textures[1];
-                if (texture->initialized)
-                    DeleteTextureHandle(heap, *texture, !texture->cafeTexDataSize);
+                bool isOriginalTexture = (e->emitter->texRes[EFT_TEXTURE_SLOT_1].nativeDataSize == 0) ? true : false;
+                DeleteTextureHandle(heapTemp, e->emitter->texRes[EFT_TEXTURE_SLOT_1], isOriginalTexture);
             }
 
-            if (emitterRef->data->type == EmitterType_Complex
-                && (static_cast<ComplexEmitterData*>(emitterRef->data)->childFlags & 1))
+            if (e->emitter->type == EFT_EMITTER_TYPE_COMPLEX)
             {
-                TextureRes* const texture = &reinterpret_cast<ChildData*>(static_cast<ComplexEmitterData*>(emitterRef->data) + 1)->texture;
-                if (texture->initialized)
-                    DeleteTextureHandle(heap, *texture, !texture->cafeTexDataSize);
+                ComplexEmitterData* complex = static_cast<ComplexEmitterData*>(e->emitter);
+                if (complex->childFlg & EFT_CHILD_FLAG_ENABLE)
+                {
+                    ChildData* cres = reinterpret_cast<ChildData*>(complex + 1);
+                    if (cres->childTex.handle)
+                    {
+                        bool isOriginalTexture = (cres->childTex.nativeDataSize == 0) ? true : false;
+                        DeleteTextureHandle(heapTemp, cres->childTex, isOriginalTexture);
+                    }
+                }
             }
         }
     }
 
-    for (u32 i = 0; i < numShader; i++)
+    for (u32 i = 0; i < mShaderNum; i++)
     {
-        shaders[i]->Finalize(heap);
-        heap->Free(shaders[i]);
+        mShader[i]->Finalize(heapTemp);
+        heapTemp->Free(mShader[i]);
     }
 
-    heap->Free(shaders);
+    heapTemp->Free(mShader);
 
-    if (emitterSets != NULL)
+    if (mResEmitterSet)
     {
-        heap->Free(emitterSets);
-        emitterSets = NULL;
+        heapTemp->Free(mResEmitterSet);
+        mResEmitterSet = NULL;
     }
 
-    if (primitives != NULL)
+    if (mPrimitive)
     {
-        for (u32 i = 0; i < numPrimitive; i++)
+        for (u32 i = 0; i < mPrimitiveNum; i++)
         {
-            primitives[i]->Finalize(heap);
-            heap->Free(primitives[i]);
+            mPrimitive[i]->Finalize(heapTemp);
+            heapTemp->Free(mPrimitive[i]);
         }
 
-        heap->Free(primitives);
+        heapTemp->Free(mPrimitive);
     }
 }
 
-ParticleShader* Resource::GetShader(s32 emitterSetID, const VertexShaderKey* vertexShaderKey, const FragmentShaderKey* fragmentShaderKey)
+s32 Resource::SearchEmitterSetID(const char* name) const
 {
-    u32 numShader = emitterSets[emitterSetID].numShader;
-    ParticleShader** shaders = emitterSets[emitterSetID].shaders;
+    for (s32 i = 0; i < mHeader->numEmitterSet; i++)
+    {
+        ResourceEmitterSet* resSet = &mResEmitterSet[i];
+        if (strcmp(name, &mNameTbl[resSet->setData->namePos]) == 0)
+            return i;
+    }
 
-    for (u32 i = 0; i < numShader; i++)
-        if (shaders[i]->vertexShaderKey == *vertexShaderKey && shaders[i]->fragmentShaderKey == *fragmentShaderKey)
-            return shaders[i];
+    return EFT_INVALID_EMITTER_SET_ID;
+}
+
+s32 Resource::SearchEmitterID(s32 emitterSetID, const char* emitterName) const
+{
+    for (s32 j = 0; j < mResEmitterSet[emitterSetID].numEmitter; ++j)
+        if (strcmp(emitterName, mResEmitterSet[emitterSetID].tblDataROM[j].emitter->name) == 0)
+            return j;
+
+    return EFT_INVALID_EMITTER_ID;
+}
+
+s32 Resource::SearchEmitterID(s32 emitterSetID, const char* emitterName, u32 emitterIdx) const
+{
+    for (s32 j = 0; j < mResEmitterSet[emitterSetID].numEmitter; ++j)
+        if (strcmp(emitterName, mResEmitterSet[emitterSetID].tblDataROM[j].emitter->name) == 0)
+            if (j == emitterIdx)
+                return j;
+
+    return EFT_INVALID_EMITTER_ID;
+}
+
+bool Resource::BindResource(s32 targetSetID, ResourceBind* bind, EmitterTblData* newTbl, s32 newNumEmitter, const char* newSetName, u32 newUserData, u32 newShaderNum, ParticleShader** newShaderArray, u32 newPrimitiveNum, Primitive** newPrimitiveArray)
+{
+    ResourceEmitterSet* resSet = &mResEmitterSet[targetSetID];
+
+    void* oldRes[EFT_EMITTER_INSET_NUM];
+    s32   numRes = resSet->numEmitter;
+    for (s32 i = 0; i < numRes; i++)
+        oldRes[i] = resSet->tblData[i].emitter;
+
+    bind->source                 = resSet->setData;
+    bind->emitterSetID           = targetSetID;
+    bind->resourceID             = mResourceID;
+    bind->saveName               = resSet->setName;
+    bind->saveNumEmitter         = resSet->numEmitter;
+    bind->saveTbl                = resSet->tblData;
+    bind->saveUserData           = resSet->userData;
+
+    bind->shaderNum              = resSet->shaderNum;
+    bind->shaderArray            = resSet->shaderArray;
+
+    bind->primitiveNum           = resSet->primitiveNum;
+    bind->primitiveArray         = resSet->primitiveArray;
+
+    resSet->tblData              = newTbl;
+    resSet->numEmitter           = newNumEmitter;
+    resSet->setName              = newSetName;
+    resSet->userData             = newUserData;
+
+    resSet->shaderNum            = newShaderNum;
+    resSet->shaderArray          = newShaderArray;
+
+    resSet->primitiveNum         = newPrimitiveNum;
+    resSet->primitiveArray       = newPrimitiveArray;
+
+    mSystem->ReCreateEmitter(oldRes, numRes, mResourceID, targetSetID, false);
+
+    return true;
+}
+
+bool Resource::UnbindResource(ResourceBind* bind, bool isReBind, bool isKill)
+{
+    ResourceEmitterSet* resSet = &mResEmitterSet[bind->emitterSetID];
+
+    void* oldRes[EFT_EMITTER_INSET_NUM];
+    s32   numRes = resSet->numEmitter;
+    for (s32 i = 0; i < numRes; i++)
+        oldRes[i] = resSet->tblData[i].emitter;
+
+    resSet->tblData    = bind->saveTbl;
+    resSet->numEmitter = bind->saveNumEmitter;
+    resSet->setName    = bind->saveName;
+    resSet->userData   = bind->saveUserData;
+
+    resSet->shaderNum   = bind->shaderNum;
+    resSet->shaderArray = bind->shaderArray;
+
+    resSet->primitiveNum   = bind->primitiveNum;
+    resSet->primitiveArray = bind->primitiveArray;
+
+    bind->source = NULL;
+
+    if (isReBind)
+        mSystem->ReCreateEmitter(oldRes, numRes, mResourceID, bind->emitterSetID, false);
+
+    if (isKill)
+        mSystem->ReCreateEmitter(oldRes, numRes, mResourceID, bind->emitterSetID, true);
+
+    return true;
+}
+
+ParticleShader* Resource::GetShader(s32 emitterSetID, const VertexShaderKey* vertexKey, const FragmentShaderKey* fragmentKey)
+{
+    u32 shaderNum = mResEmitterSet[emitterSetID].shaderNum;
+    ParticleShader** shaderArray = mResEmitterSet[emitterSetID].shaderArray;
+
+    for (u32 i = 0; i < shaderNum; i++)
+        if (shaderArray[i]->GetVertexShaderKey().IsEqual(vertexKey) && shaderArray[i]->GetFragmentShaderKey().IsEqual(fragmentKey))
+            return shaderArray[i];
 
     return NULL;
 }

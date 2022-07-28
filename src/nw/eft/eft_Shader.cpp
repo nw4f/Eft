@@ -5,105 +5,106 @@ namespace nw { namespace eft {
 
 ParticleShader::ParticleShader()
 {
-    attrPosBuffer = 0xFFFFFFFF;
-    attrNormalBuffer = 0xFFFFFFFF;
-    attrColorBuffer = 0xFFFFFFFF;
-    attrTexCoordBuffer = 0xFFFFFFFF;
-    _unusedAttrBuffer = 0xFFFFFFFF;
-    attrIndexBuffer = 0xFFFFFFFF;
-    attrOuterBuffer = 0xFFFFFFFF;
-    attrDirBuffer = 0xFFFFFFFF;
-    attrSclBuffer = 0xFFFFFFFF;
-    attrTexAnimBuffer = 0xFFFFFFFF;
-    //attrSubTexAnimBuffer = 0xFFFFFFFF; <-- Nintendo forgot to do this
-    attrWldPosBuffer = 0xFFFFFFFF;
-    attrWldPosDfBuffer = 0xFFFFFFFF;
-    attrColor0Buffer = 0xFFFFFFFF;
-    attrColor1Buffer = 0xFFFFFFFF;
-    attrRotBuffer = 0xFFFFFFFF;
-    attrEmMat0Buffer = 0xFFFFFFFF;
-    attrEmMat1Buffer = 0xFFFFFFFF;
-    attrEmMat2Buffer = 0xFFFFFFFF;
+    mPositionAttr   = EFT_INVALID_ATTRIBUTE;
+    mNormalAttr     = EFT_INVALID_ATTRIBUTE;
+    mColorAttr      = EFT_INVALID_ATTRIBUTE;
+    mTexCoordAttr0  = EFT_INVALID_ATTRIBUTE;
+    mTexCoordAttr1  = EFT_INVALID_ATTRIBUTE;
+    mIndexAttr      = EFT_INVALID_ATTRIBUTE;
+    mOuterAttr      = EFT_INVALID_ATTRIBUTE;
+    mDirAttr        = EFT_INVALID_ATTRIBUTE;
 
-    for (u32 i = 0; i < 2u; i++)
-        fragmentSamplerLocations[i].location = 0xFFFFFFFF;
+    mSclAttr        = EFT_INVALID_ATTRIBUTE;
+    mTexAnimAttr    = EFT_INVALID_ATTRIBUTE;
+  //mSubTexAnimAttr = EFT_INVALID_ATTRIBUTE; <-- Nintendo forgot to do this
+    mWldPosAttr     = EFT_INVALID_ATTRIBUTE;
+    mWldPosDfAttr   = EFT_INVALID_ATTRIBUTE;
+    mColor0Attr     = EFT_INVALID_ATTRIBUTE;
+    mColor1Attr     = EFT_INVALID_ATTRIBUTE;
+    vRotAttr        = EFT_INVALID_ATTRIBUTE;
+    mEmtMatAttr0    = EFT_INVALID_ATTRIBUTE;
+    mEmtMatAttr1    = EFT_INVALID_ATTRIBUTE;
+    mEmtMatAttr2    = EFT_INVALID_ATTRIBUTE;
 
-    fragmentDepthBufferSamplerLocation.location = 0xFFFFFFFF;
-    fragmentFrameBufferSamplerLocation.location = 0xFFFFFFFF;
+    for (u32 i = 0; i < EFT_TEXTURE_SLOT_BIN_MAX; i++)
+        mFragmentTextureSampler[i].loc                          = EFT_INVALID_SAMPLER;
 
-    for (u32 i = 0; i < 8u; i++)
+    mFragmentTextureSampler[EFT_TEXTURE_SLOT_DEPTH_BUFFER].loc  = EFT_INVALID_SAMPLER;
+    mFragmentTextureSampler[EFT_TEXTURE_SLOT_FRAME_BUFFER].loc  = EFT_INVALID_SAMPLER;
+
+    for (u32 i = 0; i < USER_SAMPLER_SLOT_MAX; i++)
     {
-        vertexUserSamplerLocations[i].location = 0xFFFFFFFF;
-        fragmentUserSamplerLocations[i].location = 0xFFFFFFFF;
+        mUserVertexSamplerLocation[i].loc                       = EFT_INVALID_SAMPLER;
+        mUserFragmentSamplerLocation[i].loc                     = EFT_INVALID_SAMPLER;
     }
 }
 
 void ParticleShader::Finalize(Heap* heap)
 {
-    return shader.Finalize(heap);
+    return mShader.Finalize(heap);
 }
 
 void ParticleShader::InitializeVertexShaderLocation()
 {
-    vertexViewUniformBlock.InitializeVertexUniformBlock(&shader, "viewUniformBlock", 0);
-    vertexEmitterStaticUniformBlock.InitializeVertexUniformBlock(&shader, "emitterStaticUniformBlock", 1);
-    vertexEmitterDynamicUniformBlock.InitializeVertexUniformBlock(&shader, "emitterDynamicUniformBlock", 2);
+    mVertexViewUniformBlock          .InitializeVertexUniformBlock(&mShader, "viewUniformBlock",           UNIFORM_BLOCK_VERTEX_VIEW_BLOCK);
+    mVertexEmitterStaticUniformBlock .InitializeVertexUniformBlock(&mShader, "emitterStaticUniformBlock",  UNIFORM_BLOCK_VERTEX_EMITTER_STATIC_BLOCK);
+    mVertexEmitterDynamicUniformBlock.InitializeVertexUniformBlock(&mShader, "emitterDynamicUniformBlock", UNIFORM_BLOCK_VERTEX_EMITTER_DYNAMIC_BLOCK);
 }
 
 void ParticleShader::InitializeFragmentShaderLocation()
 {
-    fragmentViewUniformBlock.InitializePixelUniformBlock(&shader, "viewUniformBlock", 5);
-    fragmentEmitterStaticUniformBlock.InitializePixelUniformBlock(&shader, "emitterStaticUniformBlock", 4);
+    mFragmentViewUniformBlock         .InitializePixelUniformBlock(&mShader, "viewUniformBlock",           UNIFORM_BLOCK_FRAGMENTVIEW_BLOCK);
+    mFragmentEmitterStaticUniformBlock.InitializePixelUniformBlock(&mShader, "emitterStaticUniformBlock",  UNIFORM_BLOCK_FRAGMENT_EMITTER_STATIC_BLOCK);
 
-    fragmentSamplerLocations[0].location = shader.GetFragmentSamplerLocation("s_firstTexture");
-    if (fragmentShaderKey.textureMode == 1)
-        fragmentSamplerLocations[1].location = shader.GetFragmentSamplerLocation("s_secondTexture");
+    mFragmentTextureSampler[EFT_TEXTURE_SLOT_0].loc = mShader.GetFragmentSamplerLocation("s_firstTexture");
+    if (mFragmentShaderKey.mTextureVariation == EFT_FRAGMENT_SHADER_TEXTURE_VARIATION_1)
+        mFragmentTextureSampler[EFT_TEXTURE_SLOT_1].loc = mShader.GetFragmentSamplerLocation("s_secondTexture");
 
-    fragmentDepthBufferSamplerLocation.location = shader.GetFragmentSamplerLocation("s_depthBufferTexture");
-    fragmentFrameBufferSamplerLocation.location = shader.GetFragmentSamplerLocation("s_frameBufferTexture");
+    mFragmentTextureSampler[EFT_TEXTURE_SLOT_DEPTH_BUFFER].loc = mShader.GetFragmentSamplerLocation("s_depthBufferTexture");
+    mFragmentTextureSampler[EFT_TEXTURE_SLOT_FRAME_BUFFER].loc = mShader.GetFragmentSamplerLocation("s_frameBufferTexture");
 }
 
 void ParticleShader::InitializeAttribute()
 {
-    attrPosBuffer        = shader.GetAttribute("v_inPos",        0, Shader::VertexFormat_VEC4,  0, false);
-    if (!vertexShaderKey.isPrimitive)
-        attrIndexBuffer  = shader.GetAttribute("v_inIndex",      1, Shader::VertexFormat_U32,   0, false);
-    attrTexCoordBuffer   = shader.GetAttribute("v_inTexCoord",   2, Shader::VertexFormat_VEC4,  0, false);
-    attrNormalBuffer     = shader.GetAttribute("v_inNormal",     3, Shader::VertexFormat_VEC3,  0, false);
-    attrColorBuffer      = shader.GetAttribute("v_inColor",      4, Shader::VertexFormat_VEC4,  0, false);
-    attrWldPosBuffer     = shader.GetAttribute("v_inWldPos",     5, Shader::VertexFormat_VEC4,  0, true);
-    attrSclBuffer        = shader.GetAttribute("v_inScl",        5, Shader::VertexFormat_VEC4,  4, true);
-    attrColor0Buffer     = shader.GetAttribute("v_inColor0",     5, Shader::VertexFormat_VEC4,  8, true);
-    attrColor1Buffer     = shader.GetAttribute("v_inColor1",     5, Shader::VertexFormat_VEC4, 12, true);
-    attrTexAnimBuffer    = shader.GetAttribute("v_inTexAnim",    5, Shader::VertexFormat_VEC4, 16, true);
-    attrWldPosDfBuffer   = shader.GetAttribute("v_inWldPosDf",   5, Shader::VertexFormat_VEC4, 20, true);
-    attrRotBuffer        = shader.GetAttribute("v_inRot",        5, Shader::VertexFormat_VEC4, 24, true);
-    attrSubTexAnimBuffer = shader.GetAttribute("v_inSubTexAnim", 5, Shader::VertexFormat_VEC4, 28, true);
-    attrEmMat0Buffer     = shader.GetAttribute("v_inEmtMat0",    5, Shader::VertexFormat_VEC4, 32, true);
-    attrEmMat1Buffer     = shader.GetAttribute("v_inEmtMat1",    5, Shader::VertexFormat_VEC4, 36, true);
-    attrEmMat2Buffer     = shader.GetAttribute("v_inEmtMat2",    5, Shader::VertexFormat_VEC4, 40, true);
+    mPositionAttr   = mShader.GetAttribute("v_inPos",        0, Shader::FORMAT_32_32_32_32_FLOAT,  0, false);
+    if (!mVertexShaderKey.IsUsePrimitive())
+        mIndexAttr  = mShader.GetAttribute("v_inIndex",      1, Shader::FORMAT_32_UINT,            0, false);
+    mTexCoordAttr0  = mShader.GetAttribute("v_inTexCoord",   2, Shader::FORMAT_32_32_32_32_FLOAT,  0, false);
+    mNormalAttr     = mShader.GetAttribute("v_inNormal",     3, Shader::FORMAT_32_32_32_FLOAT,     0, false);
+    mColorAttr      = mShader.GetAttribute("v_inColor",      4, Shader::FORMAT_32_32_32_32_FLOAT,  0, false);
+
+    mWldPosAttr     = mShader.GetAttribute("v_inWldPos",     5, Shader::FORMAT_32_32_32_32_FLOAT,  0, true);
+    mSclAttr        = mShader.GetAttribute("v_inScl",        5, Shader::FORMAT_32_32_32_32_FLOAT,  4, true);
+    mColor0Attr     = mShader.GetAttribute("v_inColor0",     5, Shader::FORMAT_32_32_32_32_FLOAT,  8, true);
+    mColor1Attr     = mShader.GetAttribute("v_inColor1",     5, Shader::FORMAT_32_32_32_32_FLOAT, 12, true);
+    mTexAnimAttr    = mShader.GetAttribute("v_inTexAnim",    5, Shader::FORMAT_32_32_32_32_FLOAT, 16, true);
+    mWldPosDfAttr   = mShader.GetAttribute("v_inWldPosDf",   5, Shader::FORMAT_32_32_32_32_FLOAT, 20, true);
+    vRotAttr        = mShader.GetAttribute("v_inRot",        5, Shader::FORMAT_32_32_32_32_FLOAT, 24, true);
+    mSubTexAnimAttr = mShader.GetAttribute("v_inSubTexAnim", 5, Shader::FORMAT_32_32_32_32_FLOAT, 28, true);
+    mEmtMatAttr0    = mShader.GetAttribute("v_inEmtMat0",    5, Shader::FORMAT_32_32_32_32_FLOAT, 32, true);
+    mEmtMatAttr1    = mShader.GetAttribute("v_inEmtMat1",    5, Shader::FORMAT_32_32_32_32_FLOAT, 36, true);
+    mEmtMatAttr2    = mShader.GetAttribute("v_inEmtMat2",    5, Shader::FORMAT_32_32_32_32_FLOAT, 40, true);
 }
 
 void ParticleShader::InitializeStripeVertexShaderLocation()
 {
-    vertexViewUniformBlock.InitializeVertexUniformBlock(&shader, "viewUniformBlock", 0);
-    stripeUniformBlock.InitializeVertexUniformBlock(&shader, "stripeUniformBlock", 3);
+    mVertexViewUniformBlock.InitializeVertexUniformBlock(&mShader, "viewUniformBlock",   UNIFORM_BLOCK_VERTEX_VIEW_BLOCK);
+    mStripeUniformBlock    .InitializeVertexUniformBlock(&mShader, "stripeUniformBlock", UNIFORM_BLOCK_VERTEX_STRIPE_BLOCK);
 }
 
 void ParticleShader::InitializeStripeAttribute()
 {
-    attrPosBuffer      = shader.GetAttribute("v_inPos",      0, Shader::VertexFormat_VEC4,  0, false);
-    attrOuterBuffer    = shader.GetAttribute("v_inOuter",    0, Shader::VertexFormat_VEC4,  4, false);
-    attrTexCoordBuffer = shader.GetAttribute("v_inTexCoord", 0, Shader::VertexFormat_VEC4,  8, false);
-    attrDirBuffer      = shader.GetAttribute("v_inDir",      0, Shader::VertexFormat_VEC4, 12, false);
+    mPositionAttr  = mShader.GetAttribute("v_inPos",      0, Shader::FORMAT_32_32_32_32_FLOAT,  0, false);
+    mOuterAttr     = mShader.GetAttribute("v_inOuter",    0, Shader::FORMAT_32_32_32_32_FLOAT,  4, false);
+    mTexCoordAttr0 = mShader.GetAttribute("v_inTexCoord", 0, Shader::FORMAT_32_32_32_32_FLOAT,  8, false);
+    mDirAttr       = mShader.GetAttribute("v_inDir",      0, Shader::FORMAT_32_32_32_32_FLOAT, 12, false);
 }
 
-bool ParticleShader::SetupShaderResource(Heap* heap, void* binary, u32 binarySize)
+bool ParticleShader::SetupShaderResource(Heap* heap, void* shaderResource, u32 shaderResourceSize)
 {
-    shader.CreateShader(heap, binary, binarySize);
+    mShader.CreateShader(heap, shaderResource, shaderResourceSize);
 
-    if (vertexShaderKey.transformMode != VertexTransformMode_Stripe
-        && vertexShaderKey.transformMode != VertexTransformMode_Complex_Stripe)
+    if (!IsStripe())
     {
         InitializeVertexShaderLocation();
         InitializeFragmentShaderLocation();
@@ -116,23 +117,40 @@ bool ParticleShader::SetupShaderResource(Heap* heap, void* binary, u32 binarySiz
         InitializeStripeAttribute();
     }
 
-    shader.SetupShader(heap);
+    Setup(heap);
 
-    memset(displayList, 0, 512);
-    DCFlushRange(displayList, 512);
-    DCInvalidateRange(displayList, 512);
-    GX2BeginDisplayList(displayList, 512);
+    memset(mDisplayListBuffer, 0, DISPLAY_LSIT_SIZE);
+    DCFlushRange(mDisplayListBuffer, DISPLAY_LSIT_SIZE);
+    DCInvalidateRange(mDisplayListBuffer, DISPLAY_LSIT_SIZE);
 
-    shader.BindShader();
-
-    displatListSize = GX2EndDisplayList(displayList);
+    GX2BeginDisplayList(mDisplayListBuffer, DISPLAY_LSIT_SIZE);
+    {
+        mShader.BindShader();
+    }
+    mDisplayListBufferUsed = GX2EndDisplayList(mDisplayListBuffer);
 
     return true;
 }
 
 void ParticleShader::Bind()
 {
-    GX2CallDisplayList(displayList, displatListSize);
+    GX2CallDisplayList(mDisplayListBuffer, mDisplayListBufferUsed);
+}
+
+bool ParticleShader::SetUserVertexUniformBlock(UserUniformBlockID uniformBlockID, const char* name, void* param)
+{
+    u32 index = uniformBlockID - UNIFORM_BLOCK_USER_VERTEX_ID_0;
+
+    if (!mUserVertexUniformBlock[index].IsFailed() && !mUserVertexUniformBlock[index].IsInitialized())
+    {
+        if (!mUserVertexUniformBlock[index].InitializeVertexUniformBlock(&mShader, name, uniformBlockID))
+            return false;
+    }
+
+    if (mUserVertexUniformBlock[index].IsInitialized())
+        mUserVertexUniformBlock[index].BindUniformBlock(param);
+
+    return true;
 }
 
 void ParticleShader::EnableInstanced()

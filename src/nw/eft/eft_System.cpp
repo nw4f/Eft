@@ -15,160 +15,202 @@
 namespace nw { namespace eft {
 
 System::System(const Config& config)
-    : initialized(false)
 {
+    mInitialized = false;
+
     if (config.GetEffectHeap())
         Initialize(config.GetEffectHeap(), config);
 }
 
-System::~System()
+void System::Initialize(Heap* heap, const Config& config)
 {
-}
+    mHeap = heap;
 
-void System::Initialize(Heap* argHeap, const Config& config)
-{
-    heap = argHeap;
-    numResourceMax = config.numResourceMax;
-    numEmitterMax = config.numEmitterMax;
-    numParticleMax = config.numParticleMax;
-    numEmitterSetMax = config.numEmitterSetMax;
-    numStripeMax = config.numStripeMax;
+    mNumResource        = config.GetResourceNum();
+    mNumEmitterData     = config.GetEmitterNum();
+    mNumPtclData        = config.GetParticleNum();
+    mNumEmitterSet      = config.GetEmitterSetNum();
+    mNumStripe          = config.GetStripeNum();
+    mNumEmitterDataMask = mNumEmitterData - 1;
+    mNumPtclDataMask    = mNumPtclData    - 1;
+    mNumEmitterSetMask  = mNumEmitterSet  - 1;
+    mNumStripeMask      = mNumStripe      - 1;
 
-    numCalcParticle = 0;
-    numUnusedEmitters = numEmitterMax;
-    _unused0 = 0;
-    numEmitterSetMaxMask = numEmitterSetMax - 1;
-    currentCallbackID = CustomActionCallBackID_Invalid;
-    numEmitterMaxMask = numEmitterMax - 1;
-    _unkCallbackVal = -1;
-    numStripeMaxMask = numStripeMax - 1;
-    numCalcEmitterSet = 0;
-    numCalcEmitter = 0;
-    currentEmitterSetIdx = 0;
-    numCalcStripe = 0;
-    currentStripeIdx = 0;
-    currentEmitterIdx = 0;
-    currentEmitterSetCreateID = 0;
-    numParticleMaxMask = numParticleMax - 1;
-    doubleBufferSwapped = 0;
-    currentParticleIdx = 0;
+    _530                = 0;
+    mCurEmitterIx       = 0;
+    mNumFreeEmitter     = mNumEmitterData;
+    mCurPtclIx          = 0;
+    mCurStripeIx        = 0;
+    mNumEmitterCalc     = 0;
+    mNumPtclCalc        = 0;
+    mNumStripeCalc      = 0;
+    mEmitterSetCreateID = 0;
+    mCurEmitterSetIx    = 0;
+    mNumEmitterSetCalc  = 0;
+    mEnableCallbackID   = EFT_USER_DATA_CALLBACK_ID_NONE;
+    mCalcSwapFlag       = false;
 
-    memset(emitterGroups,           0, 64 * sizeof(EmitterInstance*));
-    memset(emitterSetGroupHead,     0, 64 * sizeof(EmitterSet*));
-    memset(emitterSetGroupTail,     0, 64 * sizeof(EmitterSet*));
-    memset(stripeGroups,            0, 64 * sizeof(PtclStripe*));
-    memset(_unusedFlags[CpuCore_0], 0, 64 * sizeof(u32));
-    memset(_unusedFlags[CpuCore_1], 0, 64 * sizeof(u32));
-    memset(_unusedFlags[CpuCore_2], 0, 64 * sizeof(u32));
+    /* MemUtil::FillZero */ memset(mEmitterHead,                      0, EFT_GROUP_MAX * sizeof(EmitterInstance*));
+    /* MemUtil::FillZero */ memset(mEmitterSetHead,                   0, EFT_GROUP_MAX * sizeof(EmitterSet*));
+    /* MemUtil::FillZero */ memset(mEmitterSetTail,                   0, EFT_GROUP_MAX * sizeof(EmitterSet*));
+    /* MemUtil::FillZero */ memset(mStripeHead,                       0, EFT_GROUP_MAX * sizeof(PtclStripe*));
+    /* MemUtil::FillZero */ memset(mEnableRenderPath[EFT_CPU_CORE_0], 0, EFT_GROUP_MAX * sizeof(u32));
+    /* MemUtil::FillZero */ memset(mEnableRenderPath[EFT_CPU_CORE_1], 0, EFT_GROUP_MAX * sizeof(u32));
+    /* MemUtil::FillZero */ memset(mEnableRenderPath[EFT_CPU_CORE_2], 0, EFT_GROUP_MAX * sizeof(u32));
 
-    PtclRandom::Initialize(heap);
+    PtclRandom::CreateRandomTbl(mHeap);
 
-    resourceWork = heap->Alloc(sizeof(Resource*) * (numResourceMax + 0x10u));
-    resources = new (resourceWork) Resource*[(numResourceMax + 0x10u)];
-    memset(resources, 0, sizeof(Resource*) * (numResourceMax + 0x10u));
+    ResourcePtr = mHeap->Alloc(sizeof(Resource*) * (mNumResource + nw::eft::Config::EFT_DEFAULT_RESOURCE_VIEWER_RESERVE_NUM));
+    mResource = new (ResourcePtr) Resource*[(mNumResource + nw::eft::Config::EFT_DEFAULT_RESOURCE_VIEWER_RESERVE_NUM)];
+    /* MemUtil::FillZero */ memset(mResource, 0, sizeof(Resource*) * (mNumResource + nw::eft::Config::EFT_DEFAULT_RESOURCE_VIEWER_RESERVE_NUM));
 
-    for (u32 i = 0; i < CpuCore_Max; i++)
+    for (u32 core = 0; core < EFT_CPU_CORE_MAX; core++)
     {
-        rendererWork[i] = heap->Alloc(sizeof(Renderer));
-        renderers[i] = new (rendererWork[i]) Renderer(heap, this, config);
+        mRendererPtr[core] = mHeap->Alloc(sizeof(Renderer));
+        mRenderer[core] = new (mRendererPtr[core]) Renderer(mHeap, this, config);
     }
 
-    emitterSetWork = heap->Alloc(sizeof(EmitterSet) * numEmitterSetMax + 32);
-    emitterSets = new (emitterSetWork) EmitterSet[numEmitterSetMax];
-
-    for (s32 i = 0; i < numEmitterSetMax; i++)
-        emitterSets[i].system = this;
-
-    emitters = static_cast<EmitterInstance*>(heap->Alloc(sizeof(EmitterInstance) * numEmitterMax));
-    emitterStaticUniformBlocks = static_cast<EmitterStaticUniformBlock*>(heap->Alloc(sizeof(EmitterStaticUniformBlock) * numEmitterMax * 2));
-
-    for (s32 i = 0; i < numEmitterMax; i++)
     {
-        emitters[i].calc = NULL;
-        emitters[i].emitterStaticUniformBlock = &emitterStaticUniformBlocks[i];
-        emitters[i].childEmitterStaticUniformBlock = &emitterStaticUniformBlocks[numEmitterMax + i];
+        mEmitterSetPtr = mHeap->Alloc(sizeof(EmitterSet) * mNumEmitterSet + 32);
+        mEmitterSet = new (mEmitterSetPtr) EmitterSet[mNumEmitterSet];
+
+        for (s32 i = 0; i < mNumEmitterSet; i++)
+            mEmitterSet[i].SetSystem(this);
     }
 
-    particles = static_cast<PtclInstance*>(heap->Alloc(sizeof(PtclInstance) * numParticleMax));
-    alphaAnim = static_cast<AlphaAnim*>(heap->Alloc(sizeof(AlphaAnim) * numParticleMax));
-    scaleAnim = static_cast<ScaleAnim*>(heap->Alloc(sizeof(ScaleAnim) * numParticleMax));
-
-    for (s32 i = 0; i < numParticleMax; i++)
     {
-        particles[i].data = NULL;
-        particles[i].alphaAnim = &alphaAnim[i];
-        particles[i].scaleAnim = &scaleAnim[i];
-    }
+        mEmitters = static_cast<EmitterInstance*>(mHeap->Alloc(sizeof(EmitterInstance) * mNumEmitterData));
+        mEmitterStaticUniformBlock = static_cast<EmitterStaticUniformBlock*>(mHeap->Alloc(sizeof(EmitterStaticUniformBlock) * mNumEmitterData * 2));
 
-    emitterSimpleCalcWork = heap->Alloc(sizeof(EmitterSimpleCalc));
-    emitterCalc[EmitterType_Simple] = new (emitterSimpleCalcWork) EmitterSimpleCalc(this);
-
-    emitterComplexCalcWork = heap->Alloc(sizeof(EmitterComplexCalc));
-    emitterCalc[EmitterType_Complex] = new (emitterComplexCalcWork) EmitterComplexCalc(this);
-
-    EmitterCalc::InitializeFluctuationTable(heap);
-
-    for (u32 i = 0; i < CpuCore_Max; i++)
-    {
-        particlesToRemove[i] = static_cast<PtclInstance**>(heap->Alloc(sizeof(PtclInstance*) * numParticleMax));
-        childParticles[i] = static_cast<PtclInstance**>(heap->Alloc(sizeof(PtclInstance*) * numParticleMax));
-        numParticleToRemove[i] = 0;
-        numChildParticle[i] = 0;
-
-        for (s32 j = 0; j < numParticleMax; j++)
+        for (s32 i = 0; i < mNumEmitterData; i++)
         {
-            particlesToRemove[i][j] = NULL;
-            childParticles[i][j] = NULL;
+            mEmitters[i].calc = NULL;
+            mEmitters[i].emitterStaticUniformBlock = &mEmitterStaticUniformBlock[i];
+            mEmitters[i].childEmitterStaticUniformBlock = &mEmitterStaticUniformBlock[mNumEmitterData + i];
         }
     }
 
-    stripes = static_cast<PtclStripe*>(heap->Alloc(sizeof(PtclStripe) * numStripeMax));
-
-    for (s32 i = 0; i < numStripeMax; i++)
     {
-        stripes[i].data = NULL;
-        stripes[i].queueFront = 0;
-        stripes[i].queueRear = 0;
+        mPtcls = static_cast<PtclInstance*>(mHeap->Alloc(sizeof(PtclInstance) * mNumPtclData));
+        mAlphaAnim = static_cast<AlphaAnim*>(mHeap->Alloc(sizeof(AlphaAnim) * mNumPtclData));
+        mScaleAnim = static_cast<ScaleAnim*>(mHeap->Alloc(sizeof(ScaleAnim) * mNumPtclData));
+
+        for (s32 i = 0; i < mNumPtclData; i++)
+        {
+            mPtcls[i].res       = NULL;
+            mPtcls[i].alphaAnim = &mAlphaAnim[i];
+            mPtcls[i].scaleAnim = &mScaleAnim[i];
+        }
     }
 
-    for (u32 i = 0; i < CustomActionCallBackID_Max; i++)
     {
-        customActionEmitterPreCalcCallback[i] = NULL;
-        customActionParticleEmitCallback[i] = NULL;
-        customActionParticleRemoveCallback[i] = NULL;
-        customActionParticleCalcCallback[i] = NULL;
-        customActionParticleMakeAttributeCallback[i] = NULL;
-        customActionEmitterPostCalcCallback[i] = NULL;
-        customActionEmitterDrawOverrideCallback[i] = NULL;
+        mEmitterCalcSimplePtr = mHeap->Alloc(sizeof(EmitterSimpleCalc));
+        mEmitterCalc[EFT_EMITTER_TYPE_SIMPLE] = new (mEmitterCalcSimplePtr) EmitterSimpleCalc(this);
+
+        mEmitterCalcComplexPtr = mHeap->Alloc(sizeof(EmitterComplexCalc));
+        mEmitterCalc[EFT_EMITTER_TYPE_COMPLEX] = new (mEmitterCalcComplexPtr) EmitterComplexCalc(this);
+
+        EmitterCalc::Initialize(mHeap);
     }
 
-    for (u32 i = 0; i < CustomShaderCallBackID_Max; i++)
+    for (u32 i = 0; i < EFT_CPU_CORE_MAX; i++)
     {
-        customShaderEmitterPostCalcCallback[i] = NULL;
-        customShaderDrawOverrideCallback[i] = NULL;
-        customShaderRenderStateSetCallback[i] = NULL;
+        u32 ptclPtrSize         = sizeof(PtclInstance*) * mNumPtclData;
+        mPtclRemoveArray[i]     = static_cast<PtclInstance**>(mHeap->Alloc(ptclPtrSize));
+        mPtclAdditionArray[i]   = static_cast<PtclInstance**>(mHeap->Alloc(ptclPtrSize));
+        mPtclRemoveIdx[i]       = 0;
+        mPtclAdditionIdx[i]     = 0;
+
+        for (s32 j = 0; j < mNumPtclData; j++)
+        {
+            mPtclRemoveArray[i][j]      = NULL;
+            mPtclAdditionArray[i][j]    = NULL;
+        }
     }
 
-    for (u32 i = 0; i < CpuCore_Max; i++)
     {
-        sortedEmitterSets[i] = static_cast<PtclViewZ*>(heap->Alloc(sizeof(PtclViewZ) * numEmitterSetMax));
-        numSortedEmitterSets[i] = 0;
-        _unused1[i] = 0;
+        mStripes = static_cast<PtclStripe*>(mHeap->Alloc(sizeof(PtclStripe) * mNumStripe));
+
+        for (s32 i = 0; i < mNumStripe; i++)
+        {
+            mStripes[i].res         = NULL;
+            mStripes[i].histQStart  = 0;
+            mStripes[i].histQEnd    = 0;
+        }
     }
 
-    initialized = true;
+    for (u32 i = 0; i < EFT_CALLBACK_MAX; i++)
+    {
+        mUserDataEmitterPreCalcCallback[i]      = NULL;
+        mUserDataParticleEmitCallback[i]        = NULL;
+        mUserDataParticleRemoveCallback[i]      = NULL;
+        mUserDataParticleCalcCallback[i]        = NULL;
+        mUserDataParticleMakeAttrCallback[i]    = NULL;
+        mUserDataEmitterPostCalcCallback[i]     = NULL;
+        mUserDataEmitterDrawOverrideCallback[i] = NULL;
+    }
+
+    for (u32 i = 0; i < EFT_USER_SHADER_CALLBACK_MAX; i++)
+    {
+        mUserShaderEmitterCalcPostCallback[i]   = NULL;
+        mUserShaderDrawOverrideCallback[i]      = NULL;
+        mUserShaderRenderStateSetCallback[i]    = NULL;
+    }
+
+    for (u32 core = 0; core < EFT_CPU_CORE_MAX; core++)
+    {
+        mSortEmittetSet[core]       = static_cast<sortEmitterSets*>(mHeap->Alloc(sizeof(sortEmitterSets) * mNumEmitterSet));
+        mSortEmitterSetIx[core]     = 0;
+        mCurrentDrawPathFlag[core]  = 0;
+    }
+
+    mInitialized = true;
+}
+
+System::~System()
+{
+    if (ResourcePtr)                mHeap->Free(ResourcePtr);
+    if (mEmitterSetPtr)             mHeap->Free(mEmitterSetPtr);
+    if (mStripes)                   mHeap->Free(mStripes);
+    if (mEmitterCalcSimplePtr)      mHeap->Free(mEmitterCalcSimplePtr);
+    if (mEmitterCalcComplexPtr)     mHeap->Free(mEmitterCalcComplexPtr);
+    if (mEmitters)                  mHeap->Free(mEmitters);
+    if (mEmitterStaticUniformBlock) mHeap->Free(mEmitterStaticUniformBlock);
+    if (mPtcls)                     mHeap->Free(mPtcls);
+    if (mScaleAnim)                 mHeap->Free(mScaleAnim);
+    if (mAlphaAnim)                 mHeap->Free(mAlphaAnim);
+
+    for (u32 core = 0; core < EFT_CPU_CORE_MAX; core++)
+    {
+        if (mPtclRemoveArray[core])     mHeap->Free(mPtclRemoveArray[core]);
+        if (mPtclAdditionArray[core])   mHeap->Free(mPtclAdditionArray[core]);
+
+        if (mRendererPtr[core])
+        {
+            mRenderer[core]->~Renderer();
+            mHeap->Free(mRendererPtr[core]);
+        }
+
+        if (mSortEmittetSet[core])      mHeap->Free(mSortEmittetSet[core]);
+    }
+
+    PtclRandom::DestroyRandomTbl(mHeap);
+
+    EmitterCalc::Finalize(mHeap);
 }
 
 void System::RemoveStripe(PtclStripe* stripe)
 {
-    stripe->data = NULL;
+    s32 groupID = stripe->groupID;
 
-    if (stripeGroups[stripe->groupID] == stripe)
+    stripe->res = NULL;
+
+    if (mStripeHead[groupID] == stripe)
     {
-        stripeGroups[stripe->groupID] = stripe->next;
+        mStripeHead[groupID] = stripe->next;
 
-        if (stripeGroups[stripe->groupID] != NULL)
-            stripeGroups[stripe->groupID]->prev = NULL;
+        if (mStripeHead[groupID] != NULL)
+            mStripeHead[groupID]->prev = NULL;
     }
     else
     {
@@ -182,52 +224,50 @@ void System::RemoveStripe(PtclStripe* stripe)
 
 void System::RemovePtcl_()
 {
-    for (u32 i = 0; i < CpuCore_Max; i++)
+    for (s32 i = 0; i < EFT_CPU_CORE_MAX; i++)
     {
-        for (s32 j = 0; j < numParticleToRemove[i]; j++)
+        for (u32 j = 0; j < mPtclRemoveIdx[i]; j++)
         {
-            PtclInstance* ptcl = particlesToRemove[i][j];
+            PtclInstance* ptcl = mPtclRemoveArray[i][j];
 
             // EmitterCalc::RemoveParticle(PtclInstance*, CpuCore)
             {
-                EmitterInstance* emitter = ptcl->emitter;
+                if (ptcl->type == EFT_PTCL_TYPE_CHILD) ptcl->emitter->childPtclNum--;
+                else                                   ptcl->emitter->ptclNum--;
 
-                if (ptcl->type == PtclType_Child) emitter->numChildParticles--;
-                else                              emitter->numParticles--;
-
-                if (emitter->particleHead == ptcl)
+                if (ptcl->emitter->ptclHead == ptcl)
                 {
-                    emitter->particleHead = ptcl->next;
+                    ptcl->emitter->ptclHead = ptcl->next;
 
-                    if (emitter->particleHead != NULL)
-                        emitter->particleHead->prev = NULL;
+                    if (ptcl->emitter->ptclHead != NULL)
+                        ptcl->emitter->ptclHead->prev = NULL;
 
-                    if (emitter->particleTail == ptcl)
-                        emitter->particleTail = NULL;
+                    if (ptcl->emitter->ptclTail == ptcl)
+                        ptcl->emitter->ptclTail = NULL;
                 }
-                else if (emitter->childParticleHead == ptcl)
+                else if (ptcl->emitter->childHead == ptcl)
                 {
-                    emitter->childParticleHead = ptcl->next;
+                    ptcl->emitter->childHead = ptcl->next;
 
-                    if (emitter->childParticleHead != NULL)
-                        emitter->childParticleHead->prev = NULL;
+                    if (ptcl->emitter->childHead != NULL)
+                        ptcl->emitter->childHead->prev = NULL;
 
-                    if (emitter->childParticleTail == ptcl)
-                        emitter->childParticleTail = NULL;
+                    if (ptcl->emitter->childTail == ptcl)
+                        ptcl->emitter->childTail = NULL;
                 }
-                else if (emitter->particleTail == ptcl)
+                else if (ptcl->emitter->ptclTail == ptcl)
                 {
-                    emitter->particleTail = ptcl->prev;
+                    ptcl->emitter->ptclTail = ptcl->prev;
 
-                    if (emitter->particleTail != NULL)
-                        emitter->particleTail->next = NULL;
+                    if (ptcl->emitter->ptclTail != NULL)
+                        ptcl->emitter->ptclTail->next = NULL;
                 }
-                else if (emitter->childParticleTail == ptcl)
+                else if (ptcl->emitter->childTail == ptcl)
                 {
-                    emitter->childParticleTail = ptcl->prev;
+                    ptcl->emitter->childTail = ptcl->prev;
 
-                    if (emitter->childParticleTail != NULL)
-                        emitter->childParticleTail->next = NULL;
+                    if (ptcl->emitter->childTail != NULL)
+                        ptcl->emitter->childTail->next = NULL;
                 }
                 else
                 {
@@ -238,57 +278,57 @@ void System::RemovePtcl_()
                         ptcl->prev->next = ptcl->next;
                 }
 
-                CustomActionParticleRemoveCallback callback = GetCurrentCustomActionParticleRemoveCallback( ptcl->emitter );
-                if(callback != NULL)
+                UserDataParticleRemoveCallback cb = GetCurrentUserDataParticleRemoveCallback(ptcl->emitter);
+                if (cb)
                 {
-                    ParticleRemoveArg arg = { .ptcl = ptcl };
-                    callback(arg);
+                    ParticleRemoveArg arg = { .particle = ptcl };
+                    cb(arg);
                 }
 
-                ptcl->data = NULL;
+                ptcl->res = NULL;
+
+                if (ptcl->stripe != NULL)
+                {
+                    RemoveStripe(ptcl->stripe);
+                    ptcl->stripe = NULL;
+                }
             }
 
-            if (ptcl->stripe != NULL)
-            {
-                RemoveStripe(ptcl->stripe);
-                ptcl->stripe = NULL;
-            }
-
-            particlesToRemove[i][j] = NULL;
+            mPtclRemoveArray[i][j] = NULL;
         }
 
-        numParticleToRemove[i] = 0;
+        mPtclRemoveIdx[i] = 0;
     }
 }
 
-EmitterSet* System::RemoveEmitterSetFromDrawList(EmitterSet* emitterSet)
+EmitterSet* System::RemoveEmitterSetFromDrawList(EmitterSet* set)
 {
-    EmitterSet* next = emitterSet->next;
+    EmitterSet* next = set->mNext;
 
-    if (emitterSet == emitterSetGroupHead[emitterSet->groupID])
+    if (set == mEmitterSetHead[set->mGroupID])
     {
-        emitterSetGroupHead[emitterSet->groupID] = emitterSet->next;
+        mEmitterSetHead[set->mGroupID] = set->mNext;
 
-        if (emitterSetGroupHead[emitterSet->groupID] != NULL)
-            emitterSetGroupHead[emitterSet->groupID]->prev = NULL;
+        if (mEmitterSetHead[set->mGroupID] != NULL)
+            mEmitterSetHead[set->mGroupID]->mPrev = NULL;
 
-        if (emitterSet == emitterSetGroupTail[emitterSet->groupID])
-            emitterSetGroupTail[emitterSet->groupID] = NULL;
+        if (set == mEmitterSetTail[set->mGroupID])
+            mEmitterSetTail[set->mGroupID] = NULL;
     }
     else
     {
-        if (emitterSet == emitterSetGroupTail[emitterSet->groupID])
-            emitterSetGroupTail[emitterSet->groupID] = emitterSet->prev;
+        if (set == mEmitterSetTail[set->mGroupID])
+            mEmitterSetTail[set->mGroupID] = set->mPrev;
 
-        if (emitterSet->next != NULL)
-            emitterSet->next->prev = emitterSet->prev;
+        if (set->mNext != NULL)
+            set->mNext->mPrev = set->mPrev;
 
-        if (emitterSet->prev != NULL)
-            emitterSet->prev->next = emitterSet->next;
+        if (set->mPrev != NULL)
+            set->mPrev->mNext = set->mNext;
     }
 
-    emitterSet->next = NULL;
-    emitterSet->prev = NULL;
+    set->mNext = NULL;
+    set->mPrev = NULL;
 
     return next;
 }
@@ -297,40 +337,51 @@ void System::RemovePtcl()
 {
     RemovePtcl_();
 
-    for(u32 i = 0; i < 64u; i++)
-        for (EmitterSet* emitterSet = emitterSetGroupHead[i]; emitterSet != NULL; )
-            emitterSet = (emitterSet->numEmitter == 0) ? RemoveEmitterSetFromDrawList(emitterSet)
-                                                       : emitterSet->next;
+    for(u32 i = 0; i < EFT_GROUP_MAX; i++)
+    {
+        EmitterSet* set = mEmitterSetHead[i];
+        while (set)
+        {
+            if (!set->IsAlive())
+                set = RemoveEmitterSetFromDrawList(set);
+            else
+                set = set->mNext;
+        }
+    }
 }
 
 void System::AddPtclRemoveList(PtclInstance* ptcl, CpuCore core)
 {
-    particlesToRemove[core][numParticleToRemove[core]++] = ptcl;
-    ptcl->lifespan = 0;
+    mPtclRemoveArray[core][mPtclRemoveIdx[core]] = ptcl;
+    mPtclRemoveIdx[core]++;
+
+    ptcl->life = 0;
 }
 
 void System::EmitChildParticle()
 {
-    for (u32 i = 0; i < CpuCore_Max; i++)
+    PtclInstance* p = NULL;
+
+    for (s32 i = 0; i < EFT_CPU_CORE_MAX; i++)
     {
-        for (s32 j = 0; j < numChildParticle[i]; j++)
+        for (s32 j = 0; j < mPtclAdditionIdx[i]; j++)
         {
-            PtclInstance* ptcl = childParticles[i][j];
-            EmitterComplexCalc::EmitChildParticle(ptcl->emitter, ptcl);
-            childParticles[i][j] = NULL;
+            p = mPtclAdditionArray[i][j];
+            EmitterComplexCalc::EmitChildParticle(p->emitter, p);
+            mPtclAdditionArray[i][j] = NULL;
         }
 
-        numChildParticle[i] = 0;
+        mPtclAdditionIdx[i] = 0;
     }
 }
 
 void System::AddPtclAdditionList(PtclInstance* ptcl, CpuCore core)
 {
-    if (numChildParticle[core] > numParticleMax)
+    if (mPtclAdditionIdx[core] > mNumPtclData)
         return;
 
-    childParticles[core][numChildParticle[core]] = ptcl;
-    numChildParticle[core]++;
+    mPtclAdditionArray[core][mPtclAdditionIdx[core]] = ptcl;
+    mPtclAdditionIdx[core]++;
 }
 
 PtclStripe* System::AllocAndConnectStripe(EmitterInstance* emitter, PtclInstance* ptcl)
@@ -338,40 +389,37 @@ PtclStripe* System::AllocAndConnectStripe(EmitterInstance* emitter, PtclInstance
     s32 i = 0;
     do
     {
-        currentStripeIdx++;
-        currentStripeIdx &= numStripeMaxMask;
+        mCurStripeIx = (mCurStripeIx + 1) & mNumStripeMask;
 
-        if (stripes[currentStripeIdx].data == NULL)
+        if (mStripes[mCurStripeIx].res == NULL)
         {
-            PtclStripe* stripe = &stripes[currentStripeIdx];
-            u8 groupID = emitter->groupID;
+            PtclStripe* stripe = &mStripes[mCurStripeIx];
+            s32 groupID = emitter->groupID;
 
-            if (stripeGroups[groupID] == NULL)
+            if (mStripeHead[groupID] == NULL)
             {
-                stripeGroups[groupID] = stripe;
-                stripe->next = NULL;
-                stripe->prev = NULL;
+                mStripeHead[groupID] = stripe;
+                stripe->prev = (stripe->next = NULL);
             }
             else
             {
-                stripeGroups[groupID]->prev = stripe;
-                stripe->next = stripeGroups[groupID];
-                stripeGroups[groupID] = stripe;
+                mStripeHead[groupID]->prev = stripe;
+                stripe->next = mStripeHead[groupID];
+                mStripeHead[groupID] = stripe;
                 stripe->prev = NULL;
             }
 
-            stripe->particle = ptcl;
-            stripe->queueFront = 0;
-            stripe->queueRear  = 0;
-            stripe->queueCount = 0;
-            stripe->groupID = emitter->groupID;
-            stripe->data = static_cast<const ComplexEmitterData*>(emitter->data);
-            stripe->counter = 0;
-            stripe->queue[0].outer = math::VEC3::Zero();
+            stripe->histQStart = (stripe->histQEnd = 0);
+            stripe->ptcl       = ptcl;
+            stripe->numHistory = 0;
+            stripe->res        = static_cast<const ComplexEmitterData*>(emitter->res);
+            stripe->groupID    = emitter->groupID;
+            stripe->cnt        = 0;
+            stripe->hist[0].outer = nw::math::VEC3::Zero();
 
             return stripe;
         }
-    } while (++i < numStripeMax);
+    } while (++i < mNumStripe);
 
     return NULL;
 }
@@ -381,39 +429,79 @@ PtclInstance* System::AllocPtcl(PtclType type)
     s32 i = 0;
     do
     {
-        currentParticleIdx++;
-        currentParticleIdx &= numParticleMaxMask;
+        mCurPtclIx = (mCurPtclIx + 1) & mNumPtclDataMask;
 
-        if (particles[currentParticleIdx].data == NULL)
+        if (mPtcls[mCurPtclIx].res == NULL)
         {
-            numEmittedParticle++;
-            PtclInstance* ptcl = &particles[currentParticleIdx];
-            ptcl->type = type;
-            return ptcl;
+            mNumEmittedPtcl++;
+            mPtcls[mCurPtclIx].type = type;
+            return &mPtcls[mCurPtclIx];
         }
-    } while (++i < numParticleMax);
+    } while (++i < mNumPtclData);
 
     return NULL;
 }
 
+void System::UpdateEmitterResInfo()
+{
+    for (u32 i = 0; i < EFT_GROUP_MAX; i++)
+    {
+        EmitterInstance* emitter = mEmitterHead[i];
+        while (emitter)
+        {
+            emitter->UpdateResInfo();
+            emitter = emitter->next;
+        }
+    }
+}
+
+void System::UpdateEmitterSetResInfo()
+{
+    for (u8 i = 0; i < EFT_GROUP_MAX; i++)
+    {
+        EmitterSet* set = GetEmitterSetHead(i);
+        u32 flag = 0;
+
+        while (set)
+        {
+            if (set->IsAlive())
+            {
+                for (s32 j = 0; j < set->GetNumEmitter(); j++)
+                {
+                    const EmitterInstance* e = set->GetAliveEmitter(j);
+
+                    flag |= (0x01 << e->res->drawPath);
+                }
+
+                set->mDrawPathFlag = flag;
+            }
+
+            set = set->mNext;
+        }
+    }
+}
+
 EmitterSet* System::AllocEmitterSet(Handle* handle)
 {
-    EmitterSet* emitterSet = NULL;
+    EmitterSet* set = NULL;
     s32 i = 0;
     do
     {
-        currentEmitterSetIdx++;
-        currentEmitterSetIdx &= numEmitterSetMaxMask;
+        mCurEmitterSetIx = (mCurEmitterSetIx + 1) & mNumEmitterSetMask;
 
-        if (emitterSets[currentEmitterSetIdx].numEmitter == 0)
+        if (mEmitterSet[mCurEmitterSetIx].GetNumEmitter() == 0)
         {
-            emitterSet = &emitterSets[currentEmitterSetIdx];
+            set = &mEmitterSet[mCurEmitterSetIx];
             break;
         }
-    } while (++i < numEmitterSetMax);
+    } while (++i < mNumEmitterSet);
 
-    handle->emitterSet = emitterSet;
-    return emitterSet;
+    handle->mEmitterSet = set;
+
+    if (set == NULL)
+        return NULL;
+
+    return set;
 }
 
 EmitterInstance* System::AllocEmitter(u8 groupID)
@@ -422,53 +510,51 @@ EmitterInstance* System::AllocEmitter(u8 groupID)
     s32 i = 0;
     do
     {
-        currentEmitterIdx++;
-        currentEmitterIdx &= numEmitterMaxMask;
+        mCurEmitterIx = (mCurEmitterIx + 1) & mNumEmitterDataMask;
 
-        if (emitters[currentEmitterIdx].calc == NULL)
+        if (mEmitters[mCurEmitterIx].calc == NULL)
         {
-            emitter = &emitters[currentEmitterIdx];
+            emitter = &mEmitters[mCurEmitterIx];
             break;
         }
-    } while (++i < numEmitterMax);
+    } while (++i < mNumEmitterData);
 
     if (emitter == NULL)
         return NULL;
 
-    if (emitterGroups[groupID] == NULL)
+    if (mEmitterHead[groupID] == NULL)
     {
-        emitterGroups[groupID] = emitter;
-        emitter->next = NULL;
-        emitter->prev = NULL;
+        mEmitterHead[groupID] = emitter;
+        emitter->prev = (emitter->next = NULL);
     }
     else
     {
-        emitterGroups[groupID]->prev = emitter;
-        emitter->next = emitterGroups[groupID];
-        emitterGroups[groupID] = emitter;
-        emitter->prev = NULL;
+        mEmitterHead[groupID]->prev = emitter;
+        emitter->next               = mEmitterHead[groupID];
+        mEmitterHead[groupID]       = emitter;
+        emitter->prev               = NULL;
     }
 
-    numUnusedEmitters--;
+    mNumFreeEmitter--;
     return emitter;
 }
 
-void System::AddEmitterSetToDrawList(EmitterSet* emitterSet, u8 groupID)
+void System::AddEmitterSetToDrawList(EmitterSet* set, u8 groupID)
 {
-    if(emitterSetGroupHead[groupID] == NULL)
+    if(mEmitterSetHead[groupID] == NULL)
     {
-        emitterSetGroupHead[groupID] = emitterSet;
-        emitterSet->prev = NULL;
-        emitterSet->next = NULL;
+        mEmitterSetHead[groupID] = set;
+        set->mPrev = NULL;
+        set->mNext = NULL;
     }
     else
     {
-        emitterSetGroupTail[groupID]->next = emitterSet;
-        emitterSet->prev = emitterSetGroupTail[groupID];
-        emitterSet->next = NULL;
+        mEmitterSetTail[groupID]->mNext = set;
+        set->mPrev = mEmitterSetTail[groupID];
+        set->mNext = NULL;
     }
 
-    emitterSetGroupTail[groupID] = emitterSet;
+    mEmitterSetTail[groupID] = set;
 }
 
 } } // namespace nw::eft

@@ -9,205 +9,309 @@
 
 namespace nw { namespace eft {
 
-void System::InitializeEmitter(EmitterInstance* emitter, const SimpleEmitterData* data, u32 resourceID, s32 emitterSetID, u32 seed, bool keepCreateID)
+void System::InitializeEmitter(EmitterInstance* emitter, const SimpleEmitterData* res, s32 resourceID, s32 emitterSetID, u32 setRndSeed, bool nonUpdateCreateID)
 {
-    Random* gRandom = PtclRandom::GetGlobalRandom();
+    Random* globalRnd = PtclRandom::GetGlobalRandom();
 
-    const u32 data_seed = data->seed;
-    if (data_seed == 0xFFFFFFFF)
-        emitter->random.Init(seed);
-    else if (data_seed == 0)
-        emitter->random.Init(gRandom->GetU32());
+    if (res->randomSeed == 0xFFFFFFFF)
+        emitter->rnd.SetSeed(setRndSeed);
+    else if (res->randomSeed == 0)
+        emitter->rnd.SetSeed(globalRnd->GetU32());
     else
-        emitter->random.Init(data_seed);
+        emitter->rnd.SetSeed(res->randomSeed);
 
-    if (!keepCreateID)
-        emitter->emitterSetCreateID = currentEmitterSetCreateID;
+    if (!nonUpdateCreateID)
+        emitter->emitterSetCreateID = mEmitterSetCreateID;
 
-    emitter->Init(data);
-    emitter->calc = emitterCalc[emitter->data->type];
-    emitter->controller->SetFollowType(data->ptclFollowType);
+    emitter->Init(res);
+    emitter->calc = mEmitterCalc[emitter->res->type];
+    emitter->controller->SetFollowType(res->ptclFollowType);
 
     {
+        VertexShaderKey vertexKey;
+        FragmentShaderKey fragmentKey;
+
+        if (emitter->res->type == EFT_EMITTER_TYPE_COMPLEX)
         {
-            VertexShaderKey vertexShaderKey;
-            vertexShaderKey.Initialize(emitter->data);
-
-            FragmentShaderKey fragmentShaderKey;
-            fragmentShaderKey.Initialize(emitter->data);
-
-            emitter->shader[ShaderType_Normal] = resources[resourceID]->GetShader(emitterSetID, &vertexShaderKey, &fragmentShaderKey);
+            vertexKey.MakeKeyFromComplexEmitterData(
+                static_cast<const ComplexEmitterData*>(emitter->res),
+                NULL
+            );
+        }
+        else
+        {
+            vertexKey.MakeKeyFromSimpleEmitterData(
+                emitter->res,
+                NULL
+            );
         }
 
-        if (strlen(emitter->data->userMacro1) != 0)
-        {
-            VertexShaderKey vertexShaderKey;
-            vertexShaderKey.Initialize(emitter->data, emitter->data->userMacro1);
+        fragmentKey.MakeKeyFromSimpleEmitterData(emitter->res, NULL);
 
-            FragmentShaderKey fragmentShaderKey;
-            fragmentShaderKey.Initialize(emitter->data, emitter->data->userMacro1);
-
-            emitter->shader[ShaderType_UserMacro1] = resources[resourceID]->GetShader(emitterSetID, &vertexShaderKey, &fragmentShaderKey);
-        }
-
-        if (strlen(emitter->data->userMacro2) != 0)
-        {
-            VertexShaderKey vertexShaderKey;
-            vertexShaderKey.Initialize(emitter->data, emitter->data->userMacro2);
-
-            FragmentShaderKey fragmentShaderKey;
-            fragmentShaderKey.Initialize(emitter->data, emitter->data->userMacro2);
-
-            emitter->shader[ShaderType_UserMacro2] = resources[resourceID]->GetShader(emitterSetID, &vertexShaderKey, &fragmentShaderKey);
-        }
+        emitter->shader[EFT_SHADER_TYPE_NORMAL] = mResource[resourceID]->GetShader(emitterSetID, &vertexKey, &fragmentKey);
     }
 
-    const ComplexEmitterData* cdata;
-
-    if (emitter->data->type == EmitterType_Complex
-        && (cdata = static_cast<const ComplexEmitterData*>(emitter->data), cdata->childFlags & 1))
+    if (strlen((char*)emitter->res->userShaderDefine1) > 0)
     {
-        const ChildData* childData = reinterpret_cast<const ChildData*>(cdata + 1);
+        VertexShaderKey vertexKey;
+        FragmentShaderKey fragmentKey;
+
+        if (emitter->res->type == EFT_EMITTER_TYPE_COMPLEX)
         {
-            VertexShaderKey vertexShaderKey;
-            vertexShaderKey.Initialize(childData);
-
-            FragmentShaderKey fragmentShaderKey;
-            fragmentShaderKey.Initialize(childData, cdata->childFlags);
-
-            emitter->childShader[ShaderType_Normal] = resources[resourceID]->GetShader(emitterSetID, &vertexShaderKey, &fragmentShaderKey);
+            vertexKey.MakeKeyFromComplexEmitterData(
+                static_cast<const ComplexEmitterData*>(emitter->res),
+                (char*)emitter->res->userShaderDefine1
+            );
+        }
+        else
+        {
+            vertexKey.MakeKeyFromSimpleEmitterData(
+                emitter->res,
+                (char*)emitter->res->userShaderDefine1
+            );
         }
 
-        if (strlen(childData->userMacro1) != 0)
+        fragmentKey.MakeKeyFromSimpleEmitterData(emitter->res, (char*)emitter->res->userShaderDefine1);
+
+        emitter->shader[EFT_SHADER_TYPE_USER_DEF1] = mResource[resourceID]->GetShader(emitterSetID, &vertexKey, &fragmentKey);
+    }
+
+    if (strlen((char*)emitter->res->userShaderDefine2) > 0)
+    {
+        VertexShaderKey vertexKey;
+        FragmentShaderKey fragmentKey;
+
+        if (emitter->res->type == EFT_EMITTER_TYPE_COMPLEX)
         {
-            VertexShaderKey vertexShaderKey;
-            vertexShaderKey.Initialize(childData, childData->userMacro1);
-
-            FragmentShaderKey fragmentShaderKey;
-            fragmentShaderKey.Initialize(childData, cdata->childFlags, childData->userMacro1);
-
-            emitter->childShader[ShaderType_UserMacro1] = resources[resourceID]->GetShader(emitterSetID, &vertexShaderKey, &fragmentShaderKey);
+            vertexKey.MakeKeyFromComplexEmitterData(
+                static_cast<const ComplexEmitterData*>(emitter->res),
+                (char*)emitter->res->userShaderDefine2
+            );
+        }
+        else
+        {
+            vertexKey.MakeKeyFromSimpleEmitterData(
+                emitter->res,
+                (char*)emitter->res->userShaderDefine2
+            );
         }
 
-        if (strlen(childData->userMacro2) != 0)
+        fragmentKey.MakeKeyFromSimpleEmitterData(emitter->res, (char*)emitter->res->userShaderDefine2);
+
+        emitter->shader[EFT_SHADER_TYPE_USER_DEF2] = mResource[resourceID]->GetShader(emitterSetID, &vertexKey, &fragmentKey);
+    }
+
+    if (emitter->res->type == EFT_EMITTER_TYPE_COMPLEX)
+    {
+        const ComplexEmitterData* complex = static_cast<const ComplexEmitterData*>(emitter->res);
+        if (complex->childFlg & EFT_CHILD_FLAG_ENABLE)
         {
-            VertexShaderKey vertexShaderKey;
-            vertexShaderKey.Initialize(childData, childData->userMacro2);
+            const ChildData* cres = reinterpret_cast<const ChildData*>(complex + 1);
+            {
+                VertexShaderKey vertexKey;
+                FragmentShaderKey fragmentKey;
 
-            FragmentShaderKey fragmentShaderKey;
-            fragmentShaderKey.Initialize(childData, cdata->childFlags, childData->userMacro2);
+                vertexKey  .MakeKeyFromChildData(cres, NULL);
+                fragmentKey.MakeKeyFromChildData(cres, NULL, complex->childFlg);
 
-            emitter->childShader[ShaderType_UserMacro2] = resources[resourceID]->GetShader(emitterSetID, &vertexShaderKey, &fragmentShaderKey);
+                emitter->childShader[EFT_SHADER_TYPE_NORMAL] = mResource[resourceID]->GetShader(emitterSetID, &vertexKey, &fragmentKey);
+            }
+
+            if (strlen((char*)cres->childUserShaderDefine1) > 0)
+            {
+                VertexShaderKey vertexKey;
+                FragmentShaderKey fragmentKey;
+
+                vertexKey  .MakeKeyFromChildData(cres, (char*)cres->childUserShaderDefine1);
+                fragmentKey.MakeKeyFromChildData(cres, (char*)cres->childUserShaderDefine1, complex->childFlg);
+
+                emitter->childShader[EFT_SHADER_TYPE_USER_DEF1] = mResource[resourceID]->GetShader(emitterSetID, &vertexKey, &fragmentKey);
+            }
+
+            if (strlen((char*)cres->childUserShaderDefine2) > 0)
+            {
+                VertexShaderKey vertexKey;
+                FragmentShaderKey fragmentKey;
+
+                vertexKey  .MakeKeyFromChildData(cres, (char*)cres->childUserShaderDefine2);
+                fragmentKey.MakeKeyFromChildData(cres, (char*)cres->childUserShaderDefine2, complex->childFlg);
+
+                emitter->childShader[EFT_SHADER_TYPE_USER_DEF2] = mResource[resourceID]->GetShader(emitterSetID, &vertexKey, &fragmentKey);
+            }
         }
     }
 
     emitter->UpdateResInfo();
 
     emitter->primitive = NULL;
-    if (emitter->data->meshType == MeshType_Primitive)
-        emitter->primitive = resources[resourceID]->GetPrimitive(emitterSetID, emitter->data->primitive.idx);
+    if (emitter->res->meshType == EFT_MESH_TYPE_PRIMITIVE)
+        emitter->primitive = mResource[resourceID]->GetPrimitive(emitterSetID, emitter->res->primitiveFigure.index);
 
     emitter->childPrimitive = NULL;
-    if (emitter->data->type == EmitterType_Complex
-        && (cdata = static_cast<const ComplexEmitterData*>(emitter->data), cdata->childFlags & 1))
+    if (emitter->res->type == EFT_EMITTER_TYPE_COMPLEX)
     {
-        const ChildData* childData = reinterpret_cast<const ChildData*>(cdata + 1);
-        if(childData->meshType == MeshType_Primitive)
-            emitter->childPrimitive = resources[resourceID]->GetPrimitive(emitterSetID, childData->primitive.idx);
+        const ComplexEmitterData* complex = static_cast<const ComplexEmitterData*>(emitter->res);
+        if (complex->childFlg & EFT_CHILD_FLAG_ENABLE)
+        {
+            const ChildData* cres = reinterpret_cast<const ChildData*>(complex + 1);
+            // if (cres->childMeshType == EFT_MESH_TYPE_PRIMITIVE) <-- Nintendo forgot to do this
+                emitter->childPrimitive = mResource[resourceID]->GetPrimitive(emitterSetID, cres->childPrimitiveFigure.index);
+        }
     }
 }
 
-bool System::CreateEmitterSetID(Handle* handle, const math::MTX34& matrixRT, s32 emitterSetID, u32 resourceID, u8 groupID, u32 emitterEnableMask)
+bool System::CreateEmitterSetID(Handle* handle, const nw::math::MTX34& mtx, s32 emitterSetID, s32 resourceID, u8 groupID, u32 emitterMask)
 {
-    Random* gRandom = PtclRandom::GetGlobalRandom();
+    Random* globalRnd = PtclRandom::GetGlobalRandom();
 
-    s32 numEmitter = resources[resourceID]->emitterSets[emitterSetID].numEmitter;
-    if (numEmitter > numUnusedEmitters)
+    s32 numEmitter = mResource[resourceID]->GetNumEmitter(emitterSetID);
+    if (numEmitter > mNumFreeEmitter)
         return false;
 
-    EmitterSet* emitterSet = AllocEmitterSet(handle);
-    if (emitterSet == NULL)
+    EmitterSet* set = AllocEmitterSet(handle);
+    if (set == NULL)
         return false;
 
-    emitterSet->matrixSRT = matrixRT;
-    emitterSet->matrixRT  = matrixRT;
-
-    emitterSet->_unusedFlags = 0;
-    emitterSet->allDirVel = 1.0f;
-    emitterSet->dirVel = 1.0f;
-    emitterSet->dirVelRandom = 1.0f;
-    emitterSet->startFrame = 0;
-    emitterSet->numEmissionPoints = 0;
-    emitterSet->doFade = 0;
-    emitterSet->dirSet = 0;
-    emitterSet->noCalc = 0;
-    emitterSet->noDraw = 0;
-    emitterSet->infiniteLifespan = 0;
-    emitterSet->_unused = 0x80;
-
-    emitterSet->scaleForMatrix     = (math::VEC3){ 1.0f, 1.0f, 1.0f };
-    emitterSet->ptclScale          = (math::VEC2){ 1.0f, 1.0f };
-    emitterSet->ptclEmitScale      = (math::VEC2){ 1.0f, 1.0f };
-    emitterSet->ptclEffectiveScale = (math::VEC2){ 1.0f, 1.0f };
-    emitterSet->emitterVolumeScale = (math::VEC3){ 1.0f, 1.0f, 1.0f };
-    emitterSet->color.v            = (math::VEC4){ 1.0f, 1.0f, 1.0f, 1.0f };
-    emitterSet->addVelocity        = (math::VEC3){ 0.0f, 0.0f, 0.0f };
-    emitterSet->ptclRotate         = (math::VEC3){ 0.0f, 0.0f, 0.0f };
-
-    for (u32 i = 0; i < 16u; i++)
-        emitterSet->emitters[i] = NULL;
-
-    emitterSet->createID = currentEmitterSetCreateID;
-    emitterSet->resourceID = resourceID;
-    emitterSet->emitterSetID = emitterSetID;
-    emitterSet->next = NULL;
-    emitterSet->prev = NULL;
-    emitterSet->groupID = groupID;
-    emitterSet->userData = 0;
-
-    AddEmitterSetToDrawList(emitterSet, groupID);
-
-    u32 seed = gRandom->GetU32();
-
-    handle->createID = currentEmitterSetCreateID;
-
-    for (s32 i = numEmitter - 1; i >= 0; i--)
     {
-        if (!(emitterEnableMask & 1 << i))
+        set->Reset(mtx);
+        set->mEmitterCreateID   = mEmitterSetCreateID;
+        set->mResourceID        = resourceID;
+        set->mEmitterSetID      = emitterSetID;
+        set->mNext              = NULL;
+        set->mPrev              = NULL;
+        set->mGroupID           = groupID;
+        set->mRuntimeUserData   = 0;
+
+        AddEmitterSetToDrawList(set, groupID);
+    }
+
+    u32 rndSeed = globalRnd->GetU32();
+
+    handle->mCreateID = mEmitterSetCreateID;
+
+    for (s32 emitterID = numEmitter - 1; emitterID >= 0; emitterID--)
+    {
+        if (!(emitterMask & 1 << emitterID))
             continue;
 
         EmitterInstance* emitter = AllocEmitter(groupID);
         if (emitter == NULL)
             break;
 
-        const SimpleEmitterData* data = static_cast<const SimpleEmitterData*>(resources[resourceID]->emitterSets[emitterSetID].emitterRef[i].data);
+        const SimpleEmitterData* res = static_cast<const SimpleEmitterData*>(mResource[resourceID]->GetEmitterData(emitterSetID, emitterID));
 
-        emitterSet->emitters[emitterSet->numEmitter++] = emitter;
-        emitter->emitterSet = emitterSet;
+        set->mInstance[set->mNumEmitter++] = emitter;
 
-        emitter->controller = &emitterSet->controllers[i];
-        emitter->controller->emitter = emitter;
-        emitter->controller->emissionRatio = 1.0f;
-        emitter->controller->emissionInterval = 1.0f;
-        emitter->controller->life = 1.0f;
-        emitter->controller->renderVisibilityFlags = 0x3F;
+        emitter->emitterSet = set;
+        emitter->controller = &set->mController[emitterID];
+        emitter->controller->mEmitter = emitter;
+        emitter->controller->Reset();
+        emitter->groupID    = groupID;
 
-        emitter->groupID = groupID;
+        set->mDrawPathFlag |= 1 << res->drawPath;
 
-        emitterSet->_unusedFlags |= 1 << data->_bitForUnusedFlag;
+        InitializeEmitter(emitter, res, resourceID, emitterSetID, rndSeed);
 
-        InitializeEmitter(emitter, data, resourceID, emitterSetID, seed, false);
-
-        if (emitter->data->ptclMaxLifespan == 0x7FFFFFFF)
-            emitterSet->infiniteLifespan = 1;
+        if (emitter->res->ptclLife == EFT_INFINIT_LIFE)
+            set->mIsHaveInfinityEmitter = true;
     }
 
-    emitterSet->numEmitterAtCreate = emitterSet->numEmitter;
+    set->mNumEmitterFirst = set->mNumEmitter;
 
-    numCalcEmitterSet++;
-    currentEmitterSetCreateID++;
+    mNumEmitterSetCalc++;
+    mEmitterSetCreateID++;
 
     return true;
+}
+
+void System::ReCreateEmitter(void** resList, s32 numResList, s32 resId, s32 setId, bool killOnly)
+{
+    for (s32 i = 0; i < mNumEmitterSet; i++)
+    {
+        EmitterSet* set = &mEmitterSet[i];
+
+        bool isReCreate = false;
+        u8   groupId    = 0;
+
+        for (s32 j = 0; j < set->mNumEmitterFirst; j++)
+        {
+            EmitterInstance* emitter = set->mInstance[j];
+            if (emitter->calc != NULL && emitter->emitterSetCreateID == set->GetCreateID())
+            {
+                for (s32 k = 0; k < numResList; k++)
+                {
+                    if (emitter->res == resList[k])
+                    {
+                        isReCreate = true;
+                        groupId    = emitter->groupID;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (isReCreate)
+        {
+            if (killOnly)
+                set->Kill();
+            else
+                ReCreateEmitter(set, resId, setId, groupId);
+        }
+    }
+}
+
+void System::ReCreateEmitter(EmitterSet* set, s32 resourceID, s32 emitterSetID, u8 groupID)
+{
+    Random* globalRnd = PtclRandom::GetGlobalRandom();
+    u32 rndSeed = globalRnd->GetU32();
+
+    for (s32 i = set->mNumEmitterFirst; i < EFT_EMITTER_INSET_NUM; i++)
+        set->mController[i] = set->mController[0];
+
+    EmitterSet saveSet = *set;
+
+    for (s32 i = 0; i < set->mNumEmitterFirst; i++)
+        if (set->mInstance[i]->emitterSetCreateID == set->GetCreateID() && set->mInstance[i]->calc)
+            KillEmitter(set->mInstance[i]);
+
+    *set = saveSet;
+    set->mNumEmitter = 0;
+    set->mIsHaveInfinityEmitter = false;
+
+    s32 numEmitter = mResource[resourceID]->GetNumEmitter(emitterSetID);
+
+    if (numEmitter > mNumFreeEmitter)
+        return;
+
+    for (s32 emitterID = numEmitter - 1; emitterID >= 0; emitterID--)
+    {
+        EmitterInstance* emitter = AllocEmitter(groupID);
+        if (emitter == NULL)
+            break;
+
+        const SimpleEmitterData* res = static_cast<const SimpleEmitterData*>(mResource[resourceID]->GetEmitterData(emitterSetID, emitterID));
+
+        set->mInstance[set->mNumEmitter++] = emitter;
+
+        emitter->emitterSet = set;
+        emitter->controller = &set->mController[emitterID];
+        emitter->controller->mEmitter = emitter;
+        emitter->controller->Reset();
+        emitter->groupID    = groupID;
+
+        set->mDrawPathFlag |= 1 << res->drawPath;
+
+        emitter->emitterSetCreateID = set->mEmitterCreateID;
+
+        InitializeEmitter(emitter, res, resourceID, emitterSetID, rndSeed, true);
+
+        if (emitter->res->ptclLife == EFT_INFINIT_LIFE)
+            set->mIsHaveInfinityEmitter = true;
+    }
+
+    set->mNumEmitterFirst = set->mNumEmitter;
+
+    mNumEmitterSetCalc++;
 }
 
 } } // namespace nw::eft

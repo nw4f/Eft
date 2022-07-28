@@ -1,677 +1,1179 @@
 #ifndef EFT_DATA_H_
 #define EFT_DATA_H_
 
-#define INCLUDE_CAFE
 #include <nw/eft/eft_typeDef.h>
 
 namespace nw { namespace eft {
 
-struct EmitterData;
+struct CommonEmitterData;
+
+enum SystemConstants
+{
+    EFT_BINARY_VERSION                  = 0x00000028,
+    EFT_EMITTER_INSET_NUM               = 16,
+    EFT_TEXTURE_PATTERN_NUM             = 32 ,
+    EFT_INFINIT_LIFE                    = 0x7fffffff,
+    EFT_GROUP_MAX                       = 64,
+    EFT_CALLBACK_MAX                    = 8,
+    EFT_PTCL_BINARY_ALIGNMENT           = (16 * 1024),
+    EFT_DEFAULT_DRAW_PRIORITY           = 128,
+    EFT_SYSTEM_CONSTANTS_FORCE_4BYTE    = 0x80000000
+};
 
 enum CpuCore
 {
-    CpuCore_0   = 0,
-    CpuCore_1   = 1,
-    CpuCore_2   = 2,
-    CpuCore_Max = 3,
+    EFT_CPU_CORE_0 = 0,
+    EFT_CPU_CORE_1 = 1,
+    EFT_CPU_CORE_2 = 2,
+    EFT_CPU_CORE_MAX = 3,
+    EFT_CPU_CORE_FORCE_4BYTE = 0x80000000
 };
-static_assert(sizeof(CpuCore) == 4, "CpuCore size mismatch");
+static_assert(sizeof(CpuCore) == 4, "nw::eft::CpuCore size mismatch");
 
-enum EmitterType // Actual name not known
+enum EmitterType
 {
-    EmitterType_Simple  = 0,
-    EmitterType_Complex = 1,
-    EmitterType_Max     = 2,
+    EFT_EMITTER_TYPE_SIMPLE     = 0,
+    EFT_EMITTER_TYPE_COMPLEX,
+    EFT_EMITTER_TYPE_MAX,
+    EFT_EMITTER_TYPE_FORCE_4BYTE = 0x80000000
 };
-static_assert(sizeof(EmitterType) == 4, "EmitterType size mismatch");
+static_assert(sizeof(EmitterType) == 4, "nw::eft::EmitterType size mismatch");
 
-enum PtclType // Actual name unknown
+enum PtclType
 {
-    PtclType_Simple  = 0,
-    PtclType_Complex = 1,
-    PtclType_Child   = 2,
-    PtclType_Max     = 3,
+    EFT_PTCL_TYPE_SIMPLE     = 0,
+    EFT_PTCL_TYPE_COMPLEX,
+    EFT_PTCL_TYPE_CHILD,
+    EFT_PTCL_TYPE_MAX,
+    EFT_PTCL_TYPE_FORCE_4BYTE = 0x80000000
 };
-static_assert(sizeof(PtclType) == 4, "PtclType size mismatch");
+static_assert(sizeof(PtclType) == 4, "nw::eft::PtclType size mismatch");
 
 enum PtclFollowType
 {
-    PtclFollowType_SRT   = 0,
-    PtclFollowType_None  = 1,
-    PtclFollowType_Trans = 2,
-    PtclFollowType_Max   = 3,
+    EFT_FOLLOW_TYPE_ALL = 0,
+    EFT_FOLLOW_TYPE_NONE,
+    EFT_FOLLOW_TYPE_POS_ONLY,
+    EFT_FOLLOW_TYPE_MAX,
+    EFT_FOLLOW_TYPE_FORCE_4BYTE = 0x80000000
 };
-static_assert(sizeof(PtclFollowType) == 4, "PtclFollowType size mismatch");
+static_assert(sizeof(PtclFollowType) == 4, "nw::eft::PtclFollowType size mismatch");
 
-enum CustomActionCallBackID
+enum UserDataCallBackID
 {
-    CustomActionCallBackID_Invalid = 0xFFFFFFFF,
-    CustomActionCallBackID_Max     = 8,
-};
-static_assert(sizeof(CustomActionCallBackID) == 4, "CustomActionCallBackID size mismatch");
+    EFT_USER_DATA_CALLBACK_ID_NONE = -1,
+    EFT_USER_DATA_CALLBACK_ID_0 = 0,
+    EFT_USER_DATA_CALLBACK_ID_1 = 1,
+    EFT_USER_DATA_CALLBACK_ID_2 = 2,
+    EFT_USER_DATA_CALLBACK_ID_3 = 3,
+    EFT_USER_DATA_CALLBACK_ID_4 = 4,
+    EFT_USER_DATA_CALLBACK_ID_5 = 5,
+    EFT_USER_DATA_CALLBACK_ID_6 = 6,
+    EFT_USER_DATA_CALLBACK_ID_7 = 7,
+    EFT_USER_DATA_CALLBACK_ID_MAX = 8,
 
-enum CustomShaderCallBackID
-{
-    CustomShaderCallBackID_Max = 9,
+    EFT_USER_CALLBACK_ID_FORCE_4BYTE = 0x80000000
 };
-static_assert(sizeof(CustomShaderCallBackID) == 4, "CustomShaderCallBackID size mismatch");
+static_assert(sizeof(UserDataCallBackID) == 8, "nw::eft::UserDataCallBackID size mismatch");
+
+typedef u64 GroupFlag;
+#define EFT_GROUP_FLAG(groupID) u64(u64(1) << u64(groupID))
+
+enum DrawPathFlag
+{
+    EFT_DRAW_PATH_FLAG_0  = 0x00000001,
+    EFT_DRAW_PATH_FLAG_1  = 0x00000002,
+    EFT_DRAW_PATH_FLAG_2  = 0x00000004,
+    EFT_DRAW_PATH_FLAG_3  = 0x00000008,
+    EFT_DRAW_PATH_FLAG_4  = 0x00000010,
+    EFT_DRAW_PATH_FLAG_5  = 0x00000020,
+    EFT_DRAW_PATH_FLAG_6  = 0x00000040,
+    EFT_DRAW_PATH_FLAG_7  = 0x00000080,
+    EFT_DRAW_PATH_FLAG_8  = 0x00000100,
+    EFT_DRAW_PATH_FLAG_9  = 0x00000200,
+    EFT_DRAW_PATH_FLAG_10 = 0x00000400,
+    EFT_DRAW_PATH_FLAG_11 = 0x00000800,
+    EFT_DRAW_PATH_FLAG_12 = 0x00001000,
+    EFT_DRAW_PATH_FLAG_13 = 0x00002000,
+    EFT_DRAW_PATH_FLAG_14 = 0x00004000,
+    EFT_DRAW_PATH_FLAG_15 = 0x00008000,
+    EFT_DRAW_PATH_FLAG_16 = 0x00010000,
+    EFT_DRAW_PATH_FLAG_17 = 0x00020000,
+    EFT_DRAW_PATH_FLAG_18 = 0x00040000,
+    EFT_DRAW_PATH_FLAG_19 = 0x00080000,
+    EFT_DRAW_PATH_FLAG_20 = 0x00100000,
+    EFT_DRAW_PATH_FLAG_21 = 0x00200000,
+    EFT_DRAW_PATH_FLAG_22 = 0x00400000,
+    EFT_DRAW_PATH_FLAG_23 = 0x00800000,
+    EFT_DRAW_PATH_FLAG_24 = 0x01000000,
+    EFT_DRAW_PATH_FLAG_25 = 0x02000000,
+    EFT_DRAW_PATH_FLAG_26 = 0x04000000,
+    EFT_DRAW_PATH_FLAG_27 = 0x08000000,
+    EFT_DRAW_PATH_FLAG_28 = 0x10000000,
+    EFT_DRAW_PATH_FLAG_29 = 0x20000000,
+    EFT_DRAW_PATH_FLAG_30 = 0x40000000,
+    EFT_DRAW_PATH_FLAG_31 = 0x80000000,
+
+    EFT_DRAW_PATH_FLAG_FORCE_4BYTE = 0x80000000
+};
+static_assert(sizeof(DrawPathFlag) == 4, "nw::eft::DrawPathFlag size mismatch");
+
+#define EFT_INVALID_EMITTER_SET_ID (-1)
+#define EFT_INVALID_EMITTER_ID (-1)
+#define EFT_INVALID_ATTRIBUTE 0xFFFFFFFF
+#define EFT_INVALID_LOCATION 0xFFFFFFFF
+#define EFT_INVALID_SAMPLER 0xFFFFFFFF
+
+enum UserShaderCallBackID
+{
+    EFT_USER_SHADER_CALLBACK_NONE  = 0,
+    EFT_USER_SHADER_CALLBACK_1     = 1,
+    EFT_USER_SHADER_CALLBACK_2     = 2,
+    EFT_USER_SHADER_CALLBACK_3     = 3,
+    EFT_USER_SHADER_CALLBACK_4     = 4,
+    EFT_USER_SHADER_CALLBACK_5     = 5,
+    EFT_USER_SHADER_CALLBACK_6     = 6,
+    EFT_USER_SHADER_CALLBACK_7     = 7,
+    EFT_USER_SHADER_CALLBACK_8     = 8,
+    EFT_USER_SHADER_CALLBACK_MAX   = 9,
+
+    EFT_USER_SHADER_CALLBACK_FORCE_4BYTE = 0x80000000
+};
+static_assert(sizeof(UserShaderCallBackID) == 4, "nw::eft::UserShaderCallBackID size mismatch");
 
 enum TextureSlot
 {
-    TextureSlot_0            = 0,
-    TextureSlot_1            = 1,
-    TextureSlot_2            = 2,
-    TextureSlot_Depth_Buffer = TextureSlot_2,
-    TextureSlot_Frame_Buffer = 3,
-    TextureSlot_Max          = 4,
+    EFT_TEXTURE_SLOT_0                  = 0,
+    EFT_TEXTURE_SLOT_1                  = 1,
+    EFT_TEXTURE_SLOT_BIN_MAX            = 2,
+    EFT_TEXTURE_SLOT_DEPTH_BUFFER       = EFT_TEXTURE_SLOT_BIN_MAX,
+    EFT_TEXTURE_SLOT_FRAME_BUFFER       = 3,
+    EFT_TEXTURE_SLOT_MAX                = 4,
+
+    EFT_USER_TEXTURE_SLOT_FORCE_4BYTE = 0x80000000
 };
-static_assert(sizeof(TextureSlot) == 4, "TextureSlot size mismatch");
+static_assert(sizeof(TextureSlot) == 4, "nw::eft::TextureSlot size mismatch");
 
 enum TextureWrapMode
 {
-    TextureWrapMode_Mirror      = 0,
-    TextureWrapMode_Wrap        = 1,
-    TextureWrapMode_Clamp       = 2,
-    TextureWrapMode_Mirror_Once = 3,
-    TextureWrapMode_Max         = 4,
+    EFT_TEXTURE_WRAP_TYPE_MIRROR,
+    EFT_TEXTURE_WRAP_TYPE_REPEAT,
+    EFT_TEXTURE_WRAP_TYPE_CLAMP,
+    EFT_TEXTURE_WRAP_TYPE_MIROOR_ONCE,
+    EFT_TEXTURE_WRAP_TYPE_MAX,
+
+    EFT_TEXTURE_WRAP_MODE_FORCE_4BYTE = 0x80000000
 };
-static_assert(sizeof(TextureWrapMode) == 4, "TextureWrapMode size mismatch");
+static_assert(sizeof(TextureWrapMode) == 4, "nw::eft::TextureWrapMode size mismatch");
 
 enum TextureFilterMode
 {
-    TextureFilterMode_Linear = 0,
-    TextureFilterMode_Point  = 1,
-    TextureFilterMode_Max    = 2,
+    EFT_TEXTURE_FILTER_TYPE_LINEAR,
+    EFT_TEXTURE_FILTER_TYPE_NEAR,
+
+    EFT_TEXTURE_FILTER_TYPE_FORCE_4BYTE = 0x80000000
 };
-static_assert(sizeof(TextureFilterMode) == 4, "TextureFilterMode size mismatch");
+static_assert(sizeof(TextureFilterMode) == 4, "nw::eft::TextureFilterMode size mismatch");
+
+enum DrawViewFlag
+{
+    EFT_DRAW_VIEW_FLAG_0          = ( 0x01 << 0 ),
+    EFT_DRAW_VIEW_FLAG_1          = ( 0x01 << 1 ),
+    EFT_DRAW_VIEW_FLAG_2          = ( 0x01 << 2 ),
+    EFT_DRAW_VIEW_FLAG_3          = ( 0x01 << 3 ),
+    EFT_DRAW_VIEW_FLAG_4          = ( 0x01 << 4 ),
+    EFT_DRAW_VIEW_FLAG_5          = ( 0x01 << 5 ),
+    EFT_DRAW_VIEW_FLAG_ALL        = EFT_DRAW_VIEW_FLAG_0 |
+                                    EFT_DRAW_VIEW_FLAG_1 |
+                                    EFT_DRAW_VIEW_FLAG_2 |
+                                    EFT_DRAW_VIEW_FLAG_3 |
+                                    EFT_DRAW_VIEW_FLAG_4 |
+                                    EFT_DRAW_VIEW_FLAG_5,
+    EFT_DRAW_VIEW_FLAG_NONE       = 0,
+
+    EFT_DRAW_VIEW_FLAG_FORCE_4BYTE = 0x80000000
+};
+static_assert(sizeof(DrawViewFlag) == 4, "nw::eft::DrawViewFlag size mismatch");
 
 enum DisplaySideType
 {
-    DisplaySideType_Both  = 0,
-    DisplaySideType_Front = 1,
-    DisplaySideType_Back  = 2,
-    DisplaySideType_Max   = 3,
-};
-static_assert(sizeof(DisplaySideType) == 4, "DisplaySideType size mismatch");
+    EFT_DISPLAYSIDETYPE_BOTH = 0,
+    EFT_DISPLAYSIDETYPE_FRONT,
+    EFT_DISPLAYSIDETYPE_BACK,
 
-enum ParticleBehaviorFlag
-{
-    ParticleBehaviorFlag_AirResist       = 0x0001,
-    ParticleBehaviorFlag_Gravity         = 0x0002,
-    ParticleBehaviorFlag_Rotate          = 0x0004,
-    ParticleBehaviorFlag_RotInertia      = 0x0008,
-    ParticleBehaviorFlag_WldPosDf        = 0x0010,
-    ParticleBehaviorFlag_ScaleAnim       = 0x0040,
-    ParticleBehaviorFlag_AlphaAnim       = 0x0080,
-    ParticleBehaviorFlag_Color0Anim      = 0x0100,
-    ParticleBehaviorFlag_Color1Anim      = 0x0200,
-    ParticleBehaviorFlag_Tex0UVShiftAnim = 0x0400,
-    ParticleBehaviorFlag_Tex1UVShiftAnim = 0x0800,
-    ParticleBehaviorFlag_Tex0PtnAnim     = 0x1000,
-    ParticleBehaviorFlag_Tex1PtnAnim     = 0x2000,
-    ParticleBehaviorFlag_HasTex1         = 0x4000,
+    EFT_DISPLAYSIDETYPE_FORCE_4BYTE = 0x80000000
 };
-static_assert(sizeof(ParticleBehaviorFlag) == 4, "ParticleBehaviorFlag size mismatch");
+static_assert(sizeof(DisplaySideType) == 4, "nw::eft::DisplaySideType size mismatch");
 
-enum ShaderAttrib
+enum TextureAddressing
 {
-    ShaderAttrib_Scl        = 0x001,
-    ShaderAttrib_TexAnim    = 0x002,
-    ShaderAttrib_SubTexAnim = 0x004,
-    ShaderAttrib_WldPos     = 0x008,
-    ShaderAttrib_WldPosDf   = 0x010,
-    ShaderAttrib_Color0     = 0x020,
-    ShaderAttrib_Color1     = 0x040,
-    ShaderAttrib_Rot        = 0x080,
-    ShaderAttrib_EmMat      = 0x100,
+    EFT_TEX_ADDRESSING_NORMAL = 0 ,
+    EFT_TEX_ADDRESSING_MIRROR_U2 ,
+    EFT_TEX_ADDRESSING_MIRROR_V2 ,
+    EFT_TEX_ADDRESSING_MIRROR_U2_V2 ,
+    EFT_TEX_ADDRESSING_MAX,
+
+    EFT_TEX_ADDRESSING_FORCE_4BYTE = 0x80000000
 };
-static_assert(sizeof(ShaderAttrib) == 4, "ShaderAttrib size mismatch");
+static_assert(sizeof(TextureAddressing) == 4, "nw::eft::TextureAddressing size mismatch");
+
+enum EmitterFlg
+{
+    EFT_EMITTER_FLAG_COLOR_RANDOM               = ( 1 << 0 ) ,
+    EFT_EMITTER_FLAG_DISP_EMITTER_MATRIX        = ( 1 << 1 ) ,
+    EFT_EMITTER_FLAG_DISP_VOLUME                = ( 1 << 2 ) ,
+    EFT_EMITTER_FLAG_DISP_FIELD_MAGNET          = ( 1 << 3 ) ,
+    EFT_EMITTER_FLAG_DISP_FIELD_SPIN            = ( 1 << 4 ) ,
+    EFT_EMITTER_FLAG_DISP_FIELD_COLLISION       = ( 1 << 5 ) ,
+    EFT_EMITTER_FLAG_DISP_FIELD_CONVERGENCE     = ( 1 << 6 ) ,
+    EFT_EMITTER_FLAG_ENABLE_FOG                 = ( 1 << 7 ) ,
+    EFT_EMITTER_FLAG_ENABLE_SOFTEDGE            = ( 1 << 8 ) ,
+    EFT_EMITTER_FLAG_ENABLE_SORTPARTICLE        = ( 1 << 9 ) ,
+    EFT_EMITTER_FLAG_REVERSE_ORDER_PARTICLE     = ( 1 << 10 ) ,
+
+    EFT_EMITTER_FLAG_TEXTURE0_COLOR_ONE         = ( 1 << 11 ) ,
+    EFT_EMITTER_FLAG_TEXTURE1_COLOR_ONE         = ( 1 << 12 ) ,
+    EFT_EMITTER_FLAG_PRIMITIVE_COLOR_ONE        = ( 1 << 13 ) ,
+    EFT_EMITTER_FLAG_TEXTURE0_ALPHA_ONE         = ( 1 << 14 ) ,
+    EFT_EMITTER_FLAG_TEXTURE1_ALPHA_ONE         = ( 1 << 15 ) ,
+    EFT_EMITTER_FLAG_PRIMITIVE_ALPHA_ONE        = ( 1 << 16 ) ,
+
+    EFT_EMITTER_FLAG_DISP_FIELD_MASK = EFT_EMITTER_FLAG_DISP_FIELD_MAGNET |
+                        EFT_EMITTER_FLAG_DISP_FIELD_SPIN |
+                        EFT_EMITTER_FLAG_DISP_FIELD_COLLISION |
+                        EFT_EMITTER_FLAG_DISP_FIELD_CONVERGENCE,
+
+    EFT_EMITTER_FLAG_ALL                        = 0xffffffff
+};
+static_assert(sizeof(EmitterFlg) == 4, "nw::eft::EmitterFlg size mismatch");
+
+enum BehaviorFlg
+{
+    EFT_EMITTER_BEHAVIOR_FLAG_AIR_REGIST            = ( 1 << 0 ) ,
+    EFT_EMITTER_BEHAVIOR_FLAG_GRAVITY               = ( 1 << 1 ) ,
+    EFT_EMITTER_BEHAVIOR_FLAG_ROTATE                = ( 1 << 2 ) ,
+    EFT_EMITTER_BEHAVIOR_FLAG_ROT_REGIST            = ( 1 << 3 ) ,
+    EFT_EMITTER_BEHAVIOR_FLAG_WLD_POSDIF            = ( 1 << 4 ) ,
+    EFT_EMITTER_BEHAVIOR_FLAG_LCL_POSDIF            = ( 1 << 5 ) ,
+    EFT_EMITTER_BEHAVIOR_FLAG_SCALE_ANIM            = ( 1 << 6 ) ,
+    EFT_EMITTER_BEHAVIOR_FLAG_ALPHA_ANIM            = ( 1 << 7 ) ,
+    EFT_EMITTER_BEHAVIOR_FLAG_COLOR0_ANIM           = ( 1 << 8 ) ,
+    EFT_EMITTER_BEHAVIOR_FLAG_COLOR1_ANIM           = ( 1 << 9 ) ,
+    EFT_EMITTER_BEHAVIOR_FLAG_TEXTURE0_UV_ANIM      = ( 1 << 10 ) ,
+    EFT_EMITTER_BEHAVIOR_FLAG_TEXTURE1_UV_ANIM      = ( 1 << 11 ) ,
+    EFT_EMITTER_BEHAVIOR_FLAG_TEXTURE0_PTN_ANIM     = ( 1 << 12 ) ,
+    EFT_EMITTER_BEHAVIOR_FLAG_TEXTURE1_PTN_ANIM     = ( 1 << 13 ) ,
+    EFT_EMITTER_BEHAVIOR_FLAG_TEXTURE1_CALC         = ( 1 << 14 ) ,
+
+    EFT_EMITTER_BEHAVIOR_FLAG_FORCE_4BYTE = 0x80000000
+};
+static_assert(sizeof(BehaviorFlg) == 4, "nw::eft::BehaviorFlg size mismatch");
+
+enum ShaderEnableAttrFlg
+{
+    EFT_SHADER_ATTRIBUTE_HAS_SCALE          = ( 1 << 0 ) ,
+    EFT_SHADER_ATTRIBUTE_HAS_TEX_ANIM       = ( 1 << 1 ) ,
+    EFT_SHADER_ATTRIBUTE_HAS_SUB_TEX_ANIM   = ( 1 << 2 ) ,
+    EFT_SHADER_ATTRIBUTE_HAS_WORLD_POS      = ( 1 << 3 ) ,
+    EFT_SHADER_ATTRIBUTE_HAS_WORLD_POS_DIFF = ( 1 << 4 ) ,
+    EFT_SHADER_ATTRIBUTE_HAS_COLOR0         = ( 1 << 5 ) ,
+    EFT_SHADER_ATTRIBUTE_HAS_COLOR1         = ( 1 << 6 ) ,
+    EFT_SHADER_ATTRIBUTE_HAS_ROTATE         = ( 1 << 7 ) ,
+    EFT_SHADER_ATTRIBUTE_HAS_EMITTER_MATRIX = ( 1 << 8 ) ,
+};
+static_assert(sizeof(ShaderEnableAttrFlg) == 4, "nw::eft::ShaderEnableAttrFlg size mismatch");
+
+enum VolumeType
+{
+    EFT_VOLUME_TYPE_POINT = 0,
+    EFT_VOLUME_TYPE_CIRCLE,
+    EFT_VOLUME_TYPE_CIRCLE_SAME_DIVIDE,
+    EFT_VOLUME_TYPE_CIRCLE_FILL,
+    EFT_VOLUME_TYPE_SPHERE,
+    EFT_VOLUME_TYPE_SPHERE_SAME_DIVIDE,
+    EFT_VOLUME_TYPE_SPHERE_SAME_DIVIDE64,
+    EFT_VOLUME_TYPE_SPHERE_FILL,
+    EFT_VOLUME_TYPE_CYLINDER,
+    EFT_VOLUME_TYPE_CYLINDER_FILL,
+    EFT_VOLUME_TYPE_BOX,
+    EFT_VOLUME_TYPE_BOX_FILL,
+    EFT_VOLUME_TYPE_LINE,
+    EFT_VOLUME_TYPE_LINE_SAME_DIVIDE,
+    EFT_VOLUME_TYPE_RECTANGLE,
+
+    EFT_VOLUME_TYPE_MAX,
+    EFT_VOLUME_TYPE_FORCE_4BYTE = 0x80000000
+};
+static_assert(sizeof(VolumeType) == 4, "nw::eft::VolumeType size mismatch");
 
 enum ShaderType
 {
-    ShaderType_Normal     = 0,
-    ShaderType_UserMacro1 = 1,
-    ShaderType_UserMacro2 = 2,
-    ShaderType_Max        = 3,
+    EFT_SHADER_TYPE_NORMAL      = 0,
+    EFT_SHADER_TYPE_USER_DEF1   = 1,
+    EFT_SHADER_TYPE_USER_DEF2   = 2,
+    EFT_SHADER_TYPE_MAX         = 3,
+
+    EFT_SHADER_TYPE_FORCE_4BYTE = 0x80000000
 };
-static_assert(sizeof(ShaderType) == 4, "ShaderType size mismatch");
+static_assert(sizeof(ShaderType) == 4, "nw::eft::ShaderType size mismatch");
 
 enum BlendType
 {
-    BlendType_Normal = 0,
-    BlendType_Add    = 1,
-    BlendType_Sub    = 2,
-    BlendType_Screen = 3,
-    BlendType_Mult   = 4,
-    BlendType_User   = 5,
-    BlendType_Max    = 6,
+    EFT_BLEND_TYPE_NORMAL = 0,
+    EFT_BLEND_TYPE_ADD,
+    EFT_BLEND_TYPE_SUB,
+    EFT_BLEND_TYPE_SCREEN,
+    EFT_BLEND_TYPE_MULT,
+    EFT_BLEND_TYPE_NONE,
+    EFT_BLEND_TYPE_MAX,
+    EFT_BLEND_TYPE_FORCE_4BYTE = 0x80000000
 };
-static_assert(sizeof(BlendType) == 4, "BlendType size mismatch");
+static_assert(sizeof(BlendType) == 4, "nw::eft::BlendType size mismatch");
 
 enum ZBufATestType
 {
-    ZBufATestType_Normal   = 0,
-    ZBufATestType_Ignore_Z = 1,
-    ZBufATestType_Alpha    = 2,
-    ZBufATestType_Max      = 3,
+    EFT_ZBUFF_ATEST_TYPE_NORMAL = 0,
+    EFT_ZBUFF_ATEST_TYPE_ZIGNORE,
+    EFT_ZBUFF_ATEST_TYPE_ENTITY,
+    EFT_ZBUFF_ATEST_TYPE_MAX,
+    EFT_ZBUFF_ATEST_TYPE_FORCE_4BYTE = 0x80000000
 };
-static_assert(sizeof(ZBufATestType) == 4, "ZBufATestType size mismatch");
+static_assert(sizeof(ZBufATestType) == 4, "nw::eft::ZBufATestType size mismatch");
 
-enum VertexRotationMode // Actual name not known
+enum PtclRotType
 {
-    VertexRotationMode_None       = 0,
-    VertexRotationMode_Rotate_X   = 1,
-    VertexRotationMode_Rotate_Y   = 2,
-    VertexRotationMode_Rotate_Z   = 3,
-    VertexRotationMode_Rotate_XYZ = 4,
-    VertexRotationMode_Max        = 5,
+    EFT_ROT_TYPE_NO_WORK   = 0 ,
+    EFT_ROT_TYPE_ROTX,
+    EFT_ROT_TYPE_ROTY,
+    EFT_ROT_TYPE_ROTZ,
+    EFT_ROT_TYPE_ROTXYZ,
+    EFT_ROT_TYPE_MAX,
+    EFT_ROT_TYPE_FORCE_4BYTE = 0x80000000
 };
-static_assert(sizeof(VertexRotationMode) == 4, "VertexRotationMode size mismatch");
+static_assert(sizeof(PtclRotType) == 4, "nw::eft::PtclRotType size mismatch");
 
 enum MeshType
 {
-    MeshType_Particle  = 0,
-    MeshType_Primitive = 1,
-    MeshType_Stripe    = 2,
-    MeshType_Max       = 3,
+    EFT_MESH_TYPE_PARTICLE = 0,
+    EFT_MESH_TYPE_PRIMITIVE,
+    EFT_MESH_TYPE_STRIPE,
+    EFT_MESH_TYPE_FORCE_4BYTE = 0x80000000
 };
-static_assert(sizeof(MeshType) == 4, "MeshType size mismatch");
+static_assert(sizeof(MeshType) == 4, "nw::eft::MeshType size mismatch");
 
-enum VertexTransformMode // Actual name not known
+enum BillboardType
 {
-    VertexTransformMode_Billboard           = 0,
-    VertexTransformMode_Plate_XY            = 1,
-    VertexTransformMode_Plate_XZ            = 2,
-    VertexTransformMode_Directional_Y       = 3,
-    VertexTransformMode_Directional_Polygon = 4,
-    VertexTransformMode_Stripe              = 5,
-    VertexTransformMode_Complex_Stripe      = 6,
-    VertexTransformMode_Primitive           = 7,
-    VertexTransformMode_Y_Billboard         = 8,
-};
-static_assert(sizeof(VertexTransformMode) == 4, "VertexTransformMode size mismatch");
+    EFT_BILLBOARD_TYPE_BILLBOARD = 0,
+    EFT_BILLBOARD_TYPE_POLYGON_XY,
+    EFT_BILLBOARD_TYPE_POLYGON_XZ,
+    EFT_BILLBOARD_TYPE_VEL_LOOK,
+    EFT_BILLBOARD_TYPE_VEL_LOOK_POLYGON,
+    EFT_BILLBOARD_TYPE_STRIPE,
+    EFT_BILLBOARD_TYPE_COMPLEX_STRIPE,
+    EFT_BILLBOARD_TYPE_PRIMITIVE,
+    EFT_BILLBOARD_TYPE_Y_BILLBOARD,
 
-enum FragmentComposite // Actual name not known
-{
-    FragmentComposite_Mul = 0,
-    FragmentComposite_Add = 1,
-    FragmentComposite_Sub = 2,
-    FragmentComposite_Max = 3,
+    EFT_BILLBOARD_TYPE_MAX,
+    EFT_BILLBOARD_TYPE_FORCE_4BYTE = 0x80000000
 };
-static_assert(sizeof(FragmentComposite) == 4, "FragmentComposite size mismatch");
+static_assert(sizeof(BillboardType) == 4, "nw::eft::BillboardType size mismatch");
 
-enum ColorSourceType // Actual name not known
+enum CombinerType
 {
-    ColorSourceType_First  = 0,
-    ColorSourceType_Random = 1,
-    ColorSourceType_3v4k   = 2,
-    ColorSourceType_Max    = 3,
+    EFT_COMBINER_TYPE_COLOR                 = 0,
+    EFT_COMBINER_TYPE_TEXTURE               = 1,
+    EFT_COMBINER_TYPE_TEXTURE_INTERPOLATE   = 2,
+    EFT_COMBINER_TYPE_TEXTURE_ADD           = 3,
+    EFT_COMBINER_TYPE,
+    EFT_COMBINER_TYPE_FORCE4BYTE            = 0x80000000
 };
-static_assert(sizeof(ColorSourceType) == 4, "ColorSourceType size mismatch");
+static_assert(sizeof(CombinerType) == 4, "nw::eft::CombinerType size mismatch");
 
-enum TextureResFormat // Actual name not known
+enum AlphaCombinerType
 {
-    TextureResFormat_Invalid     = 0,
-    TextureResFormat_RGB8_Unorm  = 1,
-    TextureResFormat_RGBA8_Unorm = 2,
-    TextureResFormat_BC1_Unorm   = 3,
-    TextureResFormat_BC1_SRGB    = 4,
-    TextureResFormat_BC2_Unorm   = 5,
-    TextureResFormat_BC2_SRGB    = 6,
-    TextureResFormat_BC3_Unorm   = 7,
-    TextureResFormat_BC3_SRGB    = 8,
-    TextureResFormat_BC4_Unorm   = 9,
-    TextureResFormat_BC4_Snorm   = 10,
-    TextureResFormat_BC5_Unorm   = 11,
-    TextureResFormat_BC5_Snorm   = 12,
-    TextureResFormat_R8_Unorm    = 13,
-    TextureResFormat_RG8_Unorm   = 14,
-    TextureResFormat_RGBA8_SRGB  = 15,
-    TextureResFormat_Max         = 16,
+    EFT_ALPHA_COMBINER_TYPE_MOD             = 0,
+    EFT_ALPHA_COMBINER_TYPE_SUB             = 1,
+    EFT_ALPHA_COMBINER_TYPE_MOD_R           = 2,
+    EFT_ALPHA_COMBINER_TYPE_SUB_R           = 3,
+    EFT_ALPHA_COMBINER_TYPE,
+    EFT_ALPHA_COMBINER_TYPE_FORCE4BYTE = 0x80000000
 };
-static_assert(sizeof(TextureResFormat) == 4, "TextureResFormat size mismatch");
+static_assert(sizeof(AlphaCombinerType) == 4, "nw::eft::AlphaCombinerType size mismatch");
+
+enum ColorBlendType
+{
+    EFT_COLOR_BLEND_TYPE_MOD = 0,
+    EFT_COLOR_BLEND_TYPE_ADD,
+    EFT_COLOR_BLEND_TYPE_SUB,
+    EFT_COLOR_BLEND_TYPE_FORCE4BYTE = 0x80000000
+};
+static_assert(sizeof(ColorBlendType) == 4, "nw::eft::ColorBlendType size mismatch");
+
+enum ColorCalcType
+{
+    EFT_COLOR_CALC_TYPE_NONE = 0,
+    EFT_COLOR_CALC_TYPE_RANDOM,
+    EFT_COLOR_CALC_TYPE_RANDOM_LINEAR3COLOR,
+
+    EFT_COLOR_CALC_TYPE_FORCE4BYTE = 0x80000000
+};
+static_assert(sizeof(ColorCalcType) == 4, "nw::eft::ColorCalcType size mismatch");
+
+enum ColorKind
+{
+    EFT_COLOR_KIND_0    = 0,
+    EFT_COLOR_KIND_1    = 1,
+    EFT_COLOR_KIND_MAX  = 2,
+    EFT_COLOR_KIND_FORCE_4BYTE = 0x80000000
+};
+static_assert(sizeof(ColorKind) == 4, "nw::eft::ColorKind size mismatch");
+
+enum TextureFormat
+{
+    EFT_TEXTURE_FORMAT_NONE = 0,
+    EFT_TEXTURE_FORMAT_24BIT_COLOR,
+    EFT_TEXTURE_FORMAT_32BIT_COLOR,
+    EFT_TEXTURE_FORMAT_UNORM_BC1,
+    EFT_TEXTURE_FORMAT_SRGB_BC1,
+    EFT_TEXTURE_FORMAT_UNORM_BC2,
+    EFT_TEXTURE_FORMAT_SRGB_BC2,
+    EFT_TEXTURE_FORMAT_UNORM_BC3,
+    EFT_TEXTURE_FORMAT_SRGB_BC3,
+    EFT_TEXTURE_FORMAT_UNORM_BC4,
+    EFT_TEXTURE_FORMAT_SNORM_BC4,
+    EFT_TEXTURE_FORMAT_UNORM_BC5,
+    EFT_TEXTURE_FORMAT_SNORM_BC5,
+    EFT_TEXTURE_FORMAT_UNORM_8,
+    EFT_TEXTURE_FORMAT_UNORM_8_8,
+    EFT_TEXTURE_FORMAT_SRGB_8_8_8_8,
+
+    EFT_TEXTURE_FORMAT_FORCE4BYTE = 0x80000000
+};
+static_assert(sizeof(TextureFormat) == 4, "nw::eft::TextureFormat size mismatch");
+
+enum UvShiftAnimMode
+{
+    EFT_UV_SHIFT_ANIM_NONE = 0,
+    EFT_UV_SHIFT_ANIM_SCROLL,
+    EFT_UV_SHIFT_ANIM_SCALE,
+    EFT_UV_SHIFT_ANIM_ROT,
+    EFT_UV_SHIFT_ANIM_ALL,
+
+    EFT_TEXTURE_ADD_ANIM__FORCE4BYTE = 0x80000000
+};
+static_assert(sizeof(UvShiftAnimMode) == 4, "nw::eft::UvShiftAnimMode size mismatch");
+
+enum ChildFlg
+{
+    EFT_CHILD_FLAG_ENABLE                       = ( 1 << 0 ) ,
+    EFT_CHILD_FLAG_COLOR0_INHERIT               = ( 1 << 1 ) ,
+    EFT_CHILD_FLAG_ALPHA_INHERIT                = ( 1 << 2 ) ,
+    EFT_CHILD_FLAG_SCALE_INHERIT                = ( 1 << 3 ) ,
+    EFT_CHILD_FLAG_ROTATE_INHERIT               = ( 1 << 4 ) ,
+    EFT_CHILD_FLAG_VEL_INHERIT                  = ( 1 << 5 ) ,
+    EFT_CHILD_FLAG_EMITTER_FOLLOW               = ( 1 << 6 ) ,
+    EFT_CHILD_FLAG_DISP_PARENT                  = ( 1 << 7 ) ,
+    EFT_CHILD_FLAG_WORLD_FIELD                  = ( 1 << 8 ) ,
+    EFT_CHILD_FLAG_IS_POLYGON                   = ( 1 << 9 ) ,
+    EFT_CHILD_FLAG_IS_EMITTER_BILLBOARD_MTX     = ( 1 << 10 ),
+    EFT_CHILD_FLAG_PARENT_FIELD                 = ( 1 << 11 ),
+    EFT_CHILD_FLAG_PRE_CHILD_DRAW               = ( 1 << 12 ),
+    EFT_CHILD_FLAG_IS_TEXTURE_PAT_ANIM          = ( 1 << 13 ),
+    EFT_CHILD_FLAG_IS_TEXTURE_PAT_ANIM_RAND     = ( 1 << 14 ),
+    EFT_CHILD_FLAG_COLOR1_INHERIT               = ( 1 << 15 ),
+    EFT_CHILD_FLAG_COLOR_SCALE_INHERIT          = ( 1 << 16 ),
+
+    EFT_CHILD_FLAG_TEXTURE_COLOR_ONE            = ( 1 << 17 ) ,
+    EFT_CHILD_FLAG_PRIMITIVE_COLOR_ONE          = ( 1 << 18 ) ,
+    EFT_CHILD_FLAG_TEXTURE_ALPHA_ONE            = ( 1 << 19 ) ,
+    EFT_CHILD_FLAG_PRIMITIVE_ALPHA_ONE          = ( 1 << 20 ) ,
+
+    EFT_CHILD_FLAG_FORCE_4BYTE = 0x80000000
+};
+static_assert(sizeof(ChildFlg) == 4, "nw::eft::ChildFlg size mismatch");
+
+enum FieldType
+{
+    EFT_FIELD_TYPE_RANDOM,
+    EFT_FIELD_TYPE_MAGNET,
+    EFT_FIELD_TYPE_SPIN,
+    EFT_FIELD_TYPE_COLLISION,
+    EFT_FIELD_TYPE_CONVERGENCE,
+    EFT_FIELD_TYPE_POSADD,
+    EFT_FIELD_TYPE_MAX,
+    EFT_FIELD_TYPE_FORCE_4BYTE = 0x80000000
+};
+static_assert(sizeof(FieldType) == 4, "nw::eft::FieldType size mismatch");
+
+enum FieldMask
+{
+    EFT_FIELD_MASK_RANDOM       = ( 1 << EFT_FIELD_TYPE_RANDOM      ),
+    EFT_FIELD_MASK_MAGNET       = ( 1 << EFT_FIELD_TYPE_MAGNET      ),
+    EFT_FIELD_MASK_SPIN         = ( 1 << EFT_FIELD_TYPE_SPIN        ),
+    EFT_FIELD_MASK_COLLISION    = ( 1 << EFT_FIELD_TYPE_COLLISION   ),
+    EFT_FIELD_MASK_CONVERGENCE  = ( 1 << EFT_FIELD_TYPE_CONVERGENCE ),
+    EFT_FIELD_MASK_POSADD       = ( 1 << EFT_FIELD_TYPE_POSADD      ),
+    EFT_FIELD_MASK_FORCE_4BYTE = 0x80000000
+};
+static_assert(sizeof(FieldMask) == 4, "nw::eft::FieldMask size mismatch");
+
+enum FluctuationFlg
+{
+    EFT_FLUCTUATION_FALG_ENABLE         = ( 1 << 0 ) ,
+    EFT_FLUCTUATION_FALG_APPLY_ALPHA    = ( 1 << 1 ) ,
+    EFT_FLUCTUATION_FALG_APPLY_SCLAE    = ( 1 << 2 ) ,
+    EFT_FLUCTUATION_FALG_FORCE_4BYTE = 0x80000000
+};
+static_assert(sizeof(FluctuationFlg) == 4, "nw::eft::FluctuationFlg size mismatch");
+
+enum
+{
+    EFT_FLUCTUATION_TABLE_NUM           = 128 ,
+    EFT_FLUCTUATION_TABLE_MASK          = EFT_FLUCTUATION_TABLE_NUM - 1 ,
+    EFT_FLUCTUATION_TABLE_FORCE_4BYTE = 0x80000000
+};
+
+enum FieldMagnetFlg
+{
+    EFT_MAGNET_FLAG_X = ( 1 << 0 ) ,
+    EFT_MAGNET_FLAG_Y = ( 1 << 1 ) ,
+    EFT_MAGNET_FLAG_Z = ( 1 << 2 ) ,
+    EFT_MAGNET_FLAG_FORCE_4BYTE = 0x80000000
+};
+static_assert(sizeof(FieldMagnetFlg) == 4, "nw::eft::FieldMagnetFlg size mismatch");
+
+enum FieldCollisionReaction
+{
+    EFT_FIELD_COLLISION_REACTION_CESSER = 0 ,
+    EFT_FIELD_COLLISION_REACTION_REFLECTION ,
+    EFT_FIELD_COLLISION_REACTION_FORCE_4BYTE = 0x80000000
+};
+static_assert(sizeof(FieldCollisionReaction) == 4, "nw::eft::FieldCollisionReaction size mismatch");
+
+enum StripeFlg
+{
+    EFT_STRIPE_FLAG_EMITTER_COORD       = ( 1 << 0 ) ,
+    EFT_STRIPE_FLAG_FORCE_4BYTE = 0x80000000
+};
+static_assert(sizeof(StripeFlg) == 4, "nw::eft::StripeFlg size mismatch");
+
+enum StripeType
+{
+    EFT_STRIPE_TYPE_BILLBOARD,
+    EFT_STRIPE_TYPE_EMITTER_MATRIX ,
+    EFT_STRIPE_TYPE_EMITTER_UP_DOWN,
+    EFT_STRIPE_TYPE_MAX,
+    EFT_STRIPE_TYPE_FORCE_4BYTE = 0x80000000
+};
+static_assert(sizeof(StripeType) == 4, "nw::eft::StripeType size mismatch");
+
+enum StripeOption
+{
+    EFT_STRIPE_OPTION_TYPE_NORMAL,
+    EFT_STRIPE_OPTION_TYPE_CROSS,
+    EFT_STRIPE_OPTION_TYPE_MAX,
+    EFT_STRIPE_OPTION_TYPE_FORCE_4BYTE = 0x80000000
+};
+static_assert(sizeof(StripeOption) == 4, "nw::eft::StripeOption size mismatch");
+
+enum StripeConnectOption
+{
+    EFT_STRIPE_CONNECT_OPTION_NORMAL,
+    EFT_STRIPE_CONNECT_OPTION_HEAD,
+    EFT_STRIPE_CONNECT_OPTION_EMITTER,
+    EFT_STRIPE_CONNECT_OPTION_EMITTER_UNBIND,
+
+
+    EFT_CONNECTION_STRIPE_OPTION_FORCE_4BYTE = 0x80000000
+};
+static_assert(sizeof(StripeConnectOption) == 4, "nw::eft::StripeConnectOption size mismatch");
+
+enum StripeTexCoordOption
+{
+    EFT_STRIPE_TEXCOORD_OPTION_TYPE_FULL,
+    EFT_STRIPE_TEXCOORD_OPTION_TYPE_DIVISION,
+    EFT_STRIPE_TEXCOORD_OPTION_TYPE_MAX,
+    EFT_STRIPE_TEXCOORD_OPTION_TYPE_FORCE_4BYTE = 0x80000000
+};
+static_assert(sizeof(StripeTexCoordOption) == 4, "nw::eft::StripeTexCoordOption size mismatch");
+
+enum UserDataFlag
+{
+    EFT_USER_DATA_FLAG_0  = 0x01 << 16,
+    EFT_USER_DATA_FLAG_1  = 0x01 << 17,
+    EFT_USER_DATA_FLAG_2  = 0x01 << 18,
+    EFT_USER_DATA_FLAG_3  = 0x01 << 19,
+    EFT_USER_DATA_FLAG_4  = 0x01 << 20,
+    EFT_USER_DATA_FLAG_5  = 0x01 << 21,
+    EFT_USER_DATA_FLAG_6  = 0x01 << 22,
+    EFT_USER_DATA_FLAG_7  = 0x01 << 23,
+    EFT_USER_DATA_FLAG_8  = 0x01 << 24,
+    EFT_USER_DATA_FLAG_9  = 0x01 << 25,
+    EFT_USER_DATA_FLAG_10 = 0x01 << 26,
+    EFT_USER_DATA_FLAG_11 = 0x01 << 27,
+    EFT_USER_DATA_FLAG_12 = 0x01 << 28,
+    EFT_USER_DATA_FLAG_13 = 0x01 << 29,
+    EFT_USER_DATA_FLAG_14 = 0x01 << 30,
+    EFT_USER_DATA_FLAG_15 = 0x01U << 31
+};
+
+enum UserDataParamIdx
+{
+    EFT_USER_DATA_PARAM_0   = 0,
+    EFT_USER_DATA_PARAM_1   = 1,
+    EFT_USER_DATA_PARAM_2   = 2,
+    EFT_USER_DATA_PARAM_3   = 3,
+    EFT_USER_DATA_PARAM_4   = 4,
+    EFT_USER_DATA_PARAM_5   = 5,
+    EFT_USER_DATA_PARAM_6   = 6,
+    EFT_USER_DATA_PARAM_7   = 7,
+    EFT_USER_DATA_PARAM_MAX = 8
+};
 
 struct VertexTextureLocation
 {
-    u32 location;
+    u32 loc;
+
+    bool IsValid() const
+    {
+        return loc != u32(EFT_INVALID_LOCATION);
+    }
 };
-static_assert(sizeof(VertexTextureLocation) == 4, "VertexTextureLocation size mismatch");
+static_assert(sizeof(VertexTextureLocation) == 4, "nw::eft::VertexTextureLocation size mismatch");
 
 struct FragmentTextureLocation
 {
-    u32 location;
+    u32 loc;
+
+    bool IsValid() const
+    {
+        return loc != u32(EFT_INVALID_LOCATION);
+    }
 };
-static_assert(sizeof(FragmentTextureLocation) == 4, "FragmentTextureLocation size mismatch");
+static_assert(sizeof(FragmentTextureLocation) == 4, "nw::eft::FragmentTextureLocation size mismatch");
 
 struct PtclAttributeBuffer
 {
-    math::VEC4 wldPos;
-    math::VEC4 scl;
-    math::VEC4 color0;
-    math::VEC4 color1;
-    math::VEC4 texAnim;
-    math::VEC4 wldPosDf;
-    math::VEC4 rot;
-    math::VEC4 subTexAnim;
-    math::MTX34 emtMat;
+    nw::math::VEC4    pWldPos;
+    nw::math::VEC4    pScl;
+    nw::math::VEC4    pColor0;
+    nw::math::VEC4    pColor1;
+    nw::math::VEC4    pTexAnim;
+    nw::math::VEC4    pWldPosDf;
+    nw::math::VEC4    pRot;
+    nw::math::VEC4    pSubTexAnim;
+    nw::math::VEC4    pEmtMat[3];
 };
-static_assert(sizeof(PtclAttributeBuffer) == 0xB0, "PtclAttributeBuffer size mismatch");
+static_assert(sizeof(PtclAttributeBuffer) == 0xB0, "nw::eft::PtclAttributeBuffer size mismatch");
 
-struct PrimitiveTable // Actual name not known
+struct PrimitiveImageInformation
 {
-    u32 numPrimitive;
-    u32 size;
-    u32 primitiveOffs;
+    u32     primitiveNum;
+    u32     totalSize;
+    u32     offsetPrimitiveTableInfo;
 };
-static_assert(sizeof(PrimitiveTable) == 0xC, "PrimitiveTable size mismatch");
+static_assert(sizeof(PrimitiveImageInformation) == 0xC, "nw::eft::PrimitiveImageInformation size mismatch");
 
-struct PrimitiveAttrib // Actual name not known
+struct PrimitiveTableInfo
 {
-    u32 count;
-    u32 size;
-    u32 bufferOffs;
-    u32 bufferSize;
-};
-static_assert(sizeof(PrimitiveAttrib) == 0x10, "PrimitiveAttrib size mismatch");
+    struct PrimDataTable
+    {
+        u32     count;
+        u32     column;
+        u32     offset;
+        u32     size;
+    };
+    static_assert(sizeof(PrimDataTable) == 0x10, "nw::eft::PrimitiveTableInfo::PrimDataTable size mismatch");
 
-struct PrimitiveData // Actual name not known
-{
-    PrimitiveAttrib pos;
-    PrimitiveAttrib normal;
-    PrimitiveAttrib color;
-    PrimitiveAttrib texCoord;
-    PrimitiveAttrib index;
+    PrimDataTable pos;
+    PrimDataTable normal;
+    PrimDataTable color;
+    PrimDataTable texCoord;
+    PrimDataTable index;
 };
-static_assert(sizeof(PrimitiveData) == 0x50, "PrimitiveData size mismatch");
+static_assert(sizeof(PrimitiveTableInfo) == 0x50, "nw::eft::PrimitiveTableInfo size mismatch");
 
-struct Header // Actual name not known
+struct HeaderData
 {
-    char magic[4];
-    u32 version;
-    s32 numEmitterSet;
-    u8 _unusedPad0[4];
-    u32 strTblOffs;
-    u32 textureDataTblOffs;
-    u32 textureDataTblSize;
-    u32 shaderTblOffs;
-    u32 shaderTblSize;
-    u32 keyAnimArrayTblOffs;
-    u32 keyAnimArrayTblSize;
-    u32 primitiveTblOffs;
-    u32 primitiveTblSize;
-    u8 _unusedPad1[12];
+    char    magic[4];
+    u32     version;
+    s32     numEmitterSet;
+    s32     namePos;
+    s32     nameTblPos;
+    s32     textureTblPos;
+    s32     textureTblSize;
+    s32     shaderTblPos;
+    s32     shaderTblSize;
+    s32     animkeyTblPos;
+    s32     animkeyTblSize;
+    s32     primitiveTblPos;
+    s32     primitiveTblSize;
+    s32     totalTextureSize;
+    s32     totalShaderSize;
+    s32     totalEmitterSize;
 };
-static_assert(sizeof(Header) == 0x40, "Header size mismatch");
+static_assert(sizeof(HeaderData) == 0x40, "nw::eft::HeaderData size mismatch");
 
-struct EmitterSetData // Actual name not known
+struct EmitterSetData
 {
-    u32 userData;
-    u8 _unusedPad[4];
-    u32 nameOffs;
-    const char* name;
-    s32 numEmitter;
-    u32 emitterRefOffs;
-    u32* emitterRef;
+    u32     userData;
+    u32     lastUpdateDate;
+    s32     namePos;
+    char*   name;
+    s32     numEmitter;
+    s32     emitterTblPos;
+    u32*    emitterTbl;
 };
-static_assert(sizeof(EmitterSetData) == 0x1C, "EmitterSetData size mismatch");
+static_assert(sizeof(EmitterSetData) == 0x1C, "nw::eft::EmitterSetData size mismatch");
 
 struct EmitterTblData
 {
-    u32 dataOffs;
-    EmitterData* data;
+    s32                 emitterPos;
+    CommonEmitterData*  emitter;
 };
-static_assert(sizeof(EmitterTblData) == 8, "EmitterTblData size mismatch");
+static_assert(sizeof(EmitterTblData) == 8, "nw::eft::EmitterTblData size mismatch");
+
+struct UserShaderParam
+{
+    f32 param[32];
+};
+static_assert(sizeof(UserShaderParam) == 0x80, "nw::eft::UserShaderParam size mismatch");
 
 struct TextureRes
 {
-    u16 width;
-    u16 height;
-    GX2TileMode tileMode;
-    u32 swizzle;
-    u32 alignment;
-    u32 pitch;
-    u8 wrapMode;
-    u8 filterMode;
-    u32 numMips;
-    u32 compSel;
-    u32 mipOffset[13];
-    f32 maxLOD;
-    f32 biasLOD;
-    TextureResFormat originalTexFormat;
-    u32 originalTexDataOffs;
-    u32 originalTexDataSize;
-    TextureResFormat cafeTexFormat;
-    u32 cafeTexDataSize;
-    u32 cafeTexDataOffs;
-    u32 initialized;
-    GX2Texture gx2Texture;
+    u16                 width;
+    u16                 height;
+    GX2TileMode         tileMode;
+    u32                 swizzle;
+    u32                 alignment;
+    u32                 pitch;
+    u8                  wrapMode;
+    u8                  filterMode;
+    u8                  dummy[2];
+    u32                 mipLevel;
+    u32                 compSel;
+    u32                 mipOffset[13];
+    f32                 enableMipLevel;
+    f32                 mipMapBias;
+    TextureFormat       originalDataFormat;
+    s32                 originalDataPos;
+    s32                 originalDataSize;
+    TextureFormat       nativeDataFormat;
+    s32                 nativeDataSize;
+    s32                 nativeDataPos;
+    u32                 handle;
+    GX2Texture          gx2Texture;
 };
-static_assert(sizeof(TextureRes) == 0x114, "TextureRes size mismatch");
+static_assert(sizeof(TextureRes) == 0x114, "nw::eft::TextureRes size mismatch");
 
-struct EmitterKeyAnimArray
+struct AnimKeyTable
 {
-    void* ptr;
-    u32 offset;
-    u32 size;
+    void*               animKeyTable;
+    u32                 animPos;
+    u32                 dataSize;
 };
-static_assert(sizeof(EmitterKeyAnimArray) == 0xC, "EmitterKeyAnimArray size mismatch");
+static_assert(sizeof(AnimKeyTable) == 0xC, "nw::eft::AnimKeyTable size mismatch");
 
-struct EmitterPrimitive
+struct PrimitiveFigure
 {
-    u8 _unusedPad[8];
-    u32 idx;
+    void*               primitiveTableInfo;
+    u32                 dataSize;
+    u32                 index;
 };
-static_assert(sizeof(EmitterPrimitive) == 0xC, "EmitterPrimitive size mismatch");
+static_assert(sizeof(PrimitiveFigure) == 0xC, "nw::eft::PrimitiveFigure size mismatch");
 
-struct EmitterData // Actual name not known
+struct CommonEmitterData
 {
-    EmitterType type;
-    u32 flags;
-    u32 seed;
-    u32 userData;
-    u8 _unusedPad0[36];
-    CustomActionCallBackID callbackID;
-    u32 nameOffs;
-    const char* name;
-    TextureRes textures[2];
-    EmitterKeyAnimArray keyAnimArray;
-    EmitterPrimitive primitive;
+    EmitterType     type;
+    u32             flg;
+    u32             randomSeed;
+    u32             userData;
+    u32             userData2;
+    f32             userDataF[EFT_USER_DATA_PARAM_MAX];
+    s32             userCallbackID;
+    s32             namePos;
+    char*           name;
+    TextureRes      texRes[EFT_TEXTURE_SLOT_BIN_MAX];
+    AnimKeyTable    animKeyTable;
+    PrimitiveFigure primitiveFigure;
 };
-static_assert(sizeof(EmitterData) == 0x280, "EmitterData size mismatch");
+static_assert(sizeof(CommonEmitterData) == 0x280, "nw::eft::CommonEmitterData size mismatch");
 
 struct TextureEmitterData
 {
-    bool hasTexPtnAnim;
-    bool texPtnAnimRandStart;
-    bool texPtnAnimClamp;
-    u8 texPtnAnimIdxDiv;
-    u8 _unusedPad0;
-    u8 texPtnAnimNum;
-    u8 _unusedPad1[2];
-    s16 texPtnAnimPeriod;
-    s16 texPtnAnimUsedSize;
-    u8 texPtnAnimData[32];
-    u8 _unusedPad2[4];
-    math::VEC2 uvScaleInit;
-    u32 uvShiftAnimMode;
-    math::VEC2 texIncScroll;
-    math::VEC2 texInitScroll;
-    math::VEC2 texInitScrollRandom;
-    math::VEC2 texIncScale;
-    math::VEC2 texInitScale;
-    math::VEC2 texInitScaleRandom;
-    f32 texIncRotate;
-    f32 texInitRotate;
-    f32 texInitRotateRandom;
-};
-static_assert(sizeof(TextureEmitterData) == 0x78, "TextureEmitterData size mismatch");
+    u8                  isTexPatAnim;
+    u8                  isTexPatAnimRand;
+    u8                  isTexPatAnimClump;
+    u8                  numTexDivX;
 
-struct anim3v4Key
-{
-    f32 startValue;
-    f32 startDiff;
-    f32 endDiff;
-    s32 time2;
-    s32 time3;
-};
-static_assert(sizeof(anim3v4Key) == 0x14, "anim3v4Key size mismatch");
+    u8                  numTexDivY;
+    u8                  numTexPat;
+    u8                  dummy[2];
 
-struct SimpleEmitterData : EmitterData
-{
-    u8 _unused0[3];
-    u8 transformGravity;
-    u8 _unused1;
-    u8 noEmitAtFade;
-    u8 sphereDivTblIdx;
-    u8 arcStartAngleRandom;
-    u8 displayParent;
-    u8 emitSameDistance;
-    u8 sphereUseLatitude;
-    VertexRotationMode rotationMode;
-    PtclFollowType ptclFollowType;
-    u32 fragmentColorMode;
-    u32 fragmentAlphaMode;
-    s32 _bitForUnusedFlag;
-    DisplaySideType displaySideType;
-    f32 momentumRandom;
-    math::MTX34 animMatrixSRT;
-    math::MTX34 animMatrixRT;
-    math::VEC3 emitterScale;
-    math::VEC3 emitterRotate;
-    math::VEC3 emitterTranslate;
-    math::VEC3 emitterRotateRandom;
-    math::VEC3 emitterTranslateRandom;
-    BlendType blendType;
-    ZBufATestType zBufATestType;
-    u32 emitFunction;
-    math::VEC3 volumeScale;
-    s32 arcStartAngle;
-    u32 arcLength;
-    f32 volumeFillRatio;
-    f32 sphereLatitude;
-    math::VEC3 sphereLatitudeDir;
-    f32 lineCenter;
-    math::VEC3 emissionShapeScale;
-    ut::Color4f emitterColor0;
-    ut::Color4f emitterColor1;
-    f32 emitterAlpha;
-    f32 emitSameDistanceUnit;
-    f32 emitSameDistanceMax;
-    f32 emitSameDistanceMin;
-    f32 emitSameDistanceThreshold;
-    f32 emissionRate;
-    s32 startFrame;
-    s32 endFrame;
-    s32 emitInterval;
-    s32 emitIntervalRandom;
-    f32 allDirVel;
-    f32 dirVel;
-    f32 dirVelRandom;
-    math::VEC3 dir;
-    f32 dispersionAngle;
-    math::VEC3 diffusionVel;
-    f32 airResist;
-    math::VEC3 gravity;
-    f32 yDiffusionVel;
-    f32 ptclPosRandom;
-    s32 ptclMaxLifespan;
-    s32 ptclLifespanRandom;
-    MeshType meshType;
-    VertexTransformMode vertexTransformMode;
-    math::VEC2 rotBasis;
-    f32 cameraOffset;
-    TextureEmitterData texAnimParam[2];
-    ColorSourceType ptclColorSrc[2];
-    ut::Color4f ptclColorTbl[2][3];
-    s32 colorTime2[2];
-    s32 colorTime3[2];
-    s32 colorTime4[2];
-    s32 colorNumRepetition[2];
-    s32 colorRandomStart[2];
-    f32 colorScaleFactor;
-    anim3v4Key alphaAnim;
-    FragmentComposite textureColorBlend;
-    FragmentComposite primitiveColorBlend;
-    FragmentComposite textureAlphaBlend;
-    FragmentComposite primitiveAlphaBlend;
-    s32 scaleAnimTime2;
-    s32 scaleAnimTime3;
-    f32 ptclScaleRandom;
-    math::VEC2 ptclEmitScale;
-    math::VEC2 ptclScaleStart;
-    math::VEC2 ptclScaleStartDiff;
-    math::VEC2 ptclScaleEndDiff;
-    math::VEC3 ptclRotate;
-    math::VEC3 ptclRotateRandom;
-    math::VEC3 angularVelocity;
-    math::VEC3 angularVelocityRandom;
-    f32 rotInertia;
-    f32 fadeAlphaStep;
-    u8 fragmentShaderMode;
-    u8 shaderUserSetting;
-    bool fragmentSoftEdge;
-    bool refractionApplyAlpha;
-    math::VEC2 shaderParam01;
-    f32 fragmentSoftEdgeFadeDist;
-    f32 fragmentSoftEdgeVolume;
-    char userMacro1[16];
-    char userMacro2[16];
-    u32 shaderUserFlag;
-    u32 shaderUserSwitchFlag;
-    u8 _unusedPad[0x6F4 - 0x674];
-};
-static_assert(sizeof(SimpleEmitterData) == 0x6F4, "SimpleEmitterData size mismatch");
+    s16                 texPatFreq;
+    s16                 texPatTblUse;
+    u8                  texPatTbl[EFT_TEXTURE_PATTERN_NUM];
+    TextureAddressing   texAddressingMode;
+    f32                 texUScale;
+    f32                 texVScale;
 
-struct ComplexEmitterData : SimpleEmitterData
-{
-    u32 childFlags;
-    u16 fieldFlags;
-    u16 fluctuationFlags;
-    u16 stripeFlags;
-    u8 _unusedPad[2];
-    u16 childDataOffs;
-    u16 fieldDataOffs;
-    u16 fluctuationDataOffs;
-    u16 stripeDataOffs;
-    u32 dataSize;
+    UvShiftAnimMode     uvShiftAnimMode;
+    nw::math::VEC2      uvScroll;
+    nw::math::VEC2      uvScrollInit;
+    nw::math::VEC2      uvScrollInitRand;
+    nw::math::VEC2      uvScale;
+    nw::math::VEC2      uvScaleInit;
+    nw::math::VEC2      uvScaleInitRand;
+    f32                 uvRot;
+    f32                 uvRotInit;
+    f32                 uvRotInitRand;
 };
-static_assert(sizeof(ComplexEmitterData) == 0x70C, "ComplexEmitterData size mismatch");
+static_assert(sizeof(TextureEmitterData) == 0x78, "nw::eft::TextureEmitterData size mismatch");
+
+struct SimpleEmitterData : public CommonEmitterData
+{
+    //------------------------------------------------------------------------------
+    //  Flags
+    //------------------------------------------------------------------------------
+    u8                  isPolygon;
+    u8                  isFollowAll;
+    u8                  isEmitterBillboardMtx;
+    u8                  isWorldGravity;
+
+    u8                  isDirectional;
+    u8                  isStopEmitInFade;
+    u8                  volumeTblIndex;
+    u8                  volumeSweepStartRandom;
+
+    u8                  isDisplayParent;
+    u8                  emitDistEnabled;
+    u8                  isVolumeLatitudeEnabled;
+    u8                  dummy;
+
+    //------------------------------------------------------------------------------
+    //  Various Settings
+    //------------------------------------------------------------------------------
+    PtclRotType         ptclRotType;
+    PtclFollowType      ptclFollowType;
+    CombinerType        colorCombinerType;
+    AlphaCombinerType   alphaCombinerType;
+    s32                 drawPath;
+    DisplaySideType     displaySide;
+    f32                 dynamicsRandom;
+
+    nw::math::MTX34     transformSRT;
+    nw::math::MTX34     transformRT;
+
+    nw::math::VEC3      scale;
+    nw::math::VEC3      rot;
+    nw::math::VEC3      trans;
+
+    nw::math::VEC3      rotRnd;
+    nw::math::VEC3      transRnd;
+
+    //------------------------------------------------------------------------------
+    //  Emitter
+    //------------------------------------------------------------------------------
+    BlendType           blendType;
+    ZBufATestType       zBufATestType;
+    VolumeType          volumeType;
+    nw::math::VEC3      volumeRadius;
+    s32                 volumeSweepStart;
+    u32                 volumeSweepParam;
+    f32                 volumeCaliber;
+    f32                 volumeLatitude;
+    nw::math::VEC3      volumeLatitudeDir;
+    f32                 lineCenter;
+    nw::math::VEC3      formScale;
+
+    nw::ut::FloatColor  color0;
+    nw::ut::FloatColor  color1;
+    f32                 alpha;
+
+    f32                 emitDistUnit;
+    f32                 emitDistMax;
+    f32                 emitDistMin;
+    f32                 emitDistMargin;
+
+    //------------------------------------------------------------------------------
+    //  Emission
+    //------------------------------------------------------------------------------
+    f32                 emitRate;
+    s32                 startFrame;
+    s32                 endFrame;
+    s32                 lifeStep;
+    s32                 lifeStepRnd;
+    f32                 figureVel;
+    f32                 emitterVel;
+    f32                 initVelRnd;
+    nw::math::VEC3      emitterVelDir;
+    f32                 emitterVelDirAngle;
+    nw::math::VEC3      spreadVec;
+    f32                 airRegist;
+    nw::math::VEC3      gravity;
+    f32                 xzDiffusionVel;
+    f32                 initPosRand;
+
+    //------------------------------------------------------------------------------
+    //  Particle
+    //------------------------------------------------------------------------------
+    s32                 ptclLife;
+    s32                 ptclLifeRnd;
+    MeshType            meshType;
+    BillboardType       billboardType;
+    nw::math::VEC2      rotBasis;
+    f32                 toCameraOffset;
+
+    //------------------------------------------------------------------------------
+    //  Texture
+    //------------------------------------------------------------------------------
+    TextureEmitterData  textureData[EFT_TEXTURE_SLOT_BIN_MAX];
+
+    //------------------------------------------------------------------------------
+    //  Particle Color
+    //------------------------------------------------------------------------------
+    ColorCalcType       colorCalcType[EFT_COLOR_KIND_MAX];
+    nw::ut::FloatColor  color[EFT_COLOR_KIND_MAX][3];
+    s32                 colorSection1[EFT_COLOR_KIND_MAX];
+    s32                 colorSection2[EFT_COLOR_KIND_MAX];
+    s32                 colorSection3[EFT_COLOR_KIND_MAX];
+    s32                 colorNumRepeat[EFT_COLOR_KIND_MAX];
+    s32                 colorRepeatStartRand[EFT_COLOR_KIND_MAX];
+    f32                 colorScale;
+
+    //------------------------------------------------------------------------------
+    //  Particle Alpha
+    //------------------------------------------------------------------------------
+    f32                 initAlpha;
+    f32                 diffAlpha21;
+    f32                 diffAlpha32;
+    s32                 alphaSection1;
+    s32                 alphaSection2;
+
+    //------------------------------------------------------------------------------
+    //  Combiner
+    //------------------------------------------------------------------------------
+    ColorBlendType      texture1ColorBlend;
+    ColorBlendType      primitiveColorBlend;
+    ColorBlendType      texture1AlphaBlend;
+    ColorBlendType      primitiveAlphaBlend;
+
+    //------------------------------------------------------------------------------
+    //  Particle Scale
+    //------------------------------------------------------------------------------
+    s32                 scaleSection1;
+    s32                 scaleSection2;
+    f32                 scaleRand;
+    nw::math::VEC2      baseScale;
+    nw::math::VEC2      initScale;
+    nw::math::VEC2      diffScale21;
+    nw::math::VEC2      diffScale32;
+
+    //------------------------------------------------------------------------------
+    //  Particle Rotation
+    //------------------------------------------------------------------------------
+    nw::math::VEC3      initRot;
+    nw::math::VEC3      initRotRand;
+    nw::math::VEC3      rotVel;
+    nw::math::VEC3      rotVelRand;
+    f32                 rotRegist;
+
+    //------------------------------------------------------------------------------
+    //  Fade Out
+    //------------------------------------------------------------------------------
+    f32                 alphaAddInFade;
+
+    //------------------------------------------------------------------------------
+    //  Shader
+    //------------------------------------------------------------------------------
+    u8                  shaderType;
+    u8                  userShaderSetting;
+    u8                  shaderUseSoftEdge;
+    u8                  shaderApplyAlphaToRefract;
+    f32                 shaderParam0;
+    f32                 shaderParam1;
+    f32                 softFadeDistance;
+    f32                 softVolumeParam;
+    u8                  userShaderDefine1[16];
+    u8                  userShaderDefine2[16];
+    u32                 userShaderFlag;
+    u32                 userShaderSwitchFlag;
+    UserShaderParam     userShaderParam;
+};
+static_assert(sizeof(SimpleEmitterData) == 0x6F4, "nw::eft::SimpleEmitterData size mismatch");
+
+struct ComplexEmitterData : public SimpleEmitterData
+{
+    u32                 childFlg;
+
+    u16                 fieldFlg;
+    u16                 fluctuationFlg;
+    u16                 stripeFlg;
+    u16                 dummy;
+
+    u16                 childDataOffset;
+    u16                 fieldDataOffset;
+    u16                 fluctuationDataOffset;
+    u16                 stripeDataOffset;
+
+    s32                 emitterDataSize;
+};
+static_assert(sizeof(ComplexEmitterData) == 0x70C, "nw::eft::ComplexEmitterData size mismatch");
 
 struct ChildData
 {
-    s32 numChildParticles;
-    s32 startFramePercent;
-    s32 ptclMaxLifespan;
-    s32 emissionInterval;
-    f32 velInheritRatio;
-    f32 allDirVel;
-    math::VEC3 diffusionVel;
-    f32 ptclPosRandom;
-    EmitterPrimitive primitive;
-    f32 momentumRandom;
-    BlendType blendType;
-    MeshType meshType;
-    VertexTransformMode vertexTransformMode;
-    ZBufATestType zBufATestType;
-    TextureRes texture;
-    DisplaySideType displaySideType;
-    math::VEC3 ptclColor0;
-    math::VEC3 ptclColor1;
-    u8 _unusedPad0[4];
-    FragmentComposite primitiveColorBlend;
-    FragmentComposite primitiveAlphaBlend;
-    f32 ptclAlphaMid;
-    f32 ptclAlphaEnd;
-    f32 ptclAlphaStart;
-    f32 scaleInheritRatio;
-    math::VEC2 ptclEmitScale;
-    f32 ptclScaleRandom;
-    VertexRotationMode rotationMode;
-    math::VEC3 ptclRotate;
-    math::VEC3 ptclRotateRandom;
-    math::VEC3 angularVelocity;
-    math::VEC3 angularVelocityRandom;
-    f32 rotInertia;
-    math::VEC2 rotBasis;
-    math::VEC3 gravity;
-    s32 alphaAnimTime3;
-    s32 alphaAnimTime2;
-    s32 scaleAnimTime1;
-    math::VEC2 ptclScaleEnd;
-    u16 texPtnAnimNum;
-    u8 texPtnAnimIdxDiv;
-    math::VEC2 uvScaleInit;
-    u8 texPtnAnimData[32];
-    s16 texPtnAnimPeriod;
-    s16 texPtnAnimUsedSize;
-    bool texPtnAnimClamp;
-    u32 fragmentColorMode;
-    u32 fragmentAlphaMode;
-    f32 airResist;
-    u8 fragmentShaderMode;
-    u8 shaderUserSetting;
-    bool fragmentSoftEdge;
-    bool refractionApplyAlpha;
-    math::VEC2 shaderParam01;
-    f32 fragmentSoftEdgeFadeDist;
-    f32 fragmentSoftEdgeVolume;
-    char userMacro1[16];
-    char userMacro2[16];
-    u32 shaderUserFlag;
-    u32 shaderUserSwitchFlag;
-    u8 _unusedPad1[0x2FC - 0x27C];
+    s32                 childEmitRate;
+    s32                 childEmitTiming;
+    s32                 childLife;
+    s32                 childEmitStep;
+
+    f32                 childVelInheritRate;
+    f32                 childFigureVel;
+    nw::math::VEC3      childRandVel;
+    f32                 childInitPosRand;
+    PrimitiveFigure     childPrimitiveFigure;
+    f32                 childDynamicsRandom;
+
+    BlendType           childBlendType;
+    MeshType            childMeshType;
+    BillboardType       childBillboardType;
+    ZBufATestType       childZBufATestType;
+    TextureRes          childTex;
+    DisplaySideType     childDisplaySide;
+
+    nw::math::VEC3      childColor0;
+    nw::math::VEC3      childColor1;
+    f32                 childColorScale;
+
+    ColorBlendType      primitiveColorBlend;
+    ColorBlendType      primitiveAlphaBlend;
+
+    f32                 childAlpha;
+    f32                 childAlphaTarget;
+    f32                 childAlphaInit;
+
+    f32                 childScaleInheritRate;
+    nw::math::VEC2      childScale;
+    f32                 childScaleRand;
+
+    PtclRotType         childRotType;
+    nw::math::VEC3      childInitRot;
+    nw::math::VEC3      childInitRotRand;
+    nw::math::VEC3      childRotVel;
+    nw::math::VEC3      childRotVelRand;
+    f32                 childRotRegist;
+
+    nw::math::VEC2      childRotBasis;
+
+    nw::math::VEC3      childGravity;
+    s32                 childAlphaStartFrame;
+    s32                 childAlphaBaseFrame;
+    s32                 childScaleStartFrame;
+    nw::math::VEC2      childScaleTarget;
+
+    u16                 childNumTexPat;
+    u8                  childNumTexDivX;
+    u8                  childNumTexDivY;
+    f32                 childTexUScale;
+    f32                 childTexVScale;
+    u8                  childTexPatTbl[EFT_TEXTURE_PATTERN_NUM];
+    s16                 childTexPatFreq;
+    s16                 childTexPatTblUse;
+    u8                  isChildTexPatAnimClump;
+    u8                  dummy2[3];
+
+    CombinerType        childCombinerType;
+    AlphaCombinerType   childAlphaCombinerType;
+    f32                 childAirRegist;
+
+    //------------------------------------------------------------------------------
+    //  Shader
+    //------------------------------------------------------------------------------
+    u8                  childShaderType;
+    u8                  childUserShaderSetting;
+    u8                  childShaderUseSoftEdge;
+    u8                  childShaderApplyAlphaToRefract;
+    f32                 childShaderParam0;
+    f32                 childShaderParam1;
+    f32                 childSoftFadeDistance;
+    f32                 childSoftVolumeParam;
+    u8                  childUserShaderDefine1[16];
+    u8                  childUserShaderDefine2[16];
+    u32                 childUserShaderFlag;
+    u32                 childUserShaderSwitchFlag;
+    UserShaderParam     childUserShaderParam;
 };
-static_assert(sizeof(ChildData) == 0x2FC, "ChildData size mismatch");
+static_assert(sizeof(ChildData) == 0x2FC, "nw::eft::ChildData size mismatch");
 
 struct FieldRandomData
 {
-    s32 period;
-    math::VEC3 randomVelScale;
+    s32                 fieldRandomBlank;
+    nw::math::VEC3      fieldRandomVelAdd;
 };
-static_assert(sizeof(FieldRandomData) == 0x10, "FieldRandomData size mismatch");
+static_assert(sizeof(FieldRandomData) == 0x10, "nw::eft::FieldRandomData size mismatch");
 
 struct FieldMagnetData
 {
-    f32 strength;
-    math::VEC3 pos;
-    u32 flags;
+    f32                 fieldMagnetPower;
+    nw::math::VEC3      fieldMagnetPos;
+    u32                 fieldMagnetFlg;
 };
-static_assert(sizeof(FieldMagnetData) == 0x14, "FieldMagnetData size mismatch");
+static_assert(sizeof(FieldMagnetData) == 0x14, "nw::eft::FieldMagnetData size mismatch");
 
 struct FieldSpinData
 {
-    s32 angle;
-    s32 axis;
-    f32 diffusionVel;
+    s32                 fieldSpinRotate;
+    s32                 fieldSpinAxis;
+    f32                 fieldSpinOuter;
 };
-static_assert(sizeof(FieldSpinData) == 0xC, "FieldSpinData size mismatch");
+static_assert(sizeof(FieldSpinData) == 0xC, "nw::eft::FieldSpinData size mismatch");
 
 struct FieldCollisionData
 {
-    u16 collisionType;
-    u16 coordSystem;
-    f32 y;
-    f32 bounceRate;
+    u16                 fieldCollisionType;
+    u16                 fieldCollisionIsWorld;
+    f32                 fieldCollisionCoord;
+    f32                 fieldCollisionCoef;
 };
-static_assert(sizeof(FieldCollisionData) == 0xC, "FieldCollisionData size mismatch");
+static_assert(sizeof(FieldCollisionData) == 0xC, "nw::eft::FieldCollisionData size mismatch");
 
 struct FieldConvergenceData
 {
-    math::VEC3 pos;
-    f32 strength;
+    nw::math::VEC3          fieldConvergencePos;
+    f32                     fieldConvergenceRatio;
 };
-static_assert(sizeof(FieldConvergenceData) == 0x10, "FieldConvergenceData size mismatch");
+static_assert(sizeof(FieldConvergenceData) == 0x10, "nw::eft::FieldConvergenceData size mismatch");
 
 struct FieldPosAddData
 {
-    math::VEC3 posAdd;
+    nw::math::VEC3      fieldPosAdd;
 };
-static_assert(sizeof(FieldPosAddData) == 0xC, "FieldPosAddData size mismatch");
+static_assert(sizeof(FieldPosAddData) == 0xC, "nw::eft::FieldPosAddData size mismatch");
 
 struct FluctuationData
 {
-    f32 amplitude;
-    f32 frequency;
-    u32 enableRandom;
+    f32                 fluctuationScale;
+    f32                 fluctuationFreq;
+    u32                 fluctuationPhaseRnd;
 };
-static_assert(sizeof(FluctuationData) == 0xC, "FluctuationData size mismatch");
+static_assert(sizeof(FluctuationData) == 0xC, "nw::eft::FluctuationData size mismatch");
 
 struct StripeData
 {
-    u32 type;
-    u32 crossType;
-    u32 connectionType;
-    u32 textureType;
-    u32 numSliceHistory;
-    u32 numDivisions;
-    f32 alphaStart;
-    f32 alphaEnd;
-    u8 _unusedPad[8];
-    u32 sliceHistInterval;
-    f32 sliceInterpolation;
-    f32 dirInterpolation;
+    StripeType              stripeType;
+    StripeOption            stripeOption;
+    StripeConnectOption     stripeConnectOpt;
+    StripeTexCoordOption    stripeTexCoordOpt;
+    s32                     stripeNumHistory;
+    s32                     stripeDivideNum;
+    f32                     stripeStartAlpha;
+    f32                     stripeEndAlpha;
+    nw::math::VEC2          stripeUVScroll;
+    s32                     stripeHistoryStep;
+    f32                     stripeHistoryInterpolate;
+    f32                     stripeDirInterpolate;
 };
-static_assert(sizeof(StripeData) == 0x34, "StripeData size mismatch");
+static_assert(sizeof(StripeData) == 0x34, "nw::eft::StripeData size mismatch");
 
 } } // namespace nw::eft
 

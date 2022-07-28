@@ -1,53 +1,67 @@
 #include <nw/eft/eft_AnimKeyFrame.h>
-#include <nw/eft/eft_Data.h>
 
 namespace nw { namespace eft {
 
-f32 CalcAnimKeyFrame(KeyFrameAnim* anim, f32 frame)
+f32 CalcAnimKeyFrame(KeyFrameAnim* info, f32 x)
 {
-    KeyFrameAnimKey* keys = reinterpret_cast<KeyFrameAnimKey*>(anim + 1);
-    if (anim->numKeys == 1)
-        return keys[0].value;
+    AnimKeyFrameKey* keys = reinterpret_cast<AnimKeyFrameKey*>(info + 1);
+    if (info->keyNum == 1)
+        return keys[0].y;
 
-    KeyFrameAnimKey& firstKey = keys[0];
-    KeyFrameAnimKey& lastKey  = keys[anim->numKeys - 1];
-    f32 time = frame;
+    f32 xS = keys[0].x;
+    f32 yS = keys[0].y;
 
-    if (anim->loop != 0)
+    f32 xE = keys[info->keyNum - 1].x;
+    f32 yE = keys[info->keyNum - 1].y;
+
+    if (info->isLoop)
     {
-        time = fmodf(frame, lastKey.time);
-        if (time <= firstKey.time)
-            return firstKey.value;
+        x = nw::math::FMod(x, xE);
+        if (x <= xS)
+            return yS;
     }
     else
     {
-        if (time <= firstKey.time)
-            return firstKey.value;
+        if (x <= xS)
+            return yS;
 
-        if (lastKey.time <= time)
-            return lastKey.value;
+        else if (xE <= x)
+            return yE;
     }
 
-    s32 startIdx = -1;
-    for (u32 i = 0; i < anim->numKeys; i++)
+    s32 index = -1;
+    for (u32 i = 0; i < info->keyNum; i++)
     {
-        if (time < keys[i].time) break;
-        startIdx++;
+        if (x < keys[i].x) break;
+        index++;
     }
 
-    KeyFrameAnimKey& secStartKey = keys[startIdx];
-    KeyFrameAnimKey& secEndKey   = (startIdx + 1u != anim->numKeys) ? keys[startIdx + 1u] : keys[startIdx];
+    f32 x0 = keys[index].x;
+    f32 y0 = keys[index].y;
 
-    f32 secDuration = secEndKey.time - secStartKey.time;
-    if (secDuration == 0.0f)
-        return secStartKey.value;
+    f32 x1 = keys[index].x;
+    f32 y1 = keys[index].y;
 
-    f32 rate = (time - secStartKey.time) / secDuration;
+    if (u32(index + 1) != info->keyNum)
+    {
+        x1 = keys[index + 1].x;
+        y1 = keys[index + 1].y;
+    }
 
-    if (anim->interpolation == 1)
-        rate = rate * rate * (3.0f - 2.0f * rate);
+    f32 y;
+    f32 w = x1 - x0;
 
-    return secStartKey.value * (1.0f - rate) + secEndKey.value * rate;
+    f32 t;
+    if (w == 0.0f)
+        return y0;
+    else
+        t = (x - x0) / w;
+
+    if (info->interpolation == EFT_ANIM_KEY_FRAME_SMOOTH)
+        t = t * t * (3.0f - 2.0f * t);
+
+    y = y0 * (1.0f - t) + y1 * t;
+    return y;
 }
 
 } } // namespace nw::eft

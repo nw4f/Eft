@@ -1,192 +1,319 @@
 #include <nw/eft/eft_EmitterComplex.h>
+#include <nw/eft/eft_EmitterSet.h>
 #include <nw/eft/eft_Particle.h>
+#include <nw/eft/eft_Renderer.h>
 #include <nw/eft/eft_System.h>
+#include <nw/eft/eft_UniformBlock.h>
 
 namespace nw { namespace eft {
 
-void EmitterComplexCalc::EmitChildParticle(EmitterInstance* emitter, PtclInstance* ptcl)
+u32 EmitterComplexCalc::CalcChildParticle(EmitterInstance* emitter, CpuCore core, bool skipBehavior, bool skipMakeAttribute)
 {
-    const ComplexEmitterData* data = static_cast<const ComplexEmitterData*>(emitter->data);
-    const ChildData* childData = reinterpret_cast<const ChildData*>(data + 1);
+    System* eftSystem = emitter->emitterSet->mSystem;
 
-    for (s32 i = 0; i < childData->numChildParticles; i++)
+    if (!skipMakeAttribute)
     {
-        PtclInstance* childPtcl = mSys->AllocPtcl(PtclType_Child);
-        if (childPtcl == NULL)
-            continue;
+        emitter->childPtclAttributeBuffer = static_cast<PtclAttributeBuffer*>(eftSystem->GetRenderer(core)->AllocFromDoubleBuffer(sizeof(PtclAttributeBuffer) * emitter->childPtclNum));
+        if (emitter->childPtclAttributeBuffer == NULL)
+            return 0;
 
-        childPtcl->data = data;
-        childPtcl->stripe = NULL;
-        childPtcl->lifespan = childData->ptclMaxLifespan;
-        childPtcl->emitter = emitter;
-
-        if (data->childFlags & 0x20)
-            childPtcl->velocity = ptcl->posDiff * childData->velInheritRatio;
-
-        else
-            childPtcl->velocity = math::VEC3::Zero();
-
-        f32 alpha;
-
-        if (data->childFlags & 4)
-            alpha = ptcl->alpha * ptcl->fluctuationAlpha;
-
-        else
-            alpha = childData->ptclAlphaMid;
-
-        f32 scaleRandom = 1.0f - childData->ptclScaleRandom * emitter->random.GetF32();
-
-        if (data->childFlags & 8)
+        emitter->childEmitterDynamicUniformBlock = static_cast<EmitterDynamicUniformBlock*>(eftSystem->GetRenderer(core)->AllocFromDoubleBuffer(sizeof(EmitterDynamicUniformBlock)));
+        if (emitter->childEmitterDynamicUniformBlock == NULL)
         {
-            childPtcl->scale.x = ptcl->scale.x * childData->scaleInheritRatio * ptcl->fluctuationScale * scaleRandom * emitter->anim[17];
-            childPtcl->scale.y = ptcl->scale.y * childData->scaleInheritRatio * ptcl->fluctuationScale * scaleRandom * emitter->anim[18];
-        }
-        else
-        {
-            childPtcl->scale.x = scaleRandom * childData->ptclEmitScale.x;
-            childPtcl->scale.y = scaleRandom * childData->ptclEmitScale.y;
+            emitter->ptclAttributeBuffer = NULL; // NOT childPtclAttributeBuffer... bug?
+            return 0;
         }
 
-        if (data->childFlags & 0x10)
+        nw::ut::FloatColor setColor = emitter->emitterSet->GetColor();
+        setColor.r *= emitter->res->colorScale;
+        setColor.g *= emitter->res->colorScale;
+        setColor.b *= emitter->res->colorScale;
+
+        emitter->childEmitterDynamicUniformBlock->emitterColor0.x = setColor.r * emitter->emitAnimValue[EFT_ANIM_COLOR0_R];
+        emitter->childEmitterDynamicUniformBlock->emitterColor0.y = setColor.g * emitter->emitAnimValue[EFT_ANIM_COLOR0_G];
+        emitter->childEmitterDynamicUniformBlock->emitterColor0.z = setColor.b * emitter->emitAnimValue[EFT_ANIM_COLOR0_B];
+        emitter->childEmitterDynamicUniformBlock->emitterColor0.w = setColor.a * emitter->emitAnimValue[EFT_ANIM_ALPHA] * emitter->fadeAlpha;
+
+        emitter->childEmitterDynamicUniformBlock->emitterColor1.x = setColor.r * emitter->emitAnimValue[EFT_ANIM_COLOR1_R];
+        emitter->childEmitterDynamicUniformBlock->emitterColor1.y = setColor.g * emitter->emitAnimValue[EFT_ANIM_COLOR1_G];
+        emitter->childEmitterDynamicUniformBlock->emitterColor1.z = setColor.b * emitter->emitAnimValue[EFT_ANIM_COLOR1_B];
+        emitter->childEmitterDynamicUniformBlock->emitterColor1.w = setColor.a * emitter->emitAnimValue[EFT_ANIM_ALPHA] * emitter->fadeAlpha;
+
+        GX2EndianSwap(emitter->childEmitterDynamicUniformBlock, sizeof(EmitterDynamicUniformBlock));
+    }
+    else
+    {
+        emitter->childPtclAttributeBuffer = NULL;
+        emitter->childEmitterDynamicUniformBlock = NULL;
+    }
+
+    emitter->childEntryNum = 0;
+
+    const ComplexEmitterData* res = static_cast<const ComplexEmitterData*>(emitter->res);
+
+    UserDataParticleCalcCallback particleCB = mSys->GetCurrentUserDataParticleCalcCallback(emitter);
+    UserDataParticleMakeAttributeCallback particleMakeAttrCB = mSys->GetCurrentUserDataParticleMakeAttributeCallback(emitter);
+    ParticleCalcArg arg;
+
+    PtclInstance* ptcl = emitter->childHead;
+
+    while (ptcl)
+    {
+        if (ptcl->res)
         {
-            switch (childData->rotationMode)
+            if (!skipBehavior)
             {
-            case VertexRotationMode_Rotate_X:
-                childPtcl->rotation.x = ptcl->rotation.x;
-                childPtcl->rotation.y = 0.0f;
-                childPtcl->rotation.z = 0.0f;
-                break;
-            case VertexRotationMode_Rotate_Y:
-                childPtcl->rotation.x = 0.0f;
-                childPtcl->rotation.y = ptcl->rotation.y;
-                childPtcl->rotation.z = 0.0f;
-                break;
-            case VertexRotationMode_Rotate_Z:
-                childPtcl->rotation.x = 0.0f;
-                childPtcl->rotation.y = 0.0f;
-                childPtcl->rotation.z = ptcl->rotation.z;
-                break;
-            //case VertexRotationMode_Rotate_XYZ:
-            default:
-                childPtcl->rotation = ptcl->rotation;
+                if ((s32)ptcl->cnt >= ptcl->life || (ptcl->life == 1 && ptcl->cnt != 0.0f))
+                {
+                    RemoveParticle(emitter, ptcl, core);
+                    ptcl = ptcl->next;
+                    continue;
+                }
+
+                if (res->childFlg & EFT_CHILD_FLAG_EMITTER_FOLLOW)
+                {
+                    ptcl->emitterSRT = emitter->emitterSRT;
+                    ptcl->emitterRT = emitter->emitterRT;
+                }
+
+                CalcChildParticleBehavior(emitter, ptcl, core);
+            }
+
+            if (particleCB)
+            {
+                arg.emitter = emitter;
+                arg.ptcl = ptcl;
+                arg.core = core;
+                arg.skipBehavior = skipBehavior;
+                particleCB(arg);
+            }
+
+            if (!skipMakeAttribute)
+            {
+                MakeParticleAttributeBuffer(&emitter->childPtclAttributeBuffer[emitter->childEntryNum], ptcl, emitter->childShaderArrtFlag, 0.0f);
+                ptcl->attributeBuffer     = &emitter->childPtclAttributeBuffer[emitter->childEntryNum];
+                emitter->childEntryNum++;
+
+                if (particleMakeAttrCB)
+                {
+                    arg.emitter = emitter;
+                    arg.ptcl = ptcl;
+                    arg.core = core;
+                    arg.skipBehavior = skipBehavior;
+                    particleMakeAttrCB(arg);
+                }
             }
         }
-        else
+        ptcl = ptcl->next;
+    }
+
+    emitter->isCalculated = true;
+    return emitter->childEntryNum;
+}
+
+void EmitterComplexCalc::EmitChildParticle(EmitterInstance* e, PtclInstance* p)
+{
+    const ComplexEmitterData * __restrict res  = static_cast<const ComplexEmitterData*>(e->res);
+    const ChildData          * __restrict cres = reinterpret_cast<const ChildData*>(res + 1);
+
+    for (s32 i = 0; i < cres->childEmitRate; i++)
+    {
+        PtclInstance* child = mSys->AllocPtcl(EFT_PTCL_TYPE_CHILD);
+        if (child)
         {
-            childPtcl->rotation.x = childData->ptclRotate.x + emitter->random.GetF32() * childData->ptclRotateRandom.x;
-            childPtcl->rotation.y = childData->ptclRotate.y + emitter->random.GetF32() * childData->ptclRotateRandom.y;
-            childPtcl->rotation.z = childData->ptclRotate.z + emitter->random.GetF32() * childData->ptclRotateRandom.z;
-        }
+            f32 baseAlpha;
 
-        if (data->childFlags & 2)
-        {
-            childPtcl->color0 = ptcl->color0;
-        }
-        else
-        {
-            childPtcl->color0.rgb() = childData->ptclColor0;
-            childPtcl->color0.a     = 0.0f;
-        }
+            child->res      = res;
+            child->life     = cres->childLife;
+            child->stripe   = NULL;
+            child->emitter  = e;
 
-        if (data->childFlags & 0x8000)
-        {
-            childPtcl->color1 = ptcl->color1;
-        }
-        else
-        {
-            childPtcl->color1.rgb() = childData->ptclColor1;
-            childPtcl->color1.a     = 0.0f;
-        }
-
-        childPtcl->angularVelocity.x = childData->angularVelocity.x + emitter->random.GetF32() * childData->angularVelocityRandom.x;
-        childPtcl->angularVelocity.y = childData->angularVelocity.y + emitter->random.GetF32() * childData->angularVelocityRandom.y;
-        childPtcl->angularVelocity.z = childData->angularVelocity.z + emitter->random.GetF32() * childData->angularVelocityRandom.z;
-
-        childPtcl->texAnimParam[0].scroll = (math::VEC2){ 0.0f, 0.0f };
-        childPtcl->texAnimParam[0].rotate = 0.0f;
-        childPtcl->texAnimParam[0].scale = (math::VEC2){ 1.0f, 1.0f };
-
-        if (childData->alphaAnimTime2 == 0)
-        {
-            childPtcl->alphaAnim->startDiff = 0.0f;
-            childPtcl->alpha = alpha;
-        }
-        else
-        {
-            childPtcl->alphaAnim->startDiff = (alpha - childData->ptclAlphaStart) / (f32)childData->alphaAnimTime2;
-            childPtcl->alpha = childData->ptclAlphaStart;
-        }
-        childPtcl->alphaAnim->endDiff = (childData->ptclAlphaEnd - alpha) / (f32)(childPtcl->lifespan - childData->alphaAnimTime3);
-
-        f32 scaleAnimDurationInv = 1.0f / (childPtcl->lifespan - childData->scaleAnimTime1);
-        childPtcl->scaleAnim->startDiff.x = (childData->ptclScaleEnd.x - 1.0f) * scaleAnimDurationInv * childPtcl->scale.x;
-        childPtcl->scaleAnim->startDiff.y = (childData->ptclScaleEnd.y - 1.0f) * scaleAnimDurationInv * childPtcl->scale.y;
-
-        childPtcl->fluctuationAlpha = 1.0f;
-        childPtcl->fluctuationScale = 1.0f;
-
-        if (childData->texPtnAnimNum <= 1)
-            childPtcl->texAnimParam[0].offset = (math::VEC2){ 0.0f, 0.0f };
-
-        else // TexPtnAnim Type Random
-        {
-            s32 texPtnAnimIdx = emitter->random.GetS32(childData->texPtnAnimNum);
-            s32 texPtnAnimIdxDiv = childData->texPtnAnimIdxDiv;
-            s32 offsetX = texPtnAnimIdx % texPtnAnimIdxDiv;
-            s32 offsetY = texPtnAnimIdx / texPtnAnimIdxDiv;
-
-            childPtcl->texAnimParam[0].offset.x = childData->uvScaleInit.x * (f32)offsetX;
-            childPtcl->texAnimParam[0].offset.y = childData->uvScaleInit.y * (f32)offsetY;
-        }
-
-        math::VEC3 randomNormVec3 = emitter->random.GetNormalizedVec3();
-        math::VEC3 randomVec3 = emitter->random.GetVec3();
-
-        childPtcl->velocity.x += randomNormVec3.x * childData->allDirVel + randomVec3.x * childData->diffusionVel.x;
-        childPtcl->velocity.y += randomNormVec3.y * childData->allDirVel + randomVec3.y * childData->diffusionVel.y;
-        childPtcl->velocity.z += randomNormVec3.z * childData->allDirVel + randomVec3.z * childData->diffusionVel.z;
-
-        childPtcl->pos = randomNormVec3 * childData->ptclPosRandom + ptcl->pos;
-
-        childPtcl->counter = 0.0f;
-        childPtcl->randomU32 = emitter->random.GetU32();
-
-        if (!(data->childFlags & 0x40))
-        {
-            if (emitter->ptclFollowType == PtclFollowType_SRT)
+            if (res->childFlg & EFT_CHILD_FLAG_VEL_INHERIT)
             {
-                childPtcl->matrixRT = emitter->matrixRT;
-                childPtcl->matrixSRT = emitter->matrixSRT;
-                childPtcl->pMatrixRT = &emitter->matrixRT;
-                childPtcl->pMatrixSRT = &emitter->matrixSRT;
+                child->vel.x = p->posDiff.x * cres->childVelInheritRate;
+                child->vel.y = p->posDiff.y * cres->childVelInheritRate;
+                child->vel.z = p->posDiff.z * cres->childVelInheritRate;
             }
             else
             {
-                childPtcl->matrixRT = ptcl->matrixRT;
-                childPtcl->matrixSRT = ptcl->matrixSRT;
-                childPtcl->pMatrixRT = &ptcl->matrixRT;
-                childPtcl->pMatrixSRT = &ptcl->matrixSRT;
+                child->vel = nw::math::VEC3::Zero();
             }
-        }
-        else
-        {
-            childPtcl->pMatrixRT = &emitter->matrixRT;
-            childPtcl->pMatrixSRT = &emitter->matrixSRT;
-        }
 
-        childPtcl->randomU32 = emitter->random.GetU32(); // Again... ?
-        childPtcl->randomF32 = 1.0f - childData->momentumRandom * emitter->random.GetF32Range(-1.0f, 1.0f);
-        childPtcl->_unused = 0;
+            if (res->childFlg & EFT_CHILD_FLAG_ALPHA_INHERIT)
+                baseAlpha = p->alpha * p->fluctuationAlpha;
+            else
+                baseAlpha = cres->childAlpha;
 
-        CustomActionParticleEmitCallback callback = mSys->GetCurrentCustomActionParticleEmitCallback(emitter);
-        if (callback != NULL)
-        {
-            ParticleEmitArg arg = { .ptcl = childPtcl };
-            if (!callback(arg))
-                return RemoveParticle(emitter, childPtcl, CpuCore_1);
+            if (res->childFlg & EFT_CHILD_FLAG_SCALE_INHERIT)
+            {
+                f32 scaleRnd = 1.0f - cres->childScaleRand * e->rnd.GetF32();
+
+                child->scale.x = p->scale.x * cres->childScaleInheritRate * p->fluctuationScale * scaleRnd * e->emitAnimValue[EFT_ANIM_PTCL_SX];
+                child->scale.y = p->scale.y * cres->childScaleInheritRate * p->fluctuationScale * scaleRnd * e->emitAnimValue[EFT_ANIM_PTCL_SY];
+            }
+            else
+            {
+                f32 scaleRnd = 1.0f - cres->childScaleRand * e->rnd.GetF32();
+
+                child->scale = cres->childScale * scaleRnd;
+            }
+
+            if (res->childFlg & EFT_CHILD_FLAG_ROTATE_INHERIT)
+            {
+                if (cres->childRotType == EFT_ROT_TYPE_ROTX)
+                {
+                    child->rot.x = p->rot.x;
+                    child->rot.y = 0.0f;
+                    child->rot.z = 0.0f;
+                }
+                else if (cres->childRotType == EFT_ROT_TYPE_ROTY)
+                {
+                    child->rot.x = 0.0f;
+                    child->rot.y = p->rot.y;
+                    child->rot.z = 0.0f;
+                }
+                else if (cres->childRotType == EFT_ROT_TYPE_ROTZ)
+                {
+                    child->rot.x = 0.0f;
+                    child->rot.y = 0.0f;
+                    child->rot.z = p->rot.z;
+                }
+                else
+                {
+                    child->rot = p->rot;
+                }
+            }
+            else
+            {
+                child->rot.x = cres->childInitRot.x + e->rnd.GetF32() * cres->childInitRotRand.x;
+                child->rot.y = cres->childInitRot.y + e->rnd.GetF32() * cres->childInitRotRand.y;
+                child->rot.z = cres->childInitRot.z + e->rnd.GetF32() * cres->childInitRotRand.z;
+            }
+
+            if (res->childFlg & EFT_CHILD_FLAG_COLOR0_INHERIT)
+            {
+                child->color[EFT_COLOR_KIND_0] = p->color[EFT_COLOR_KIND_0];
+            }
+            else
+            {
+                child->color[EFT_COLOR_KIND_0] = nw::math::Vector4(cres->childColor0);
+            }
+
+            if (res->childFlg & EFT_CHILD_FLAG_COLOR1_INHERIT)
+            {
+                child->color[EFT_COLOR_KIND_1] = p->color[EFT_COLOR_KIND_1];
+            }
+            else
+            {
+                child->color[EFT_COLOR_KIND_1] = nw::math::Vector4(cres->childColor1);
+            }
+
+            child->rotVel.x = cres->childRotVel.x + e->rnd.GetF32() * cres->childRotVelRand.x;
+            child->rotVel.y = cres->childRotVel.y + e->rnd.GetF32() * cres->childRotVelRand.y;
+            child->rotVel.z = cres->childRotVel.z + e->rnd.GetF32() * cres->childRotVelRand.z;
+
+            child->uvScroll.x = 0.0f;
+            child->uvScroll.y = 0.0f;
+            child->uvRotateZ  = 0;
+            child->uvScale.x  = 1.0f;
+            child->uvScale.y  = 1.0f;
+
+            if (cres->childAlphaBaseFrame == 0)
+            {
+                child->alphaAnim->alphaAddSec1 = 0.0f;
+                child->alpha                   = baseAlpha;
+            }
+            else
+            {
+                child->alphaAnim->alphaAddSec1 = (baseAlpha - cres->childAlphaInit) / (f32)cres->childAlphaBaseFrame;
+                child->alpha                   = cres->childAlphaInit;
+            }
+
+            f32 invLife = 1.0f / (child->life - cres->childAlphaStartFrame);
+            child->alphaAnim->alphaAddSec2 = (cres->childAlphaTarget - baseAlpha) * invLife;
+
+            invLife     = 1.0f / (child->life - cres->childScaleStartFrame);
+            child->scaleAnim->scaleAddSec1.x = (cres->childScaleTarget.x - 1.0f) * invLife * child->scale.x;
+            child->scaleAnim->scaleAddSec1.y = (cres->childScaleTarget.y - 1.0f) * invLife * child->scale.y;
+
+            child->fluctuationAlpha = 1.0f;
+            child->fluctuationScale = 1.0f;
+
+            if (cres->childNumTexPat <= 1)
+            {
+                child->uvOffset.x  = 0.0f;
+                child->uvOffset.y  = 0.0f;
+            }
+            else
+            {
+                s32 no   = e->rnd.GetS32(cres->childNumTexPat);
+                s32 no_x = no % cres->childNumTexDivX;
+                s32 no_y = no / cres->childNumTexDivX;
+
+                register f32 no_x_f = (f32)no_x;
+                register f32 no_y_f = (f32)no_y;
+
+                child->uvOffset.x = cres->childTexUScale * no_x_f;
+                child->uvOffset.y = cres->childTexVScale * no_y_f;
+            }
+
+            math::VEC3 rndVec3_0 = e->rnd.GetNormalizedVec3();
+            math::VEC3 rndVec3_1 = e->rnd.GetVec3();
+
+            child->vel.x += rndVec3_0.x * cres->childFigureVel + rndVec3_1.x * cres->childRandVel.x;
+            child->vel.y += rndVec3_0.y * cres->childFigureVel + rndVec3_1.y * cres->childRandVel.y;
+            child->vel.z += rndVec3_0.z * cres->childFigureVel + rndVec3_1.z * cres->childRandVel.z;
+
+            // Nintendo forgot to set child->posDiff
+
+            child->pos.x = rndVec3_0.x * cres->childInitPosRand + p->pos.x;
+            child->pos.y = rndVec3_0.y * cres->childInitPosRand + p->pos.y;
+            child->pos.z = rndVec3_0.z * cres->childInitPosRand + p->pos.z;
+
+            child->cnt = 0.0f;
+            child->rnd = e->rnd.GetU32Direct();
+
+            if (!(res->childFlg & EFT_CHILD_FLAG_EMITTER_FOLLOW))
+            {
+                if (e->followType == EFT_FOLLOW_TYPE_ALL)
+                {
+                    child->emitterRT = e->emitterRT;
+                    child->emitterSRT = e->emitterSRT;
+                    child->coordinateEmitterRT = &e->emitterRT;
+                    child->coordinateEmitterSRT = &e->emitterSRT;
+                }
+                else
+                {
+                    child->emitterRT = p->emitterRT;
+                    child->emitterSRT = p->emitterSRT;
+                    child->coordinateEmitterRT = &p->emitterRT;
+                    child->coordinateEmitterSRT = &p->emitterSRT;
+                }
+            }
+            else
+            {
+                child->coordinateEmitterRT = &e->emitterRT;
+                child->coordinateEmitterSRT = &e->emitterSRT;
+            }
+
+            child->rnd = e->rnd.GetU32Direct(); // Again... ?
+
+            child->dynamicsRnd = 1.0f + cres->childDynamicsRandom - cres->childDynamicsRandom * e->rnd.GetF32() * 2.0f;
+
+            child->runtimeUserData = 0;
+
+            UserDataParticleEmitCallback particleEmitCB = mSys->GetCurrentUserDataParticleEmitCallback(e);
+            if (particleEmitCB)
+            {
+                ParticleEmitArg arg;
+                arg.particle = child;
+
+                if (!particleEmitCB(arg))
+                    return RemoveParticle(e, child, EFT_CPU_CORE_1);
+            }
+
+            AddChildPtclToList(e, child);
         }
-
-        AddChildPtclToList(emitter, childPtcl);
     }
 }
 

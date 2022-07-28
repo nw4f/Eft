@@ -5,8 +5,8 @@ namespace nw { namespace eft {
 
 void Renderer::SwapDoubleBuffer()
 {
-    doubleBuffer.Swap();
-    stripeNumDrawVertex = 0;
+    mTemporaryBuffer.Swap();
+    mStripeVertexCalcNum = 0;
 }
 
 void* Renderer::AllocFromDoubleBuffer(u32 size)
@@ -14,12 +14,12 @@ void* Renderer::AllocFromDoubleBuffer(u32 size)
     if (size == 0)
         return NULL;
 
-    return doubleBuffer.Alloc(size);
+    return mTemporaryBuffer.Alloc(size);
 }
 
 void Renderer::FlushCache()
 {
-    doubleBuffer.FlushCache();
+    mTemporaryBuffer.FlushCache();
 }
 
 } } // namespace nw::eft

@@ -4,112 +4,165 @@
 
 namespace nw { namespace eft {
 
-CustomActionEmitterPreCalcCallback System::GetCurrentCustomActionEmitterPreCalcCallback(const EmitterInstance* emitter)
+void System::SetUserDataEmitterPreCalcCallback(UserDataCallBackID id, UserDataEmitterPreCalcCallback callback)
 {
-    if (_unkCallbackVal != -1 || currentCallbackID != CustomActionCallBackID_Invalid)
-        return customActionEmitterPreCalcCallback[currentCallbackID];
-
-    CustomActionCallBackID callbackID = emitter->data->callbackID;
-    if (callbackID == CustomActionCallBackID_Invalid)
-        return NULL;
-
-    return customActionEmitterPreCalcCallback[callbackID];
+    if (id < EFT_CALLBACK_MAX)
+        mUserDataEmitterPreCalcCallback[id] = callback;
 }
 
-CustomActionEmitterPostCalcCallback System::GetCurrentCustomActionEmitterPostCalcCallback(const EmitterInstance* emitter)
+void System::SetUserDataEmitterPostCalcCallback(UserDataCallBackID id, UserDataEmitterPostCalcCallback callback)
 {
-    if (_unkCallbackVal != -1 || currentCallbackID != CustomActionCallBackID_Invalid)
-        return customActionEmitterPostCalcCallback[currentCallbackID];
-
-    CustomActionCallBackID callbackID = emitter->data->callbackID;
-    if (callbackID == CustomActionCallBackID_Invalid)
-        return NULL;
-
-    return customActionEmitterPostCalcCallback[callbackID];
+    if (id < EFT_CALLBACK_MAX)
+        mUserDataEmitterPostCalcCallback[id] = callback;
 }
 
-CustomActionParticleEmitCallback System::GetCurrentCustomActionParticleEmitCallback(const EmitterInstance* emitter)
+void System::SetUserDataParticleEmitCallback(UserDataCallBackID id, UserDataParticleEmitCallback callback)
 {
-    if (_unkCallbackVal != -1 || currentCallbackID != CustomActionCallBackID_Invalid)
-        return customActionParticleEmitCallback[currentCallbackID];
-
-    CustomActionCallBackID callbackID = emitter->data->callbackID;
-    if (callbackID == CustomActionCallBackID_Invalid)
-        return NULL;
-
-    return customActionParticleEmitCallback[callbackID];
+    if (id < EFT_CALLBACK_MAX)
+        mUserDataParticleEmitCallback[id] = callback;
 }
 
-CustomActionParticleRemoveCallback System::GetCurrentCustomActionParticleRemoveCallback(const EmitterInstance* emitter)
+void System::SetUserDataParticleRemoveCallback(UserDataCallBackID id, UserDataParticleRemoveCallback callback)
 {
-    if (_unkCallbackVal != -1 || currentCallbackID != CustomActionCallBackID_Invalid)
-        return customActionParticleRemoveCallback[currentCallbackID];
-
-    CustomActionCallBackID callbackID = emitter->data->callbackID;
-    if (callbackID == CustomActionCallBackID_Invalid)
-        return NULL;
-
-    return customActionParticleRemoveCallback[callbackID];
+    if (id < EFT_CALLBACK_MAX)
+        mUserDataParticleRemoveCallback[id] = callback;
 }
 
-CustomActionParticleCalcCallback System::GetCurrentCustomActionParticleCalcCallback(const EmitterInstance* emitter)
+void System::SetUserDataParticleCalcCallback(UserDataCallBackID id, UserDataParticleCalcCallback callback)
 {
-    if (_unkCallbackVal != -1 || currentCallbackID != CustomActionCallBackID_Invalid)
-        return customActionParticleCalcCallback[currentCallbackID];
-
-    CustomActionCallBackID callbackID = emitter->data->callbackID;
-    if (callbackID == CustomActionCallBackID_Invalid)
-        return NULL;
-
-    return customActionParticleCalcCallback[callbackID];
+    if (id < EFT_CALLBACK_MAX)
+        mUserDataParticleCalcCallback[id] = callback;
 }
 
-CustomActionParticleMakeAttributeCallback System::GetCurrentCustomActionParticleMakeAttributeCallback(const EmitterInstance* emitter)
+void System::SetUserDataParticleMakeAttributeCallback(UserDataCallBackID id, UserDataParticleMakeAttributeCallback callback)
 {
-    if (_unkCallbackVal != -1 || currentCallbackID != CustomActionCallBackID_Invalid)
-        return customActionParticleMakeAttributeCallback[currentCallbackID];
-
-    CustomActionCallBackID callbackID = emitter->data->callbackID;
-    if (callbackID == CustomActionCallBackID_Invalid)
-        return NULL;
-
-    return customActionParticleMakeAttributeCallback[callbackID];
+    if (id < EFT_CALLBACK_MAX)
+        mUserDataParticleMakeAttrCallback[id] = callback;
 }
 
-CustomActionEmitterDrawOverrideCallback System::GetCurrentCustomActionEmitterDrawOverrideCallback(const EmitterInstance* emitter)
+void System::SetUserDataEmitterDrawOverrideCallback(UserDataCallBackID id, UserDataEmitterDrawOverrideCallback callback)
 {
-    if (_unkCallbackVal != -1 || currentCallbackID != CustomActionCallBackID_Invalid)
-        return customActionEmitterDrawOverrideCallback[currentCallbackID];
-
-    CustomActionCallBackID callbackID = emitter->data->callbackID;
-    if (callbackID == CustomActionCallBackID_Invalid)
-        return NULL;
-
-    return customActionEmitterDrawOverrideCallback[callbackID];
+    if (id < EFT_CALLBACK_MAX)
+        mUserDataEmitterDrawOverrideCallback[id] = callback;
 }
 
-CustomShaderEmitterPostCalcCallback System::GetCustomShaderEmitterPostCalcCallback(CustomShaderCallBackID callbackID)
+UserDataEmitterPreCalcCallback System::GetCurrentUserDataEmitterPreCalcCallback(const EmitterInstance* emitter)
 {
-    if (callbackID > CustomShaderCallBackID_Max) // No idea why not >=
-        return NULL;
+    if (mEnableCallbackID != EFT_USER_DATA_CALLBACK_ID_NONE)
+        return mUserDataEmitterPreCalcCallback[mEnableCallbackID];
 
-    return customShaderEmitterPostCalcCallback[callbackID];
+    if (emitter->res->userCallbackID != -1)
+        return mUserDataEmitterPreCalcCallback[emitter->res->userCallbackID];
+
+    return NULL;
 }
 
-CustomShaderDrawOverrideCallback System::GetCustomShaderDrawOverrideCallback(CustomShaderCallBackID callbackID)
+UserDataEmitterPostCalcCallback System::GetCurrentUserDataEmitterPostCalcCallback(const EmitterInstance* emitter)
 {
-    if (callbackID > CustomShaderCallBackID_Max) // No idea why not >=
-        return NULL;
+    if (mEnableCallbackID != EFT_USER_DATA_CALLBACK_ID_NONE)
+        return mUserDataEmitterPostCalcCallback[mEnableCallbackID];
 
-    return customShaderDrawOverrideCallback[callbackID];
+    if (emitter->res->userCallbackID != -1)
+        return mUserDataEmitterPostCalcCallback[emitter->res->userCallbackID];
+
+    return NULL;
 }
 
-CustomShaderRenderStateSetCallback System::GetCustomShaderRenderStateSetCallback(CustomShaderCallBackID callbackID)
+UserDataParticleEmitCallback System::GetCurrentUserDataParticleEmitCallback(const EmitterInstance* emitter)
 {
-    if (callbackID > CustomShaderCallBackID_Max) // No idea why not >=
+    if (mEnableCallbackID != EFT_USER_DATA_CALLBACK_ID_NONE)
+        return mUserDataParticleEmitCallback[mEnableCallbackID];
+
+    if (emitter->res->userCallbackID != -1)
+        return mUserDataParticleEmitCallback[emitter->res->userCallbackID];
+
+    return NULL;
+}
+
+UserDataParticleRemoveCallback System::GetCurrentUserDataParticleRemoveCallback(const EmitterInstance* emitter)
+{
+    if (mEnableCallbackID != EFT_USER_DATA_CALLBACK_ID_NONE)
+        return mUserDataParticleRemoveCallback[mEnableCallbackID];
+
+    if (emitter->res->userCallbackID != -1)
+        return mUserDataParticleRemoveCallback[emitter->res->userCallbackID];
+
+    return NULL;
+}
+
+UserDataParticleCalcCallback System::GetCurrentUserDataParticleCalcCallback(const EmitterInstance* emitter)
+{
+    if (mEnableCallbackID != EFT_USER_DATA_CALLBACK_ID_NONE)
+        return mUserDataParticleCalcCallback[mEnableCallbackID];
+
+    if (emitter->res->userCallbackID != -1)
+        return mUserDataParticleCalcCallback[emitter->res->userCallbackID];
+
+    return NULL;
+}
+
+UserDataParticleMakeAttributeCallback System::GetCurrentUserDataParticleMakeAttributeCallback(const EmitterInstance* emitter)
+{
+    if (mEnableCallbackID != EFT_USER_DATA_CALLBACK_ID_NONE)
+        return mUserDataParticleMakeAttrCallback[mEnableCallbackID];
+
+    if (emitter->res->userCallbackID != -1)
+        return mUserDataParticleMakeAttrCallback[emitter->res->userCallbackID];
+
+    return NULL;
+}
+
+UserDataEmitterDrawOverrideCallback System::GetCurrentUserDataEmitterDrawOverrideCallback(const EmitterInstance* emitter)
+{
+    if (mEnableCallbackID != EFT_USER_DATA_CALLBACK_ID_NONE)
+        return mUserDataEmitterDrawOverrideCallback[mEnableCallbackID];
+
+    if (emitter->res->userCallbackID != -1)
+        return mUserDataEmitterDrawOverrideCallback[emitter->res->userCallbackID];
+
+    return NULL;
+}
+
+UserShaderEmitterPostCalcCallback System::GetUserShaderEmitterPostCalcCallback(UserShaderCallBackID id)
+{
+    if (id > EFT_USER_SHADER_CALLBACK_MAX) // No idea why not >=
         return NULL;
 
-    return customShaderRenderStateSetCallback[callbackID];
+    return mUserShaderEmitterCalcPostCallback[id];
+}
+
+UserShaderDrawOverrideCallback System::GetUserShaderDrawOverrideCallback(UserShaderCallBackID id)
+{
+    if (id > EFT_USER_SHADER_CALLBACK_MAX) // No idea why not >=
+        return NULL;
+
+    return mUserShaderDrawOverrideCallback[id];
+}
+
+UserShaderRenderStateSetCallback System::GetUserShaderRenderStateSetCallback(UserShaderCallBackID id)
+{
+    if (id > EFT_USER_SHADER_CALLBACK_MAX) // No idea why not >=
+        return NULL;
+
+    return mUserShaderRenderStateSetCallback[id];
+}
+
+void System::SetUserShaderEmitterPostCalcCallback(UserShaderCallBackID id, UserShaderEmitterPostCalcCallback callback)
+{
+    if (id < EFT_USER_SHADER_CALLBACK_MAX)
+        mUserShaderEmitterCalcPostCallback[id] = callback;
+}
+
+void System::SetUserShaderDrawOverrideCallback(UserShaderCallBackID id, UserShaderDrawOverrideCallback callback)
+{
+    if (id < EFT_USER_SHADER_CALLBACK_MAX)
+        mUserShaderDrawOverrideCallback[id] = callback;
+}
+
+void System::SetUserShaderRenderStateSetCallback(UserShaderCallBackID id, UserShaderRenderStateSetCallback callback)
+{
+    if (id < EFT_USER_SHADER_CALLBACK_MAX)
+        mUserShaderRenderStateSetCallback[id] = callback;
 }
 
 } } // namespace nw::eft

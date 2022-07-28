@@ -10,39 +10,79 @@ namespace nw { namespace eft {
 
 void System::BeginFrame()
 {
-    numCalcEmitter = 0;
-    numCalcParticle = 0;
-    numCalcStripe = 0;
-    numEmittedParticle = 0;
-    activeGroupsFlg = 0;
+    mNumEmitterCalc = 0;
+    mNumPtclCalc = 0;
+    mNumEmittedPtcl = 0;
+    mNumStripeCalc = 0;
+    mEnableGroupID = 0;
 
-    memset(_unusedFlags, 0, CpuCore_Max * 64 * sizeof(u32));
+    /* MemUtil::FillZero */ memset(mEnableRenderPath, 0, EFT_GROUP_MAX * sizeof(u32) * EFT_CPU_CORE_MAX);
+
+    RemovePtcl_();
 }
 
 void System::SwapDoubleBuffer()
 {
-    for (u8 i = 0; i < 64u; i++)
-        for (EmitterInstance* emitter = emitterGroups[i]; emitter != NULL; emitter = emitter->next)
+    for (u8 i = 0; i < EFT_GROUP_MAX; i++)
+    {
+        EmitterInstance* emitter = mEmitterHead[i];
+        while (emitter)
         {
-            emitter->isCalculated = false;
-            emitter->ptclAttributeBuffer = NULL;
-            emitter->childPtclAttributeBuffer = NULL;
-            emitter->stripeVertexBuffer = NULL;
-            emitter->emitterDynamicUniformBlock = NULL;
+            emitter->stripeBuffer                    = NULL;
+            emitter->ptclAttributeBuffer             = NULL;
+            emitter->childPtclAttributeBuffer        = NULL;
+            emitter->emitterDynamicUniformBlock      = NULL;
             emitter->childEmitterDynamicUniformBlock = NULL;
+            emitter->isCalculated                    = false;
+
+            emitter = emitter->next;
         }
+    }
 
-    for (u32 i = 0; i < CpuCore_Max; i++)
-        renderers[i]->SwapDoubleBuffer();
+    for (u32 core = 0; core < EFT_CPU_CORE_MAX; core++)
+        mRenderer[core]->SwapDoubleBuffer();
 
-    doubleBufferSwapped = 1;
+    mCalcSwapFlag = true;
 }
 
-void System::CalcEmitter(u8 groupID, f32 emissionSpeed)
+void System::CalcEmitter(u8 groupID, f32 frameRate)
 {
-    activeGroupsFlg |= 1ULL << groupID;
-    for (EmitterInstance* emitter = emitterGroups[groupID]; emitter != NULL; emitter = emitter->next)
-        CalcEmitter(emitter, emissionSpeed);
+    mEnableGroupID |= (u64)((u64)0x1 << (u64)(groupID));
+
+    EmitterInstance* emitter = mEmitterHead[groupID];
+    while (emitter)
+    {
+        if (!emitter->emitterSet->IsStopCalc())
+        {
+            if (emitter->frameRate != frameRate)
+            {
+                emitter->emitCnt    = 0.0f;
+                emitter->preEmitCnt = emitter->cnt;
+                emitter->emitSaving = 0.0f;
+                emitter->frameRate  = frameRate;
+            }
+
+            if (GetCurrentUserDataEmitterPreCalcCallback(emitter))
+            {
+                EmitterPreCalcArg arg = { .emitter = emitter };
+                GetCurrentUserDataEmitterPreCalcCallback(emitter)(arg);
+            }
+            else
+            {
+                emitter->calc->CalcEmitter(emitter);
+            }
+
+            if (GetCurrentUserDataEmitterPostCalcCallback(emitter))
+            {
+                EmitterPostCalcArg arg = { .emitter = emitter };
+                GetCurrentUserDataEmitterPostCalcCallback(emitter)(arg);
+            }
+
+            mNumEmitterCalc++;
+        }
+
+        emitter = emitter->next;
+    }
 }
 
 void System::CalcParticle(EmitterInstance* emitter, CpuCore core)
@@ -50,60 +90,62 @@ void System::CalcParticle(EmitterInstance* emitter, CpuCore core)
     if (emitter == NULL || emitter->calc == NULL)
         return;
 
-    bool noCalcBehavior = false;
-    if ((activeGroupsFlg & (1ULL << emitter->groupID)) == 0)
-        noCalcBehavior = true;
-    if (emitter->emitterSet->noCalc != 0)
-        noCalcBehavior = true;
+    bool skipBehavior = false;
+    if ((mEnableGroupID & (u64)((u64)0x1 << (u64)emitter->groupID)) == 0)
+        skipBehavior = true;
+    if (emitter->emitterSet->IsStopCalc())
+        skipBehavior = true;
 
-    CustomShaderEmitterPostCalcCallback callback = GetCustomShaderEmitterPostCalcCallback(static_cast<CustomShaderCallBackID>(emitter->data->shaderUserSetting));
-    if (callback != NULL)
+    UserShaderEmitterPostCalcCallback particleEmitterPostCB = GetUserShaderEmitterPostCalcCallback(static_cast<UserShaderCallBackID>(emitter->res->userShaderSetting));
+    if (particleEmitterPostCB)
     {
         ShaderEmitterPostCalcArg arg = {
             .emitter = emitter,
-            .noCalcBehavior = noCalcBehavior,
-            .childParticle = false,
+            .skipBehavior = skipBehavior,
+            .isChild = false,
         };
-        callback(arg);
+        particleEmitterPostCB(arg);
     }
 
-    numCalcParticle += emitter->calc->CalcParticle(emitter, core, noCalcBehavior, false);
-    _unusedFlags[core][emitter->groupID] |= 1 << emitter->data->_bitForUnusedFlag;
+    mNumPtclCalc += emitter->calc->CalcParticle(emitter, core, skipBehavior, false);
+    mEnableRenderPath[core][emitter->groupID] |= 1 << emitter->res->drawPath;
 }
 
 void System::CalcChildParticle(EmitterInstance* emitter, CpuCore core)
 {
-    if (emitter == NULL || emitter->calc == NULL || emitter->data->type != EmitterType_Complex)
+    if (emitter == NULL || emitter->calc == NULL || emitter->GetEmitterType() != EFT_EMITTER_TYPE_COMPLEX)
         return;
 
-    bool noCalcBehavior = false;
-    if ((activeGroupsFlg & (1ULL << emitter->groupID)) == 0)
-        noCalcBehavior = true;
-    if (emitter->emitterSet->noCalc != 0)
-        noCalcBehavior = true;
+    bool skipBehavior = false;
+    if ((mEnableGroupID & (u64)((u64)0x1 << (u64)emitter->groupID)) == 0)
+        skipBehavior = true;
+    if (emitter->emitterSet->IsStopCalc())
+        skipBehavior = true;
 
-    if (emitter->HasChild())
+    if (emitter->IsHasChildParticle())
     {
-        CustomShaderEmitterPostCalcCallback callback = GetCustomShaderEmitterPostCalcCallback(static_cast<CustomShaderCallBackID>(emitter->GetChildData()->shaderUserSetting));
-        if (callback != NULL)
+        const ChildData* childData = emitter->GetChildData();
+
+        UserShaderEmitterPostCalcCallback childParticleEmitterPostCB = GetUserShaderEmitterPostCalcCallback(static_cast<UserShaderCallBackID>(childData->childUserShaderSetting));
+        if (childParticleEmitterPostCB)
         {
             ShaderEmitterPostCalcArg arg = {
                 .emitter = emitter,
-                .noCalcBehavior = noCalcBehavior,
-                .childParticle = true,
+                .skipBehavior = skipBehavior,
+                .isChild = true,
             };
-            callback(arg);
+            childParticleEmitterPostCB(arg);
         }
     }
 
-    if (emitter->HasChild())
-        numCalcParticle += emitter->calc->CalcChildParticle(emitter, core, noCalcBehavior, false);
+    if (emitter->IsHasChildParticle())
+        mNumPtclCalc += emitter->calc->CalcChildParticle(emitter, core, skipBehavior, false);
 }
 
 void System::FlushCache()
 {
-    for (u32 i = 0; i < CpuCore_Max; i++)
-        renderers[i]->FlushCache();
+    for (u32 core = 0; core < EFT_CPU_CORE_MAX; core++)
+        mRenderer[core]->FlushCache();
 }
 
 void System::FlushGpuCache()
@@ -114,125 +156,101 @@ void System::FlushGpuCache()
                                                  | GX2_INVALIDATE_SHADER), NULL, 0xFFFFFFFF);
 }
 
-void System::CalcEmitter(EmitterInstance* emitter, f32 emissionSpeed)
+void System::CalcParticle(bool cacheFlush)
 {
-    if (emitter->emitterSet->noCalc == 0)
+    for (u32 i = 0; i < EFT_GROUP_MAX; i++)
     {
-        if (emitter->emissionSpeed != emissionSpeed)
+        EmitterInstance* emitter = mEmitterHead[i];
+        while (emitter != NULL)
         {
-            emitter->emitCounter = 0.0f;
-            emitter->preCalcCounter = emitter->counter;
-            emitter->emitLostTime = 0.0f;
-            emitter->emissionSpeed = emissionSpeed;
-        }
+            CalcParticle(emitter, EFT_CPU_CORE_1);
+            mEnableRenderPath[EFT_CPU_CORE_1][emitter->groupID] |= 1 << emitter->res->drawPath;
 
-        if (GetCurrentCustomActionEmitterPreCalcCallback(emitter) != NULL)
-        {
-            EmitterPreCalcArg arg = { .emitter = emitter };
-            GetCurrentCustomActionEmitterPreCalcCallback(emitter)(arg);
-        }
-        else
-        {
-            emitter->calc->CalcEmitter(emitter);
-        }
-
-        if (GetCurrentCustomActionEmitterPostCalcCallback(emitter) != NULL)
-        {
-            EmitterPostCalcArg arg = { .emitter = emitter };
-            GetCurrentCustomActionEmitterPostCalcCallback(emitter)(arg);
-        }
-
-        numCalcEmitter++;
-    }
-}
-
-void System::CalcParticle(bool flushCache)
-{
-    for (u32 i = 0; i < 64u; i++)
-        for (EmitterInstance* emitter = emitterGroups[i]; emitter != NULL; emitter = emitter->next)
-        {
-            CalcParticle(emitter, CpuCore_1);
-            _unusedFlags[CpuCore_1][emitter->groupID] |= 1 << emitter->data->_bitForUnusedFlag;
-
-            if (emitter->data->type == EmitterType_Complex
-                && (static_cast<const ComplexEmitterData*>(emitter->data)->childFlags & 1))
+            if (emitter->res->type == EFT_EMITTER_TYPE_COMPLEX)
             {
-                EmitChildParticle();
-                CalcChildParticle(emitter, CpuCore_1);
+                const ComplexEmitterData* res = static_cast<const ComplexEmitterData*>(emitter->res);
+                if (res->childFlg & EFT_CHILD_FLAG_ENABLE)
+                {
+                    EmitChildParticle();
+                    CalcChildParticle(emitter, EFT_CPU_CORE_1);
+                }
             }
+
+            emitter = emitter->next;
         }
+    }
 
     RemovePtcl();
 
-    if (flushCache)
+    if (cacheFlush)
     {
         FlushCache();
         FlushGpuCache();
     }
 }
 
-void System::Calc(bool flushCache)
+void System::Calc(bool cacheFlush)
 {
-    if (doubleBufferSwapped == 0)
+    if (!mCalcSwapFlag)
     {
         SwapDoubleBuffer();
-        if (activeGroupsFlg != 0)
+        if (mEnableGroupID != 0)
         {
-            activeGroupsFlg = 0;
-            CalcParticle(flushCache);
+            mEnableGroupID = 0;
+            CalcParticle(cacheFlush);
         }
     }
 
-    doubleBufferSwapped = 0;
+    mCalcSwapFlag = false;
 }
 
-void System::BeginRender(const math::MTX44& proj, const math::MTX34& view, const math::VEC3& cameraWorldPos, f32 zNear, f32 zFar)
+void System::BeginRender(const nw::math::MTX44& proj, const nw::math::MTX34& view, const nw::math::VEC3& camPos, f32 nearClip, f32 farClip)
 {
-    this->view[OSGetCoreId()] = math::MTX44(view);
-    renderers[OSGetCoreId()]->BeginRender(proj, view, cameraWorldPos, zNear, zFar);
+    mViewMatrix[GetCurrentCore()] = nw::math::MTX44(view);
+    mRenderer[GetCurrentCore()]->BeginRender(proj, view, camPos, nearClip, farClip);
 }
 
-void System::RenderEmitter(EmitterInstance* emitter, bool flushCache, void* argData)
+void System::RenderEmitter(EmitterInstance* emitter, bool cacheFlush, void* userParam)
 {
     if (emitter == NULL)
         return;
 
-    CpuCore core = static_cast<CpuCore>(OSGetCoreId());
+    CpuCore core = GetCurrentCore();
 
-    if (!emitter->isCalculated && (emitter->numParticles != 0 || emitter->numChildParticles != 0))
+    if (!emitter->isCalculated && (emitter->ptclNum || emitter->childPtclNum))
     {
-        if (emitter->numParticles > 0)
+        if (emitter->ptclNum > 0)
             emitter->calc->CalcParticle(emitter, core, true, false);
 
-        if (emitter->HasChild() && emitter->numChildParticles > 0)
+        if (emitter->IsHasChildParticle() && emitter->childPtclNum > 0)
             emitter->calc->CalcChildParticle(emitter, core, true, false);
 
-        if (flushCache)
+        if (cacheFlush)
         {
             FlushCache();
             FlushGpuCache();
         }
     }
 
-    if (GetCurrentCustomActionEmitterDrawOverrideCallback(emitter) != NULL)
+    if (GetCurrentUserDataEmitterDrawOverrideCallback(emitter))
     {
         EmitterDrawOverrideArg arg = {
             .emitter = emitter,
-            .renderer = renderers[core],
-            .flushCache = flushCache,
-            .argData = argData,
+            .renderer = mRenderer[core],
+            .cacheFlush = cacheFlush,
+            .userParam = userParam,
         };
-        GetCurrentCustomActionEmitterDrawOverrideCallback(emitter)(arg);
+        GetCurrentUserDataEmitterDrawOverrideCallback(emitter)(arg);
     }
     else
     {
-        renderers[core]->EntryParticle(emitter, flushCache, argData);
+        mRenderer[core]->EntryParticle(emitter, cacheFlush, userParam);
     }
 }
 
 void System::EndRender()
 {
-    renderers[OSGetCoreId()]->EndRender();
+    mRenderer[GetCurrentCore()]->EndRender();
 }
 
 } } // namespace nw::eft

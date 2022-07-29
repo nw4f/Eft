@@ -1,0 +1,469 @@
+#include <nw/eft/eft_Animation.h>
+#include <nw/eft/eft_EmitterSet.h>
+#include <nw/eft/eft_EmitterSimple.h>
+#include <nw/eft/eft_Renderer.h>
+#include <nw/eft/eft_Shader.h>
+#include <nw/eft/eft_System.h>
+#include <nw/eft/eft_UniformBlock.h>
+
+namespace nw { namespace eft {
+
+void EmitterCalc::ApplyAnim(EmitterInstance* emitter)
+{
+    for (u32 i = 0; i < emitter->numUsedAnim; i++)
+    {
+        KeyFrameAnim* anim = emitter->usedAnimArray[i];
+
+        KeyFrameAnimKey* keys = reinterpret_cast<KeyFrameAnimKey*>(anim + 1);
+        KeyFrameAnimKey& lastKey = keys[anim->numKeys - 1];
+
+        if (emitter->counter < lastKey.time || anim->loop != 0)
+            emitter->anim[anim->animValIdx] = CalcAnimKeyFrame(anim, emitter->counter);
+
+        else
+            emitter->anim[anim->animValIdx] = lastKey.value;
+    }
+
+    if (emitter->emitterBehaviorFlg & EmitterBehaviorFlag_HasSRTAnim)
+    {
+        math::VEC3 scale     = (math::VEC3){ emitter->anim[ 2], emitter->anim[ 3], emitter->anim[ 4] };
+        math::VEC3 rotate    = (math::VEC3){ emitter->anim[ 5], emitter->anim[ 6], emitter->anim[ 7] };
+        math::VEC3 translate = (math::VEC3){ emitter->anim[ 8], emitter->anim[ 9], emitter->anim[10] };
+
+        math::MTX34::MakeSRT(&emitter->animMatrixSRT, &scale, &rotate, &translate);
+        math::MTX34::MakeRT(&emitter->animMatrixRT, &rotate, &translate);
+    }
+}
+
+void EmitterSimpleCalc::EmitSameDistance(const SimpleEmitterData* data, EmitterInstance* emitter)
+{
+    if (!(emitter->emitterBehaviorFlg & EmitterBehaviorFlag_PrevPosSet))
+    {
+        mEmitFunctions[data->emitFunction](emitter);
+        return;
+    }
+
+    math::VEC3 prevPos = emitter->prevPos;
+    math::VEC3 currPos = (math::VEC3){ emitter->matrixRT.m[0][3], emitter->matrixRT.m[1][3], emitter->matrixRT.m[2][3] };
+
+    math::VEC3 moved;
+    math::VEC3::Subtract(&moved, &prevPos, &currPos);
+    f32 movedDist = moved.Magnitude();
+
+    f32 lostDist = emitter->emitLostDistance;
+
+    if (movedDist < data->emitSameDistanceThreshold || movedDist == 0.0f)
+        movedDist = data->emitSameDistanceMin;
+    else if (movedDist < data->emitSameDistanceMin)
+        movedDist = movedDist * data->emitSameDistanceMin / movedDist;
+    else if (data->emitSameDistanceMax < movedDist)
+        movedDist = movedDist * data->emitSameDistanceMax / movedDist;
+
+    f32 remainDist = lostDist + movedDist;
+    s32 numEmit = 0;
+    if (data->emitSameDistanceUnit != 0.0f)
+        numEmit = (s32)(remainDist / data->emitSameDistanceUnit);
+
+    for (s32 i = 0; i < numEmit; i++)
+    {
+        remainDist -= data->emitSameDistanceUnit;
+
+        f32 prevCurrRatio = 0.0f;
+        if (movedDist != 0.0f)
+            prevCurrRatio = remainDist / movedDist;
+
+        math::VEC3 pos_0;
+        math::VEC3 pos_1;
+        math::VEC3 pos;
+
+        math::VEC3::Scale(&pos_0, &currPos, 1.0f - prevCurrRatio);
+        math::VEC3::Scale(&pos_1, &prevPos, prevCurrRatio);
+        math::VEC3::Add(&pos, &pos_0, &pos_1);
+
+        emitter->matrixRT.m[0][3] = pos.x;
+        emitter->matrixRT.m[1][3] = pos.y;
+        emitter->matrixRT.m[2][3] = pos.z;
+        emitter->matrixSRT.m[0][3] = pos.x;
+        emitter->matrixSRT.m[1][3] = pos.y;
+        emitter->matrixSRT.m[2][3] = pos.z;
+
+        mEmitFunctions[data->emitFunction](emitter);
+
+        // No idea why this is done inside the loop and not after it
+        emitter->matrixRT.m[0][3] = currPos.x;
+        emitter->matrixRT.m[1][3] = currPos.y;
+        emitter->matrixRT.m[2][3] = currPos.z;
+        emitter->matrixSRT.m[0][3] = currPos.x;
+        emitter->matrixSRT.m[1][3] = currPos.y;
+        emitter->matrixSRT.m[2][3] = currPos.z;
+    }
+
+    emitter->emitLostDistance = remainDist;
+}
+
+void EmitterSimpleCalc::CalcEmitter(EmitterInstance* emitter)
+{
+    const EmitterSet* emitterSet = emitter->emitterSet;
+    const SimpleEmitterData* data = emitter->data;
+    bool emit;
+
+    if (emitter->numUsedAnim != 0)
+        ApplyAnim(emitter);
+
+    math::MTX34::Concat(&emitter->matrixRT,  &emitterSet->matrixRT,  &emitter->animMatrixRT);
+    math::MTX34::Concat(&emitter->matrixSRT, &emitterSet->matrixSRT, &emitter->animMatrixSRT);
+
+    if (emitter->counter == 0.0f)
+    {
+        emitter->prevPos.x = emitter->matrixRT.m[0][3];
+        emitter->prevPos.y = emitter->matrixRT.m[1][3];
+        emitter->prevPos.z = emitter->matrixRT.m[2][3];
+    }
+
+    EmitterMatrixSetArg arg = { .emitter = emitter };
+    CustomActionEmitterMatrixSetCallback callback = mSys->GetCurrentCustomActionEmitterMatrixSetCallback(emitter);
+    if (callback != NULL)
+        callback(arg);
+
+    if (emitterSet->doFade != 0)
+    {
+        emit = !data->noEmitAtFade;
+
+        emitter->fadeAlpha -= data->fadeAlphaStep * emitter->emissionSpeed;
+        if (emitter->fadeAlpha <= 0.0f)
+            return mSys->KillEmitter(emitter);
+    }
+    else
+    {
+        emit = true;
+
+        emitter->fadeAlpha += data->fadeAlphaStep * emitter->emissionSpeed;
+        if (emitter->fadeAlpha > 1.0f)
+            emitter->fadeAlpha = 1.0f;
+    }
+
+    s32 time = (s32)emitter->counter - emitterSet->startFrame;
+    f32 prevFrame = emitter->counter - emitter->emissionSpeed;
+    bool isEmitted = (emitter->emitterBehaviorFlg & EmitterBehaviorFlag_IsEmitted) == EmitterBehaviorFlag_IsEmitted;
+    f32 interval = emitter->emissionInterval * emitter->controller->emissionInterval;
+
+    if ((time < data->endFrame || prevFrame < data->endFrame && !isEmitted) && emit)
+    {
+        if (time >= data->startFrame)
+        {
+            if (!isEmitted)
+            {
+                mEmitFunctions[data->emitFunction](emitter);
+                emitter->preCalcCounter = emitter->counter;
+
+                if (interval == 0.0f)
+                    goto calc_done;
+            }
+
+            if (data->emitSameDistance == 0)
+            {
+                f32 numEmit;
+
+                if ((s32)interval != 0)
+                {
+                    if (emitter->emissionSpeed >= 1.0f)
+                    {
+                        if ((s32)emitter->emitCounter >= interval)
+                        {
+                            numEmit = 1.0f;
+                            emitter->emitCounter = 0.0f;
+                        }
+                        else
+                        {
+                            numEmit = 0.0f;
+                            emitter->emitCounter += emitter->emissionSpeed;
+                        }
+                    }
+                    else
+                    {
+                        if (emitter->emitCounter >= interval && (s32)emitter->counter != (s32)emitter->counter2)
+                        {
+                            numEmit = 1.0f;
+                            emitter->emitCounter = 0.0f;
+                            emitter->emitLostTime = 0.0f;
+                            emitter->preCalcCounter = emitter->counter;
+                        }
+                        else
+                        {
+                            numEmit = 0.0f;
+                            emitter->emitCounter += emitter->emissionSpeed;
+                        }
+                    }
+                }
+                else
+                {
+                    if (emitter->emissionSpeed >= 1.0f)
+                        numEmit = 1.0f;
+
+                    else
+                    {
+                        numEmit = emitter->counter - emitter->preCalcCounter + emitter->emitLostTime;
+
+                        if (emitter->emitLostTime >= interval)
+                            emitter->emitLostTime -= interval;
+
+                        emitter->emitLostTime += emitter->counter - emitter->preCalcCounter - (s32)numEmit;
+                        emitter->emitCounter = 0.0f;
+                        emitter->preCalcCounter = emitter->counter;
+
+                        if (data->ptclMaxLifespan == 1 && emitter->emissionSpeed == 1.0f)
+                            numEmit = 1.0f;
+                    }
+                }
+
+                for (s32 i = 0; i < (s32)numEmit; i++)
+                {
+                    if (emitterSet->numEmissionPoints > 0)
+                    {
+                        for (s32 j = 0; j < emitterSet->numEmissionPoints; j++)
+                        {
+                            PtclInstance* particleHeadBefore = emitter->particleHead;
+                            mEmitFunctions[data->emitFunction](emitter);
+                            for (PtclInstance* ptcl = emitter->particleHead; ptcl != particleHeadBefore; ptcl = ptcl->next)
+                                ptcl->pos += emitterSet->emissionPoints[j];
+                        }
+                    }
+                    else
+                    {
+                        mEmitFunctions[data->emitFunction](emitter);
+                    }
+                }
+
+                emitter->emissionInterval = data->emitInterval + emitter->random.GetS32(data->emitIntervalRandom);
+
+                if ((s32)numEmit != 0 && emitter->data->updateEmitterInfoByEmit != 0)
+                {
+                    emitter->UpdateEmitterInfoByEmit();
+                    if (callback != NULL)
+                        callback(arg);
+                }
+            }
+            else
+            {
+                EmitSameDistance(data, emitter);
+            }
+        }
+    }
+    else
+    {
+        if (emitter->particleHead == NULL && emitter->childParticleHead == NULL)
+            return mSys->KillEmitter(emitter);
+    }
+
+calc_done:
+    emitter->emitterBehaviorFlg |= EmitterBehaviorFlag_PrevPosSet;
+    emitter->prevPos.x = emitter->matrixRT.m[0][3];
+    emitter->prevPos.y = emitter->matrixRT.m[1][3];
+    emitter->prevPos.z = emitter->matrixRT.m[2][3];
+
+    emitter->counter2 = emitter->counter;
+    emitter->counter += emitter->emissionSpeed;
+}
+
+u32 EmitterSimpleCalc::CalcParticle(EmitterInstance* emitter, CpuCore core, bool noCalcBehavior, bool noMakePtclAttributeBuffer)
+{
+    emitter->numDrawParticle = 0;
+    if (emitter->numParticles == 0)
+        return 0;
+
+    PtclAttributeBuffer* ptclAttributeBuffer = NULL;
+
+    if (!noMakePtclAttributeBuffer)
+    {
+        Renderer** const renderers = emitter->emitterSet->system->renderers;
+
+        emitter->ptclAttributeBuffer = static_cast<PtclAttributeBuffer*>(renderers[core]->AllocFromDoubleBuffer(sizeof(PtclAttributeBuffer) * emitter->numParticles));
+        if (emitter->ptclAttributeBuffer == NULL)
+        {
+            emitter->emitterDynamicUniformBlock = NULL;
+            return 0;
+        }
+
+        emitter->emitterDynamicUniformBlock = MakeEmitterUniformBlock(emitter, core, NULL, false);
+        if (emitter->emitterDynamicUniformBlock == NULL)
+        {
+            emitter->ptclAttributeBuffer = NULL;
+            return 0;
+        }
+
+        ptclAttributeBuffer = emitter->ptclAttributeBuffer;
+    }
+    else
+    {
+        emitter->ptclAttributeBuffer = NULL;
+        emitter->emitterDynamicUniformBlock = NULL;
+    }
+
+    PtclInstance* ptcl = emitter->particleHead;
+    u32 shaderAvailableAttribFlg = emitter->shader[ShaderType_Normal]->shaderAvailableAttribFlg;
+
+    CustomActionParticleCalcCallback callback1 = mSys->GetCurrentCustomActionParticleCalcCallback(emitter);
+    CustomActionParticleMakeAttributeCallback callback2 = mSys->GetCurrentCustomActionParticleMakeAttributeCallback(emitter);
+
+    f32 numBehaviorIterF32 = emitter->counter - emitter->counter2;
+    u32 numBehaviorIter = (u32)numBehaviorIterF32;
+    f32 numBehaviorIterDelta = numBehaviorIterF32 - numBehaviorIter;
+    bool behaviorRepeat = emitter->emissionSpeed > 1.0f;
+
+    PtclInstance* next;
+
+    if (behaviorRepeat || callback1 != NULL || callback2 != NULL || noCalcBehavior || noMakePtclAttributeBuffer)
+    {
+        for (; ptcl != NULL; ptcl = next)
+        {
+            next = ptcl->next;
+
+            if (!noCalcBehavior)
+            {
+                ptcl->counterS32 = (s32)ptcl->counter;
+                if (ptcl->counterS32 >= ptcl->lifespan || ptcl->lifespan == 1 && ptcl->counter > 1.0f)
+                {
+                    RemoveParticle(ptcl, core);
+                    continue;
+                }
+
+                if (behaviorRepeat)
+                {
+                    for (u32 i = 0; i < numBehaviorIter; i++)
+                        CalcSimpleParticleBehavior(emitter, ptcl, 1.0f);
+
+                    if (numBehaviorIterDelta != 0.0f)
+                        CalcSimpleParticleBehavior(emitter, ptcl, numBehaviorIterDelta);
+                }
+                else
+                {
+                    CalcSimpleParticleBehavior(emitter, ptcl, emitter->emissionSpeed);
+                }
+
+                if (callback1 != NULL)
+                {
+                    ParticleCalcArg arg = {
+                        .emitter = emitter,
+                        .ptcl = ptcl,
+                        .core = core,
+                        .noCalcBehavior = noCalcBehavior,
+                    };
+                    callback1(arg);
+
+                    if (ptcl->data == NULL)
+                        continue;
+                }
+            }
+
+            if (!noMakePtclAttributeBuffer)
+            {
+                ptcl->ptclAttributeBuffer = ptclAttributeBuffer;
+                MakeParticleAttributeBuffer(ptclAttributeBuffer++, ptcl, shaderAvailableAttribFlg);
+                emitter->numDrawParticle++;
+
+                if (callback2 != NULL)
+                {
+                    ParticleMakeAttrArg arg = {
+                        .emitter = emitter,
+                        .ptcl = ptcl,
+                        .core = core,
+                        .noCalcBehavior = noCalcBehavior,
+                    };
+                    callback2(arg);
+                }
+            }
+        }
+    }
+    else
+    {
+        for (; ptcl != NULL; ptcl = next)
+        {
+            next = ptcl->next;
+
+            ptcl->counterS32 = (s32)ptcl->counter;
+            if (ptcl->counterS32 >= ptcl->lifespan || ptcl->lifespan == 1 && ptcl->counter > 1.0f)
+            {
+                RemoveParticle(ptcl, core);
+                continue;
+            }
+
+            CalcSimpleParticleBehavior(emitter, ptcl, emitter->emissionSpeed);
+
+            if (callback1 != NULL)
+            {
+                ParticleCalcArg arg = {
+                    .emitter = emitter,
+                    .ptcl = ptcl,
+                    .core = core,
+                    .noCalcBehavior = noCalcBehavior,
+                };
+                callback1(arg);
+            }
+
+            ptcl->ptclAttributeBuffer = ptclAttributeBuffer;
+            MakeParticleAttributeBuffer(ptclAttributeBuffer++, ptcl, shaderAvailableAttribFlg);
+            emitter->numDrawParticle++;
+        }
+    }
+
+    emitter->emitterBehaviorFlg |= EmitterBehaviorFlag_IsCalculated;
+    return emitter->numDrawParticle;
+}
+
+EmitterDynamicUniformBlock* EmitterSimpleCalc::MakeEmitterUniformBlock(EmitterInstance* emitter, CpuCore core, const ChildData* childData, bool noCalcBehavior)
+{
+    System* system = emitter->emitterSet->system;
+    EmitterDynamicUniformBlock* emitterDynamicUniformBlock = static_cast<EmitterDynamicUniformBlock*>(system->renderers[core]->AllocFromDoubleBuffer(sizeof(EmitterDynamicUniformBlock)));
+    if (emitterDynamicUniformBlock == NULL)
+        return NULL;
+
+    ut::Color4f emitterSetColor = emitter->emitterSet->color;
+    if (childData == NULL)
+        emitterSetColor.rgb() *= emitter->data->colorScaleFactor;
+
+    else if (emitter->GetComplexEmitterData()->childFlags & 0x10000)
+        emitterSetColor.rgb() *= emitter->data->colorScaleFactor;
+
+    else
+        emitterSetColor.rgb() *= childData->colorScaleFactor;
+
+    emitterDynamicUniformBlock->emitterColor0.x = emitterSetColor.r * emitter->anim[11];
+    emitterDynamicUniformBlock->emitterColor0.y = emitterSetColor.g * emitter->anim[12];
+    emitterDynamicUniformBlock->emitterColor0.z = emitterSetColor.b * emitter->anim[13];
+    emitterDynamicUniformBlock->emitterColor0.w = emitterSetColor.a * emitter->anim[14] * emitter->fadeAlpha;
+
+    emitterDynamicUniformBlock->emitterColor1.x = emitterSetColor.r * emitter->anim[19];
+    emitterDynamicUniformBlock->emitterColor1.y = emitterSetColor.g * emitter->anim[20];
+    emitterDynamicUniformBlock->emitterColor1.z = emitterSetColor.b * emitter->anim[21];
+    emitterDynamicUniformBlock->emitterColor1.w = emitterSetColor.a * emitter->anim[14] * emitter->fadeAlpha;
+
+    math::VEC2 emitterScale = emitter->emitterSet->ptclEffectiveScale;
+
+    emitterDynamicUniformBlock->emp0.x = emitter->counter;
+    emitterDynamicUniformBlock->emp0.y = emitterScale.x;
+    emitterDynamicUniformBlock->emp0.z = emitterScale.y;
+    emitterDynamicUniformBlock->emp0.w = emitter->emissionSpeed;
+
+    if (noCalcBehavior)
+    {
+        emitterDynamicUniformBlock->emp1.x = 0.0f;
+        emitterDynamicUniformBlock->emp1.y = 0.0f;
+    }
+    else
+    {
+        emitterDynamicUniformBlock->emp1.x = 1.0f;
+        emitterDynamicUniformBlock->emp1.y = 1.0f / (f32)system->streamOutParam[(u8)emitter->groupID]; // Nintendo intentionally added the "u8" cast
+    }
+
+    emitterDynamicUniformBlock->emp1.z = 0.0f;
+    emitterDynamicUniformBlock->emp1.w = 0.0f;
+
+    emitterDynamicUniformBlock->emitterMatrix = math::MTX44(emitter->matrixSRT);
+    emitterDynamicUniformBlock->emitterMatrixRT = math::MTX44(emitter->matrixRT);
+
+    GX2EndianSwap(emitterDynamicUniformBlock, sizeof(EmitterDynamicUniformBlock));
+
+    return emitterDynamicUniformBlock;
+}
+
+} } // namespace nw::eft

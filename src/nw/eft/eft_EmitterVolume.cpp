@@ -26,25 +26,25 @@ EmitterCalc::EmitFunction EmitterCalc::mEmitFunctions[] = {
     EmitterCalc::CalcEmitPrimitive,
 };
 
-static const math::VEC3 gSameDivideSphere2[2] = {
+static const f32 gSameDivideSphere2[2][3] = {
      0.000000f,  1.000000f,  0.000000f,
      0.000000f, -1.000000f,  0.000000f,
 };
 
-static const math::VEC3 gSameDivideSphere3[3] = {
+static const f32 gSameDivideSphere3[3][3] = {
      0.000000f,  1.000000f,  0.000000f,
     -0.707107f, -0.707107f,  0.000000f,
      0.707107f, -0.707107f,  0.000000f,
 };
 
-static const math::VEC3 gSameDivideSphere4[4] = {
+static const f32 gSameDivideSphere4[4][3] = {
      0.000000f, -1.000000f,  0.000000f,
      0.471404f,  0.333333f,  0.816497f,
      0.471404f,  0.333333f, -0.816497f,
     -0.942809f,  0.333333f,  0.000000f,
 };
 
-static const math::VEC3 gSameDivideSphere6[6] = {
+static const f32 gSameDivideSphere6[6][3] = {
      0.000000f,  0.000000f,  1.000000f,
      0.000000f,  1.000000f,  0.000000f,
      0.000000f,  0.000000f, -1.000000f,
@@ -53,7 +53,7 @@ static const math::VEC3 gSameDivideSphere6[6] = {
     -1.000000f,  0.000000f,  0.000000f,
 };
 
-static const math::VEC3 gSameDivideSphere8[8] = {
+static const f32 gSameDivideSphere8[8][3] = {
      0.577350f,  0.577350f, -0.577350f,
     -0.577350f,  0.577350f, -0.577350f,
     -0.577350f,  0.577350f,  0.577350f,
@@ -64,7 +64,7 @@ static const math::VEC3 gSameDivideSphere8[8] = {
      0.577350f, -0.577350f,  0.577350f,
 };
 
-static const math::VEC3 gSameDivideSphere12[12] = {
+static const f32 gSameDivideSphere12[12][3] = {
      0.850651f,  0.000000f, -0.525731f,
      0.850651f,  0.000000f,  0.525731f,
      0.525731f, -0.850651f,  0.000000f,
@@ -79,7 +79,7 @@ static const math::VEC3 gSameDivideSphere12[12] = {
     -0.850651f,  0.000000f, -0.525731f,
 };
 
-static const math::VEC3 gSameDivideSphere20[20] = {
+static const f32 gSameDivideSphere20[20][3] = {
      0.934172f, -0.356822f,  0.000000f,
      0.934172f,  0.356822f,  0.000000f,
      0.356822f,  0.000000f, -0.934172f,
@@ -102,7 +102,7 @@ static const math::VEC3 gSameDivideSphere20[20] = {
      0.000000f, -0.934172f, -0.356822f,
 };
 
-static const math::VEC3 gSameDivideSphere32[32] = {
+static const f32 gSameDivideSphere32[32][3] = {
      0.188492f,  0.914958f, -0.356822f,
     -0.400983f,  0.914958f,  0.045431f,
      0.193493f,  0.939234f,  0.283550f,
@@ -137,36 +137,36 @@ static const math::VEC3 gSameDivideSphere32[32] = {
     -0.188492f, -0.914958f,  0.356822f,
 };
 
-static const math::VEC3* gSameDivideSphereTbl[8] = {
-    gSameDivideSphere2,
-    gSameDivideSphere3,
-    gSameDivideSphere4,
-    gSameDivideSphere6,
-    gSameDivideSphere8,
-    gSameDivideSphere12,
-    gSameDivideSphere20,
-    gSameDivideSphere32,
+static const f32* gSameDivideSphereTbl[8] = {
+    (f32*)gSameDivideSphere2,
+    (f32*)gSameDivideSphere3,
+    (f32*)gSameDivideSphere4,
+    (f32*)gSameDivideSphere6,
+    (f32*)gSameDivideSphere8,
+    (f32*)gSameDivideSphere12,
+    (f32*)gSameDivideSphere20,
+    (f32*)gSameDivideSphere32,
 };
 
-static const math::VEC3 gSameDivideSphere64_2[2] = {
+static const f32 gSameDivideSphere64_2[2][3] = {
      0.975795f, -0.023205f,  0.217454f,
      0.550744f, -0.714038f, -0.432240f,
 };
 
-static const math::VEC3 gSameDivideSphere64_3[3] = {
+static const f32 gSameDivideSphere64_3[3][3] = {
     -0.198048f,  0.721093f, -0.663930f,
      0.645908f, -0.727871f, -0.230231f,
     -0.447828f,  0.006775f,  0.894094f,
 };
 
-static const math::VEC3 gSameDivideSphere64_4[4] = {
+static const f32 gSameDivideSphere64_4[4][3] = {
      0.676976f,  0.235577f,  0.697285f,
     -0.030787f,  0.597098f, -0.801577f,
     -0.894481f,  0.075740f,  0.440643f,
      0.248293f, -0.908415f, -0.336351f,
 };
 
-static const math::VEC3 gSameDivideSphere64_5[5] = {
+static const f32 gSameDivideSphere64_5[5][3] = {
      0.104637f, -0.660762f,  0.743266f,
     -0.449743f,  0.599927f,  0.661679f,
      0.692244f,  0.692173f, -0.204195f,
@@ -174,7 +174,7 @@ static const math::VEC3 gSameDivideSphere64_5[5] = {
     -0.793397f,  0.038647f, -0.607477f,
 };
 
-static const math::VEC3 gSameDivideSphere64_6[6] = {
+static const f32 gSameDivideSphere64_6[6][3] = {
      0.664168f, -0.421780f,  0.617237f,
     -0.373127f,  0.560552f, -0.739296f,
      0.450534f,  0.830673f,  0.327110f,
@@ -183,7 +183,7 @@ static const math::VEC3 gSameDivideSphere64_6[6] = {
     -0.771637f,  0.243549f,  0.587589f,
 };
 
-static const math::VEC3 gSameDivideSphere64_7[7] = {
+static const f32 gSameDivideSphere64_7[7][3] = {
      0.839586f,  0.141701f,  0.524420f,
     -0.698780f, -0.328924f, -0.635228f,
      0.260453f,  0.662019f, -0.702777f,
@@ -193,7 +193,7 @@ static const math::VEC3 gSameDivideSphere64_7[7] = {
      0.066040f, -0.836844f,  0.543444f,
 };
 
-static const math::VEC3 gSameDivideSphere64_8[8] = {
+static const f32 gSameDivideSphere64_8[8][3] = {
      0.635766f, -0.766206f, -0.093430f,
      0.386336f, -0.192667f,  0.902011f,
     -0.251218f,  0.894362f,  0.370143f,
@@ -204,7 +204,7 @@ static const math::VEC3 gSameDivideSphere64_8[8] = {
     -0.717913f,  0.395452f, -0.572904f,
 };
 
-static const math::VEC3 gSameDivideSphere64_9[9] = {
+static const f32 gSameDivideSphere64_9[9][3] = {
      0.804014f, -0.249270f, -0.539838f,
     -0.169136f, -0.384242f, -0.907608f,
     -0.241015f,  0.920776f,  0.306731f,
@@ -216,7 +216,7 @@ static const math::VEC3 gSameDivideSphere64_9[9] = {
      0.711575f,  0.439172f,  0.548443f,
 };
 
-static const math::VEC3 gSameDivideSphere64_10[10] = {
+static const f32 gSameDivideSphere64_10[10][3] = {
      0.761440f, -0.259322f, -0.594106f,
     -0.141654f, -0.074596f,  0.987102f,
     -0.388960f,  0.817381f,  0.424969f,
@@ -229,7 +229,7 @@ static const math::VEC3 gSameDivideSphere64_10[10] = {
      0.700079f,  0.631363f,  0.333571f,
 };
 
-static const math::VEC3 gSameDivideSphere64_11[11] = {
+static const f32 gSameDivideSphere64_11[11][3] = {
      0.720108f, -0.531505f, -0.446035f,
     -0.166366f, -0.966130f, -0.197267f,
      0.569659f,  0.690528f,  0.445712f,
@@ -243,7 +243,7 @@ static const math::VEC3 gSameDivideSphere64_11[11] = {
     -0.346552f,  0.579228f,  0.737832f,
 };
 
-static const math::VEC3 gSameDivideSphere64_12[12] = {
+static const f32 gSameDivideSphere64_12[12][3] = {
      0.988916f, -0.136890f,  0.057496f,
      0.233882f,  0.642751f, -0.729500f,
      0.654616f,  0.754861f,  0.040785f,
@@ -258,7 +258,7 @@ static const math::VEC3 gSameDivideSphere64_12[12] = {
      0.188540f,  0.506549f,  0.841345f,
 };
 
-static const math::VEC3 gSameDivideSphere64_13[13] = {
+static const f32 gSameDivideSphere64_13[13][3] = {
      0.721712f,  0.658797f, -0.212411f,
      0.315862f,  0.388955f,  0.865416f,
      0.883295f, -0.201522f,  0.423295f,
@@ -274,7 +274,7 @@ static const math::VEC3 gSameDivideSphere64_13[13] = {
      0.015993f, -0.541332f,  0.840657f,
 };
 
-static const math::VEC3 gSameDivideSphere64_14[14] = {
+static const f32 gSameDivideSphere64_14[14][3] = {
      0.539580f, -0.481359f, -0.690758f,
      0.569828f,  0.582544f, -0.579602f,
     -0.200914f,  0.442357f, -0.874045f,
@@ -291,7 +291,7 @@ static const math::VEC3 gSameDivideSphere64_14[14] = {
      0.080416f, -0.990183f, -0.114331f,
 };
 
-static const math::VEC3 gSameDivideSphere64_15[15] = {
+static const f32 gSameDivideSphere64_15[15][3] = {
      0.254310f,  0.493633f, -0.831657f,
     -0.843081f, -0.429718f, -0.323352f,
     -0.510333f,  0.513213f,  0.690053f,
@@ -309,7 +309,7 @@ static const math::VEC3 gSameDivideSphere64_15[15] = {
     -0.841225f,  0.515941f, -0.161694f,
 };
 
-static const math::VEC3 gSameDivideSphere64_16[16] = {
+static const f32 gSameDivideSphere64_16[16][3] = {
     -0.391424f, -0.853922f, -0.342935f,
     -0.817970f,  0.004526f, -0.575243f,
     -0.248385f,  0.955612f,  0.158466f,
@@ -328,7 +328,7 @@ static const math::VEC3 gSameDivideSphere64_16[16] = {
     -0.922025f, -0.343505f,  0.178533f,
 };
 
-static const math::VEC3 gSameDivideSphere64_17[17] = {
+static const f32 gSameDivideSphere64_17[17][3] = {
      0.763904f,  0.639864f,  0.083813f,
     -0.735674f, -0.309000f, -0.602747f,
      0.077587f,  0.913618f, -0.399103f,
@@ -348,7 +348,7 @@ static const math::VEC3 gSameDivideSphere64_17[17] = {
      0.902391f,  0.109342f, -0.416816f,
 };
 
-static const math::VEC3 gSameDivideSphere64_18[18] = {
+static const f32 gSameDivideSphere64_18[18][3] = {
      0.449637f, -0.494152f, -0.744070f,
      0.196958f,  0.663205f, -0.722057f,
      0.669128f,  0.743141f, -0.003136f,
@@ -369,7 +369,7 @@ static const math::VEC3 gSameDivideSphere64_18[18] = {
      0.184205f,  0.731943f,  0.655994f,
 };
 
-static const math::VEC3 gSameDivideSphere64_19[19] = {
+static const f32 gSameDivideSphere64_19[19][3] = {
      0.734232f,  0.441571f, -0.515673f,
      0.097158f, -0.804392f, -0.586100f,
     -0.713574f,  0.689403f, -0.124641f,
@@ -391,7 +391,7 @@ static const math::VEC3 gSameDivideSphere64_19[19] = {
      0.374373f,  0.468078f,  0.800467f,
 };
 
-static const math::VEC3 gSameDivideSphere64_20[20] = {
+static const f32 gSameDivideSphere64_20[20][3] = {
      0.569824f, -0.815304f,  0.102858f,
      0.087947f,  0.955731f, -0.280790f,
     -0.470434f,  0.875055f,  0.113891f,
@@ -414,7 +414,7 @@ static const math::VEC3 gSameDivideSphere64_20[20] = {
      0.096661f, -0.446749f,  0.889422f,
 };
 
-static const math::VEC3 gSameDivideSphere64_21[21] = {
+static const f32 gSameDivideSphere64_21[21][3] = {
      0.764973f,  0.459586f,  0.451217f,
      0.332043f,  0.519236f, -0.787491f,
      0.126705f,  0.620407f,  0.773978f,
@@ -438,7 +438,7 @@ static const math::VEC3 gSameDivideSphere64_21[21] = {
      0.560002f, -0.156633f, -0.813550f,
 };
 
-static const math::VEC3 gSameDivideSphere64_22[22] = {
+static const f32 gSameDivideSphere64_22[22][3] = {
      0.835192f, -0.381923f, -0.395714f,
      0.249846f, -0.709905f, -0.658492f,
      0.153608f,  0.971855f, -0.178615f,
@@ -463,7 +463,7 @@ static const math::VEC3 gSameDivideSphere64_22[22] = {
     -0.594186f,  0.716738f,  0.365007f,
 };
 
-static const math::VEC3 gSameDivideSphere64_23[23] = {
+static const f32 gSameDivideSphere64_23[23][3] = {
      0.530316f,  0.598152f, -0.600816f,
      0.434920f, -0.718930f, -0.542202f,
      0.511919f,  0.478696f,  0.713294f,
@@ -489,7 +489,7 @@ static const math::VEC3 gSameDivideSphere64_23[23] = {
     -0.832796f, -0.402114f, -0.380468f,
 };
 
-static const math::VEC3 gSameDivideSphere64_24[24] = {
+static const f32 gSameDivideSphere64_24[24][3] = {
      0.494847f,  0.668703f,  0.554944f,
      0.809182f, -0.583460f,  0.069271f,
     -0.819156f,  0.360403f,  0.446199f,
@@ -516,7 +516,7 @@ static const math::VEC3 gSameDivideSphere64_24[24] = {
      0.361411f, -0.745780f,  0.559638f,
 };
 
-static const math::VEC3 gSameDivideSphere64_25[25] = {
+static const f32 gSameDivideSphere64_25[25][3] = {
      0.809725f,  0.562869f,  0.165904f,
     -0.562236f,  0.307922f, -0.767512f,
     -0.501795f,  0.837490f, -0.216360f,
@@ -544,7 +544,7 @@ static const math::VEC3 gSameDivideSphere64_25[25] = {
     -0.674308f, -0.724241f, -0.144165f,
 };
 
-static const math::VEC3 gSameDivideSphere64_26[26] = {
+static const f32 gSameDivideSphere64_26[26][3] = {
      0.971847f,  0.144624f,  0.186002f,
     -0.279732f,  0.823973f, -0.492766f,
     -0.397538f, -0.445977f, -0.801915f,
@@ -573,7 +573,7 @@ static const math::VEC3 gSameDivideSphere64_26[26] = {
      0.233182f, -0.796374f,  0.558045f,
 };
 
-static const math::VEC3 gSameDivideSphere64_27[27] = {
+static const f32 gSameDivideSphere64_27[27][3] = {
      0.642059f, -0.749312f,  0.162148f,
     -0.733964f,  0.672815f, -0.092833f,
      0.406476f,  0.811133f,  0.420524f,
@@ -603,7 +603,7 @@ static const math::VEC3 gSameDivideSphere64_27[27] = {
     -0.366670f,  0.795515f,  0.482399f,
 };
 
-static const math::VEC3 gSameDivideSphere64_28[28] = {
+static const f32 gSameDivideSphere64_28[28][3] = {
      0.544995f,  0.804690f,  0.235487f,
     -0.284601f, -0.795159f, -0.535466f,
      0.144789f,  0.922527f, -0.357742f,
@@ -634,7 +634,7 @@ static const math::VEC3 gSameDivideSphere64_28[28] = {
     -0.699807f, -0.228562f,  0.676778f,
 };
 
-static const math::VEC3 gSameDivideSphere64_29[29] = {
+static const f32 gSameDivideSphere64_29[29][3] = {
      0.766824f, -0.615677f, -0.181445f,
     -0.257730f, -0.966054f,  0.017735f,
      0.580576f,  0.805765f,  0.116937f,
@@ -666,7 +666,7 @@ static const math::VEC3 gSameDivideSphere64_29[29] = {
      0.326946f,  0.461931f, -0.824455f,
 };
 
-static const math::VEC3 gSameDivideSphere64_30[30] = {
+static const f32 gSameDivideSphere64_30[30][3] = {
      0.891121f,  0.433454f, -0.134243f,
      0.272459f, -0.444892f, -0.853134f,
     -0.507073f,  0.536061f, -0.674919f,
@@ -699,7 +699,7 @@ static const math::VEC3 gSameDivideSphere64_30[30] = {
     -0.968162f,  0.217710f,  0.123550f,
 };
 
-static const math::VEC3 gSameDivideSphere64_31[31] = {
+static const f32 gSameDivideSphere64_31[31][3] = {
      0.486824f, -0.702985f,  0.518474f,
      0.377321f, -0.618490f, -0.689274f,
     -0.102243f,  0.874372f, -0.474363f,
@@ -733,7 +733,7 @@ static const math::VEC3 gSameDivideSphere64_31[31] = {
     -0.384151f, -0.730165f, -0.565055f,
 };
 
-static const math::VEC3 gSameDivideSphere64_32[32] = {
+static const f32 gSameDivideSphere64_32[32][3] = {
      0.326293f,  0.941805f, -0.080848f,
      0.511855f,  0.173102f, -0.841451f,
      0.030715f,  0.844933f,  0.533990f,
@@ -768,7 +768,7 @@ static const math::VEC3 gSameDivideSphere64_32[32] = {
      0.597357f,  0.122743f,  0.792527f,
 };
 
-static const math::VEC3 gSameDivideSphere64_33[33] = {
+static const f32 gSameDivideSphere64_33[33][3] = {
      0.814391f, -0.346771f, -0.465314f,
      0.356001f, -0.768380f, -0.531842f,
      0.631558f,  0.463121f, -0.621815f,
@@ -804,7 +804,7 @@ static const math::VEC3 gSameDivideSphere64_33[33] = {
      0.235445f, -0.913934f,  0.330591f,
 };
 
-static const math::VEC3 gSameDivideSphere64_34[34] = {
+static const f32 gSameDivideSphere64_34[34][3] = {
      0.673353f,  0.654279f, -0.344261f,
      0.942470f,  0.171560f, -0.286911f,
      0.805713f,  0.525251f,  0.273746f,
@@ -841,7 +841,7 @@ static const math::VEC3 gSameDivideSphere64_34[34] = {
      0.302382f,  0.749062f,  0.589467f,
 };
 
-static const math::VEC3 gSameDivideSphere64_35[35] = {
+static const f32 gSameDivideSphere64_35[35][3] = {
      0.041982f, -0.822666f,  0.566972f,
      0.770989f, -0.567586f, -0.288830f,
     -0.524354f,  0.846124f,  0.095532f,
@@ -879,7 +879,7 @@ static const math::VEC3 gSameDivideSphere64_35[35] = {
      0.194695f, -0.853504f, -0.483347f,
 };
 
-static const math::VEC3 gSameDivideSphere64_36[36] = {
+static const f32 gSameDivideSphere64_36[36][3] = {
      0.658899f,  0.096735f,  0.745986f,
     -0.891234f,  0.452763f, -0.026612f,
     -0.505130f,  0.850482f,  0.146710f,
@@ -918,7 +918,7 @@ static const math::VEC3 gSameDivideSphere64_36[36] = {
     -0.955300f, -0.020843f,  0.294902f,
 };
 
-static const math::VEC3 gSameDivideSphere64_37[37] = {
+static const f32 gSameDivideSphere64_37[37][3] = {
      0.938602f, -0.012371f,  0.344780f,
     -0.227443f, -0.972404f, -0.051972f,
      0.127761f, -0.829685f, -0.543414f,
@@ -958,7 +958,7 @@ static const math::VEC3 gSameDivideSphere64_37[37] = {
      0.464929f, -0.273533f, -0.842034f,
 };
 
-static const math::VEC3 gSameDivideSphere64_38[38] = {
+static const f32 gSameDivideSphere64_38[38][3] = {
      0.969460f,  0.241155f, -0.044625f,
     -0.465198f,  0.563573f, -0.682624f,
      0.329040f, -0.798119f, -0.504716f,
@@ -999,7 +999,7 @@ static const math::VEC3 gSameDivideSphere64_38[38] = {
      0.218119f,  0.975330f, -0.033979f,
 };
 
-static const math::VEC3 gSameDivideSphere64_39[39] = {
+static const f32 gSameDivideSphere64_39[39][3] = {
      0.639125f,  0.617603f, -0.458351f,
     -0.266130f, -0.917830f, -0.294554f,
      0.464740f, -0.783554f,  0.412383f,
@@ -1041,7 +1041,7 @@ static const math::VEC3 gSameDivideSphere64_39[39] = {
     -0.473755f, -0.427117f,  0.770148f,
 };
 
-static const math::VEC3 gSameDivideSphere64_40[40] = {
+static const f32 gSameDivideSphere64_40[40][3] = {
      0.834182f,  0.477660f,  0.275647f,
      0.443852f,  0.892447f, -0.080831f,
      0.532985f, -0.808681f, -0.248921f,
@@ -1084,7 +1084,7 @@ static const math::VEC3 gSameDivideSphere64_40[40] = {
     -0.140378f,  0.958037f, -0.249918f,
 };
 
-static const math::VEC3 gSameDivideSphere64_41[41] = {
+static const f32 gSameDivideSphere64_41[41][3] = {
      0.776222f,  0.052029f,  0.628309f,
      0.778680f, -0.597435f, -0.191650f,
     -0.860154f, -0.508749f,  0.036192f,
@@ -1128,7 +1128,7 @@ static const math::VEC3 gSameDivideSphere64_41[41] = {
      0.889036f,  0.436812f, -0.137150f,
 };
 
-static const math::VEC3 gSameDivideSphere64_42[42] = {
+static const f32 gSameDivideSphere64_42[42][3] = {
      0.839198f, -0.117501f,  0.530981f,
     -0.918620f,  0.276255f, -0.282524f,
     -0.520356f, -0.401337f, -0.753763f,
@@ -1173,7 +1173,7 @@ static const math::VEC3 gSameDivideSphere64_42[42] = {
      0.434082f,  0.116671f,  0.893287f,
 };
 
-static const math::VEC3 gSameDivideSphere64_43[43] = {
+static const f32 gSameDivideSphere64_43[43][3] = {
      0.962560f,  0.256194f, -0.088563f,
      0.926980f, -0.374346f,  0.023959f,
     -0.058992f, -0.997047f, -0.049162f,
@@ -1219,7 +1219,7 @@ static const math::VEC3 gSameDivideSphere64_43[43] = {
     -0.632065f, -0.191761f,  0.750814f,
 };
 
-static const math::VEC3 gSameDivideSphere64_44[44] = {
+static const f32 gSameDivideSphere64_44[44][3] = {
      0.962800f, -0.244780f,  0.114455f,
     -0.832163f,  0.345581f, -0.433679f,
     -0.375529f, -0.695337f,  0.612768f,
@@ -1266,7 +1266,7 @@ static const math::VEC3 gSameDivideSphere64_44[44] = {
      0.413081f, -0.842887f,  0.344826f,
 };
 
-static const math::VEC3 gSameDivideSphere64_45[45] = {
+static const f32 gSameDivideSphere64_45[45][3] = {
      0.830550f,  0.260347f,  0.492348f,
     -0.878392f, -0.477896f,  0.006522f,
      0.483961f, -0.747863f, -0.454404f,
@@ -1314,7 +1314,7 @@ static const math::VEC3 gSameDivideSphere64_45[45] = {
      0.261575f,  0.959006f,  0.109022f,
 };
 
-static const math::VEC3 gSameDivideSphere64_46[46] = {
+static const f32 gSameDivideSphere64_46[46][3] = {
      0.880930f,  0.318379f,  0.350138f,
      0.035725f,  0.910309f, -0.412384f,
      0.977453f, -0.141336f,  0.156878f,
@@ -1363,7 +1363,7 @@ static const math::VEC3 gSameDivideSphere64_46[46] = {
      0.338914f, -0.709807f,  0.617504f,
 };
 
-static const math::VEC3 gSameDivideSphere64_47[47] = {
+static const f32 gSameDivideSphere64_47[47][3] = {
      0.690401f, -0.294778f,  0.660646f,
      0.028592f, -0.782339f, -0.622196f,
     -0.877513f, -0.437835f, -0.195631f,
@@ -1413,7 +1413,7 @@ static const math::VEC3 gSameDivideSphere64_47[47] = {
     -0.368799f,  0.739430f, -0.563232f,
 };
 
-static const math::VEC3 gSameDivideSphere64_48[48] = {
+static const f32 gSameDivideSphere64_48[48][3] = {
      0.937324f, -0.301406f,  0.174867f,
      0.487592f,  0.763020f,  0.424328f,
     -0.524864f, -0.801792f,  0.285740f,
@@ -1464,7 +1464,7 @@ static const math::VEC3 gSameDivideSphere64_48[48] = {
      0.702873f, -0.426098f,  0.569571f,
 };
 
-static const math::VEC3 gSameDivideSphere64_49[49] = {
+static const f32 gSameDivideSphere64_49[49][3] = {
      0.715019f, -0.673002f,  0.189251f,
      0.894247f, -0.411644f, -0.175704f,
      0.289752f, -0.450996f, -0.844184f,
@@ -1516,7 +1516,7 @@ static const math::VEC3 gSameDivideSphere64_49[49] = {
      0.079945f, -0.628442f,  0.773737f,
 };
 
-static const math::VEC3 gSameDivideSphere64_50[50] = {
+static const f32 gSameDivideSphere64_50[50][3] = {
      0.503173f, -0.855392f, -0.122971f,
     -0.643073f,  0.547888f, -0.535047f,
     -0.106334f, -0.531930f,  0.840085f,
@@ -1569,7 +1569,7 @@ static const math::VEC3 gSameDivideSphere64_50[50] = {
      0.729876f, -0.580662f,  0.360711f,
 };
 
-static const math::VEC3 gSameDivideSphere64_51[51] = {
+static const f32 gSameDivideSphere64_51[51][3] = {
      0.814974f, -0.136994f,  0.563072f,
     -0.804428f,  0.288896f, -0.519072f,
      0.456743f, -0.298022f,  0.838194f,
@@ -1623,7 +1623,7 @@ static const math::VEC3 gSameDivideSphere64_51[51] = {
     -0.397149f,  0.909374f,  0.123743f,
 };
 
-static const math::VEC3 gSameDivideSphere64_52[52] = {
+static const f32 gSameDivideSphere64_52[52][3] = {
     -0.642119f, -0.477846f,  0.599455f,
     -0.505774f,  0.854122f, -0.121111f,
      0.999599f, -0.010243f,  0.026414f,
@@ -1678,7 +1678,7 @@ static const math::VEC3 gSameDivideSphere64_52[52] = {
      0.488693f,  0.863495f, -0.124722f,
 };
 
-static const math::VEC3 gSameDivideSphere64_53[53] = {
+static const f32 gSameDivideSphere64_53[53][3] = {
     -0.912879f, -0.407861f,  0.017342f,
     -0.935598f, -0.099050f, -0.338887f,
     -0.727080f, -0.479811f,  0.491056f,
@@ -1734,7 +1734,7 @@ static const math::VEC3 gSameDivideSphere64_53[53] = {
     -0.678757f, -0.088269f,  0.729039f,
 };
 
-static const math::VEC3 gSameDivideSphere64_54[54] = {
+static const f32 gSameDivideSphere64_54[54][3] = {
     -0.978816f,  0.197688f, -0.053272f,
     -0.189482f,  0.981880f,  0.002855f,
     -0.697764f, -0.418006f, -0.581719f,
@@ -1791,7 +1791,7 @@ static const math::VEC3 gSameDivideSphere64_54[54] = {
     -0.705846f, -0.699402f,  0.112328f,
 };
 
-static const math::VEC3 gSameDivideSphere64_55[55] = {
+static const f32 gSameDivideSphere64_55[55][3] = {
     -0.566435f, -0.637861f, -0.521809f,
     -0.356205f,  0.858169f, -0.369681f,
      0.223544f, -0.950838f, -0.214325f,
@@ -1849,7 +1849,7 @@ static const math::VEC3 gSameDivideSphere64_55[55] = {
      0.852058f,  0.324306f, -0.410881f,
 };
 
-static const math::VEC3 gSameDivideSphere64_56[56] = {
+static const f32 gSameDivideSphere64_56[56][3] = {
     -0.483131f,  0.803130f, -0.348664f,
      0.158649f,  0.968744f, -0.190695f,
      0.282913f, -0.111592f, -0.952632f,
@@ -1908,7 +1908,7 @@ static const math::VEC3 gSameDivideSphere64_56[56] = {
      0.422317f,  0.279911f, -0.862147f,
 };
 
-static const math::VEC3 gSameDivideSphere64_57[57] = {
+static const f32 gSameDivideSphere64_57[57][3] = {
     -0.838695f,  0.347991f, -0.418919f,
      0.747648f, -0.309080f, -0.587786f,
      0.944254f, -0.161025f,  0.287148f,
@@ -1968,7 +1968,7 @@ static const math::VEC3 gSameDivideSphere64_57[57] = {
     -0.562161f,  0.449396f, -0.694276f,
 };
 
-static const math::VEC3 gSameDivideSphere64_58[58] = {
+static const f32 gSameDivideSphere64_58[58][3] = {
     -0.923202f,  0.296712f,  0.244253f,
      0.673826f, -0.737417f, -0.046638f,
     -0.835583f, -0.393571f,  0.383279f,
@@ -2029,7 +2029,7 @@ static const math::VEC3 gSameDivideSphere64_58[58] = {
     -0.937589f,  0.313337f, -0.150818f,
 };
 
-static const math::VEC3 gSameDivideSphere64_59[59] = {
+static const f32 gSameDivideSphere64_59[59][3] = {
     -0.799568f,  0.595533f, -0.077659f,
     -0.981124f,  0.088573f, -0.171900f,
     -0.940101f, -0.340897f, -0.000478f,
@@ -2091,7 +2091,7 @@ static const math::VEC3 gSameDivideSphere64_59[59] = {
      0.416650f,  0.573946f,  0.704974f,
 };
 
-static const math::VEC3 gSameDivideSphere64_60[60] = {
+static const f32 gSameDivideSphere64_60[60][3] = {
     -0.171264f,  0.692647f, -0.700649f,
     -0.906641f, -0.204204f,  0.369192f,
     -0.628477f, -0.471391f,  0.618714f,
@@ -2154,7 +2154,7 @@ static const math::VEC3 gSameDivideSphere64_60[60] = {
     -0.056064f, -0.460796f,  0.885734f,
 };
 
-static const math::VEC3 gSameDivideSphere64_61[61] = {
+static const f32 gSameDivideSphere64_61[61][3] = {
     -0.534537f, -0.178145f, -0.826156f,
     -0.935099f,  0.171479f, -0.310137f,
     -0.157646f, -0.343364f, -0.925877f,
@@ -2218,7 +2218,7 @@ static const math::VEC3 gSameDivideSphere64_61[61] = {
     -0.591609f, -0.200566f,  0.780879f,
 };
 
-static const math::VEC3 gSameDivideSphere64_62[62] = {
+static const f32 gSameDivideSphere64_62[62][3] = {
     -0.811014f,  0.579631f,  0.079272f,
     -0.760155f, -0.647770f,  0.050583f,
      0.606500f, -0.674323f, -0.421244f,
@@ -2283,7 +2283,7 @@ static const math::VEC3 gSameDivideSphere64_62[62] = {
     -0.956931f,  0.073246f,  0.280924f,
 };
 
-static const math::VEC3 gSameDivideSphere64_63[63] = {
+static const f32 gSameDivideSphere64_63[63][3] = {
     -0.956354f,  0.180766f,  0.229589f,
      0.274680f,  0.940498f, -0.200038f,
      0.792308f,  0.053462f,  0.607775f,
@@ -2349,7 +2349,7 @@ static const math::VEC3 gSameDivideSphere64_63[63] = {
     -0.729568f, -0.013250f, -0.683780f,
 };
 
-static const math::VEC3 gSameDivideSphere64_64[64] = {
+static const f32 gSameDivideSphere64_64[64][3] = {
     -0.774945f,  0.252126f, -0.579562f,
     -0.254862f, -0.963594f, -0.080822f,
     -0.508779f, -0.064758f, -0.858458f,
@@ -2416,844 +2416,1036 @@ static const math::VEC3 gSameDivideSphere64_64[64] = {
      0.830752f, -0.116547f,  0.544304f,
 };
 
-static const math::VEC3* gSameDivideSphere64Tbl[63] = {
-    gSameDivideSphere64_2,
-    gSameDivideSphere64_3,
-    gSameDivideSphere64_4,
-    gSameDivideSphere64_5,
-    gSameDivideSphere64_6,
-    gSameDivideSphere64_7,
-    gSameDivideSphere64_8,
-    gSameDivideSphere64_9,
-    gSameDivideSphere64_10,
-    gSameDivideSphere64_11,
-    gSameDivideSphere64_12,
-    gSameDivideSphere64_13,
-    gSameDivideSphere64_14,
-    gSameDivideSphere64_15,
-    gSameDivideSphere64_16,
-    gSameDivideSphere64_17,
-    gSameDivideSphere64_18,
-    gSameDivideSphere64_19,
-    gSameDivideSphere64_20,
-    gSameDivideSphere64_21,
-    gSameDivideSphere64_22,
-    gSameDivideSphere64_23,
-    gSameDivideSphere64_24,
-    gSameDivideSphere64_25,
-    gSameDivideSphere64_26,
-    gSameDivideSphere64_27,
-    gSameDivideSphere64_28,
-    gSameDivideSphere64_29,
-    gSameDivideSphere64_30,
-    gSameDivideSphere64_31,
-    gSameDivideSphere64_32,
-    gSameDivideSphere64_33,
-    gSameDivideSphere64_34,
-    gSameDivideSphere64_35,
-    gSameDivideSphere64_36,
-    gSameDivideSphere64_37,
-    gSameDivideSphere64_38,
-    gSameDivideSphere64_39,
-    gSameDivideSphere64_40,
-    gSameDivideSphere64_41,
-    gSameDivideSphere64_42,
-    gSameDivideSphere64_43,
-    gSameDivideSphere64_44,
-    gSameDivideSphere64_45,
-    gSameDivideSphere64_46,
-    gSameDivideSphere64_47,
-    gSameDivideSphere64_48,
-    gSameDivideSphere64_49,
-    gSameDivideSphere64_50,
-    gSameDivideSphere64_51,
-    gSameDivideSphere64_52,
-    gSameDivideSphere64_53,
-    gSameDivideSphere64_54,
-    gSameDivideSphere64_55,
-    gSameDivideSphere64_56,
-    gSameDivideSphere64_57,
-    gSameDivideSphere64_58,
-    gSameDivideSphere64_59,
-    gSameDivideSphere64_60,
-    gSameDivideSphere64_61,
-    gSameDivideSphere64_62,
-    gSameDivideSphere64_63,
-    gSameDivideSphere64_64,
+static const f32* gSameDivideSphere64Tbl[63] = {
+    (f32*)gSameDivideSphere64_2,
+    (f32*)gSameDivideSphere64_3,
+    (f32*)gSameDivideSphere64_4,
+    (f32*)gSameDivideSphere64_5,
+    (f32*)gSameDivideSphere64_6,
+    (f32*)gSameDivideSphere64_7,
+    (f32*)gSameDivideSphere64_8,
+    (f32*)gSameDivideSphere64_9,
+    (f32*)gSameDivideSphere64_10,
+    (f32*)gSameDivideSphere64_11,
+    (f32*)gSameDivideSphere64_12,
+    (f32*)gSameDivideSphere64_13,
+    (f32*)gSameDivideSphere64_14,
+    (f32*)gSameDivideSphere64_15,
+    (f32*)gSameDivideSphere64_16,
+    (f32*)gSameDivideSphere64_17,
+    (f32*)gSameDivideSphere64_18,
+    (f32*)gSameDivideSphere64_19,
+    (f32*)gSameDivideSphere64_20,
+    (f32*)gSameDivideSphere64_21,
+    (f32*)gSameDivideSphere64_22,
+    (f32*)gSameDivideSphere64_23,
+    (f32*)gSameDivideSphere64_24,
+    (f32*)gSameDivideSphere64_25,
+    (f32*)gSameDivideSphere64_26,
+    (f32*)gSameDivideSphere64_27,
+    (f32*)gSameDivideSphere64_28,
+    (f32*)gSameDivideSphere64_29,
+    (f32*)gSameDivideSphere64_30,
+    (f32*)gSameDivideSphere64_31,
+    (f32*)gSameDivideSphere64_32,
+    (f32*)gSameDivideSphere64_33,
+    (f32*)gSameDivideSphere64_34,
+    (f32*)gSameDivideSphere64_35,
+    (f32*)gSameDivideSphere64_36,
+    (f32*)gSameDivideSphere64_37,
+    (f32*)gSameDivideSphere64_38,
+    (f32*)gSameDivideSphere64_39,
+    (f32*)gSameDivideSphere64_40,
+    (f32*)gSameDivideSphere64_41,
+    (f32*)gSameDivideSphere64_42,
+    (f32*)gSameDivideSphere64_43,
+    (f32*)gSameDivideSphere64_44,
+    (f32*)gSameDivideSphere64_45,
+    (f32*)gSameDivideSphere64_46,
+    (f32*)gSameDivideSphere64_47,
+    (f32*)gSameDivideSphere64_48,
+    (f32*)gSameDivideSphere64_49,
+    (f32*)gSameDivideSphere64_50,
+    (f32*)gSameDivideSphere64_51,
+    (f32*)gSameDivideSphere64_52,
+    (f32*)gSameDivideSphere64_53,
+    (f32*)gSameDivideSphere64_54,
+    (f32*)gSameDivideSphere64_55,
+    (f32*)gSameDivideSphere64_56,
+    (f32*)gSameDivideSphere64_57,
+    (f32*)gSameDivideSphere64_58,
+    (f32*)gSameDivideSphere64_59,
+    (f32*)gSameDivideSphere64_60,
+    (f32*)gSameDivideSphere64_61,
+    (f32*)gSameDivideSphere64_62,
+    (f32*)gSameDivideSphere64_63,
+    (f32*)gSameDivideSphere64_64,
 };
 
-#define EMIT_FUNCTION_START()                                                 \
-    const SimpleEmitterData* data = emitter->data;                            \
-    const EmitterSet* emitterSet = emitter->emitterSet;                       \
-                                                                              \
-    f32 emissionRateRandom = emitter->data->emissionRateRandom / 100.0f       \
-                             * emitter->random.GetF32() * emitter->anim[0];   \
-    f32 emissionRate = emitter->anim[0] * emitter->controller->emissionRatio  \
-                       - emissionRateRandom;                                  \
-    emitter->emitLostRate += emissionRate;                                    \
-    s32 counter = (s32)emitter->counter;                                      \
-    if (counter == 0 && emitter->emitLostRate < 1.0f && emissionRate != 0.0f) \
-        emitter->emitLostRate = 1.0f;                                         \
-                                                                              \
-    s32 numEmit = (s32)floorf(emitter->emitLostRate);                         \
-    if (data->emitSameDistance != 0) numEmit = 1;                             \
-    emitter->emitLostRate -= (f32)numEmit;                                    \
-    if (numEmit == 0)                                                         \
-        return;                                                               \
-                                                                              \
-    f32 velocityMag = emitter->anim[15] * emitter->emitterSet->allDirVel;
+static inline PtclInstance* AllocPtclInstance(System* system, EmitterInstance* e)
+{
+    PtclStripe*   stripe = NULL;
+    PtclInstance* ptcl   = NULL;
 
-#define EMIT_LOOP_START()                                                   \
-    for (s32 i = 0; i < numEmit; i++)                                       \
-    {                                                                       \
-        PtclInstance* ptcl = mSys->AllocPtcl(emitter);                      \
-        if (ptcl == NULL)                                                   \
-            continue;
+    if (e->res->billboardType == EFT_BILLBOARD_TYPE_STRIPE)
+    {
+        stripe = system->AllocAndConnectStripe(e);
+        if (stripe == NULL)
+            return NULL;
 
-#define EMIT_LOOP_FUNCTION_END()                                                            \
-        if (data->yDiffusionVel != 0.0f)                                                    \
-        {                                                                                   \
-            math::VEC3 posXZ = (math::VEC3){ ptcl->pos.x, 0.0f, ptcl->pos.z };              \
-            if (posXZ.MagnitudeSquare() <= FLT_MIN) /* FLT_MIN = 1.1754943508222875E-38f */ \
-            {                                                                               \
-                posXZ.x = emitter->random.GetF32Range(-1.0f, 1.0f);                         \
-                posXZ.z = emitter->random.GetF32Range(-1.0f, 1.0f);                         \
-            }                                                                               \
-                                                                                            \
-            if (posXZ.MagnitudeSquare() == 0.0f)                                            \
-                posXZ = (math::VEC3){ 0.0f, 0.0f, 0.0f };                                   \
-            else                                                                            \
-                posXZ.Normalize();                                                          \
-                                                                                            \
-            math::VEC3::Scale(&posXZ, &posXZ, data->yDiffusionVel);                         \
-            math::VEC3::Add(&ptcl->velocity, &ptcl->velocity, &posXZ);                      \
-        }                                                                                   \
-                                                                                            \
-        EmitCommon(emitter, ptcl);                                                          \
-    }                                                                                       \
-                                                                                            \
-    emitter->emitterBehaviorFlg |= EmitterBehaviorFlag_IsEmitted;                           \
+        ptcl = system->AllocPtcl();
+        if (ptcl == NULL)
+            return NULL;
+
+        ptcl->type                 = e->calc->GetPtclType();
+        ptcl->res                  = e->res;
+        ptcl->complexParam->stripe = stripe;
+        stripe->ptcl               = ptcl;
+    }
+    else
+    {
+        ptcl = system->AllocPtcl();
+        if (ptcl == NULL)
+            return NULL;
+
+        ptcl->type                 = e->calc->GetPtclType();
+        ptcl->res                  = e->res;
+        ptcl->complexParam->stripe = stripe;
+    }
+
+    return ptcl;
+}
+
+#define BEGIN_EMIT_FUNCTION_DECL()                                                                          \
+    const SimpleEmitterData* __restrict res = e->res;                                                      \
+    const EmitterSet* __restrict set = e->emitterSet;                                                       \
+    s32 rateRandom = e->res->emitRateRandom;                                                                \
+    f32 emitRateRandom = (rateRandom / 100.0f) * e->rnd.GetF32() * e->emitterAnimValue[EFT_ANIM_EM_RATE];   \
+    f32 emitDelta = e->emitterAnimValue[EFT_ANIM_EM_RATE] * e->controller->mEmissionRatio - emitRateRandom; \
+    e->emitVessel += emitDelta;                                                                             \
+    s32 cnt = (s32)e->cnt;                                                                                  \
+    if (cnt == 0 && e->emitVessel < 1.0f && emitDelta != 0.0f) e->emitVessel = 1.0f;                        \
+    register s32 emitRate = (s32)nw::math::FFloor(e->emitVessel);                                           \
+    if (res->isEmitDistEnabled) emitRate = 1;                                                               \
+    e->emitVessel -= (f32)emitRate;                                                                         \
+    if (emitRate == 0) return;                                                                              \
+    PtclRandom *rnd = &e->rnd;                                                                              \
+    register f32 figureVel = e->emitterAnimValue[EFT_ANIM_ALL_DIR_VEL] * e->emitterSet->mFigureVel;
+
+#define BEGIN_EMIT_FUNCTION()               \
+    PtclInstance* __restrict ptcl = NULL;   \
+    for (s32 i = 0; i < emitRate; i++)      \
+    {                                       \
+        ptcl = AllocPtclInstance(mSys, e);  \
+        if (ptcl)                           \
+        {
+
+#define END_EMIT_FUNCTION()                                         \
+            EmitCommon(e, ptcl);                                    \
+        }                                                           \
+    }                                                               \
+    e->emitterBehaviorFlag |= EFT_EMITTER_BEHAVIOR_FLAG_IS_EMIT;    \
     return;
 
-void EmitterCalc::CalcEmitPoint(EmitterInstance* emitter)
-{
-    EMIT_FUNCTION_START()
-    (void)emitterSet; // Suppress unused warning
+#define CALC_EMIT_ROTATION_BASIC()                          \
+    f32 rotWidth = res->volumeSweepParam;                   \
+    f32 rotStart = res->volumeSweepStart;                   \
+    if (res->volumeSweepStartRandom)                        \
+        rotStart = rnd->GetF32() * nw::math::F_PI * 2.0f;
 
-    for (s32 i = 0; i < numEmit; i++)
+#define CALC_EMIT_ROTATION()                                        \
+        f32 emitterRotate = rnd->GetF32() * rotWidth + rotStart;    \
+        f32 sinV;                                                   \
+        f32 cosV;                                                   \
+        nw::math::SinCosRad(&sinV, &cosV, emitterRotate);
+
+#define CALC_EMIT_SCALE_X() \
+{res->volumeRadius.x * set->mEmitterScale.x * e->emitterAnimValue[EFT_ANIM_EM_FORM_SX]}
+
+#define CALC_EMIT_SCALE_Y() \
+{res->volumeRadius.y * set->mEmitterScale.y * e->emitterAnimValue[EFT_ANIM_EM_FORM_SY]}
+
+#define CALC_EMIT_SCALE_Z() \
+{res->volumeRadius.z * set->mEmitterScale.z * e->emitterAnimValue[EFT_ANIM_EM_FORM_SZ]}
+
+#define CALC_EMIT_SCALE_Z_PLANE() \
+{res->volumeRadius.z * set->mEmitterScale.z * e->emitterAnimValue[EFT_ANIM_EM_FORM_SY]}
+
+#define CALC_EMIT_SCALE_Z_LINE() \
+{res->volumeRadius.z * set->mEmitterScale.z * e->emitterAnimValue[EFT_ANIM_EM_FORM_SX]}
+
+static inline void _calcYAxisDiffusion(EmitterInstance* __restrict emitter, PtclInstance* __restrict ptcl)
+{
+    if (emitter->res->emitXzDiffusionVel != 0.0f)
     {
-        PtclInstance* ptcl = mSys->AllocPtcl(emitter);
+        nw::math::VEC3 yAxisVel;
+        yAxisVel.x = ptcl->pos.x;
+        yAxisVel.y = 0.0f;
+        yAxisVel.z = ptcl->pos.z;
+        if (yAxisVel.LengthSquare() <= FLT_MIN) /* FLT_MIN = 1.1754943508222875E-38f */
+        {
+            yAxisVel.x = /* emitter->rnd.GetF32Range(-1.0f, 1.0f) */ emitter->rnd.GetF32() * 2.0f - 1.0f;
+            yAxisVel.z = /* emitter->rnd.GetF32Range(-1.0f, 1.0f) */ emitter->rnd.GetF32() * 2.0f - 1.0f;
+        }
+        yAxisVel.SafeNormalize(nw::math::VEC3(0.0f, 0.0f, 0.0f));
+        yAxisVel *= emitter->res->emitXzDiffusionVel;
+        ptcl->vel += yAxisVel;
+    }
+}
+
+static inline void _calcVolumeSweepParams(const SimpleEmitterData* __restrict res, f32& rotWidth, f32& rotStart, PtclRandom* rnd)
+{
+    if (res->isVolumeLatitudeEnabled)
+    {
+        rotWidth = 0.0f;
+        rotStart = 0.0f;
+    }
+    else
+    {
+        rotWidth = res->volumeSweepParam;
+        if (res->volumeSweepStartRandom)
+            rotStart = rnd->GetF32() * nw::math::F_PI * 2.0f;
+        else
+            rotStart = res->volumeSweepStart;
+    }
+}
+
+static inline void _calcSinCos(const SimpleEmitterData* __restrict res, PtclRandom* rnd, f32 rotWidth, f32 rotStart, f32* sinV, f32* cosV)
+{
+    if (res->isVolumeLatitudeEnabled)
+    {
+        f32 rot = rnd->GetF32() * nw::math::F_PI * 2.0f;
+        nw::math::SinCosRad(sinV, cosV, rot);
+    }
+    else
+    {
+        f32 rot = rnd->GetF32() * rotWidth + rotStart;
+        nw::math::SinCosRad(sinV, cosV, rot);
+    }
+}
+
+static inline f32 _calcY(const SimpleEmitterData* __restrict res, PtclRandom* rnd)
+{
+    if (res->isVolumeLatitudeEnabled)
+        return 1.0f - (1.0f - nw::math::CosRad(res->volumeLatitude)) * rnd->GetF32();
+    else
+        return /* rnd->GetF32Range(-1.0f, 1.0f) */ rnd->GetF32() * 2.0f - 1.0f;
+}
+
+static inline bool _isLatitudeInside(const SimpleEmitterData* __restrict res, nw::math::VEC3 dir)
+{
+    if (!res->isVolumeLatitudeEnabled)
+        return true;
+
+    if (nw::math::F_PI - 0.0001f < res->volumeLatitude)
+        return true;
+
+    f32 y = nw::math::CosRad(res->volumeLatitude);
+    return y < dir.y;
+}
+
+static inline void _rotateDirection(const SimpleEmitterData* __restrict res, nw::math::VEC3* dir)
+{
+    if (res->isVolumeLatitudeEnabled)
+    {
+        if (res->volumeLatitudeDir.x != 0.0f ||
+            res->volumeLatitudeDir.y != 1.0f ||
+            res->volumeLatitudeDir.z != 0.0f)
+        {
+            nw::math::QUAT q;
+            nw::math::QUATMakeVectorRotation(&q, nw::math::VEC3(0.0f, 1.0f, 0.0f), res->volumeLatitudeDir);
+            nw::math::MTX34 qmat;
+            nw::math::QUATToMTX34(&qmat, q);
+            nw::math::VEC3 src;
+            src.Set(dir->x, dir->y, dir->z);
+            nw::math::VEC3Transform(dir, &qmat, &src);
+        }
+    }
+}
+
+static inline f32 _sqrtSafe(f32 v)
+{
+    if (v <= 0.0f)
+        return 0.0f;
+
+    return nw::math::FSqrt(v);
+}
+
+void EmitterCalc::CalcEmitPoint(EmitterInstance* __restrict e)
+{
+    BEGIN_EMIT_FUNCTION_DECL()
+    (void)set; // Suppress unused warning
+
+    for (s32 i = 0; i < emitRate; i++)
+    {
+        PtclInstance* ptcl = AllocPtclInstance(mSys, e);
         if (ptcl == NULL)
             return;
 
-        ptcl->pos = math::VEC3::Zero();
-        ptcl->velocity = emitter->random.GetNormalizedVec3() * velocityMag;
+        ptcl->pos = nw::math::VEC3::Zero();
 
-    EMIT_LOOP_FUNCTION_END()
+        nw::math::VEC3 rndVec3 = rnd->GetNormalizedVec3();
+        ptcl->vel.x = rndVec3.x * figureVel;
+        ptcl->vel.y = rndVec3.y * figureVel;
+        ptcl->vel.z = rndVec3.z * figureVel;
+
+        _calcYAxisDiffusion(e, ptcl);
+
+        EmitCommon(e, ptcl);
+    }
+
+    e->emitterBehaviorFlag |= EFT_EMITTER_BEHAVIOR_FLAG_IS_EMIT;
 }
 
-void EmitterCalc::CalcEmitCircle(EmitterInstance* emitter)
+void EmitterCalc::CalcEmitCircle(EmitterInstance* __restrict e)
 {
-    EMIT_FUNCTION_START()
+    BEGIN_EMIT_FUNCTION_DECL()
 
-    f32 scaleX = data->volumeScale.x * emitterSet->emitterVolumeScale.x * emitter->anim[22];
-    f32 scaleZ = data->volumeScale.z * emitterSet->emitterVolumeScale.z * emitter->anim[23];
+    register f32 scaleX = CALC_EMIT_SCALE_X();
+    register f32 scaleZ = CALC_EMIT_SCALE_Z_PLANE();
 
-    f32 arcLength = data->arcLength;
-    f32 arcStartAngle = data->arcStartAngle;
-    if (data->arcStartAngleRandom != 0)
-        arcStartAngle = emitter->random.GetF32() * math::F_PI * 2.0f;
+    CALC_EMIT_ROTATION_BASIC()
 
-    EMIT_LOOP_START()
+    BEGIN_EMIT_FUNCTION()
 
-        f32 sin_val, cos_val, angle = emitter->random.GetF32() * arcLength + arcStartAngle;
-        math::SinCosRad(&sin_val, &cos_val, angle);
+        CALC_EMIT_ROTATION()
 
-        ptcl->pos.x = sin_val * scaleX;
+        ptcl->pos.x = sinV * scaleX;
+        ptcl->pos.z = cosV * scaleZ;
         ptcl->pos.y = 0.0f;
-        ptcl->pos.z = cos_val * scaleZ;
 
-        ptcl->velocity.x = sin_val * velocityMag;
-        ptcl->velocity.y = 0.0f;
-        ptcl->velocity.z = cos_val * velocityMag;
+        ptcl->vel.x = sinV * figureVel;
+        ptcl->vel.z = cosV * figureVel;
+        ptcl->vel.y = 0.0f;
 
-    EMIT_LOOP_FUNCTION_END()
+        _calcYAxisDiffusion(e, ptcl);
+
+    END_EMIT_FUNCTION()
 }
 
-void EmitterCalc::CalcEmitCircleSameDivide(EmitterInstance* emitter)
+void EmitterCalc::CalcEmitCircleSameDivide(EmitterInstance* __restrict e)
 {
-    EMIT_FUNCTION_START()
+    BEGIN_EMIT_FUNCTION_DECL()
 
-    f32 scaleX = data->volumeScale.x * emitterSet->emitterVolumeScale.x * emitter->anim[22];
-    f32 scaleZ = data->volumeScale.z * emitterSet->emitterVolumeScale.z * emitter->anim[23];
+    register f32 scaleX = CALC_EMIT_SCALE_X();
+    register f32 scaleZ = CALC_EMIT_SCALE_Z_PLANE();
 
-    f32 arcLengthUnit;
-    f32 arcStartAngle = data->arcStartAngle;
-    if (data->arcStartAngleRandom != 0)
-        arcStartAngle = emitter->random.GetF32() * math::F_PI * 2.0f;
+    f32 sweepStart = res->volumeSweepStart;
+    if (res->volumeSweepStartRandom)
+        sweepStart = rnd->GetF32() * nw::math::F_PI * 2.0f;
 
-    if (numEmit <= 1.0f) // Comparison with 1.0f instead of 1... mistake?
-        arcLengthUnit = 0;
+    register f32 rot     = sweepStart;
+    register f32 rotPlus;
+
+    if (emitRate <= 1.0f) // Comparison with 1.0f instead of 1... mistake?
+        rotPlus = 0;
 
     else
     {
-        if (data->arcLength == math::F_PI * 2.0f)
-            arcLengthUnit = data->arcLength / numEmit;
+        if (res->volumeSweepParam == nw::math::F_PI * 2.0f)
+            rotPlus = res->volumeSweepParam / emitRate;
         else
-            arcLengthUnit = data->arcLength / (numEmit - 1);
+            rotPlus = res->volumeSweepParam / (emitRate - 1);
     }
 
-    f32 angle = arcStartAngle;
+    BEGIN_EMIT_FUNCTION()
 
-    EMIT_LOOP_START()
-
-        f32 sin_val, cos_val, rndAngle = angle;
-        if (data->arcRandom != 0.0f)
-            rndAngle += emitter->random.GetF32Range(-1.0f, 1.0f) * data->arcRandom / 180.0f * math::F_PI;
-        math::SinCosRad(&sin_val, &cos_val, rndAngle);
-
-        ptcl->pos.x = sin_val * scaleX;
-        ptcl->pos.y = 0.0f;
-        ptcl->pos.z = cos_val * scaleZ;
-
-        ptcl->velocity.x = sin_val * velocityMag;
-        ptcl->velocity.y = 0.0f;
-        ptcl->velocity.z = cos_val * velocityMag;
-
-        angle += arcLengthUnit;
-
-    EMIT_LOOP_FUNCTION_END()
-}
-
-void EmitterCalc::CalcEmitFillCircle(EmitterInstance* emitter)
-{
-    EMIT_FUNCTION_START()
-
-    f32 scaleX = data->volumeScale.x * emitterSet->emitterVolumeScale.x * emitter->anim[22];
-    f32 scaleZ = data->volumeScale.z * emitterSet->emitterVolumeScale.z * emitter->anim[23];
-
-    f32 arcLength = data->arcLength;
-    f32 arcStartAngle = data->arcStartAngle;
-    if (data->arcStartAngleRandom != 0)
-        arcStartAngle = emitter->random.GetF32() * math::F_PI * 2.0f;
-
-    EMIT_LOOP_START()
-
-        f32 sin_val, cos_val, angle = emitter->random.GetF32() * arcLength + arcStartAngle;
-        math::SinCosRad(&sin_val, &cos_val, angle);
-
-        f32 v0 = emitter->random.GetF32();
-        f32 v1 = 1.0f - data->volumeFillRatio;
-
-        f32 a = v0 + v1 * v1 * (1.0f - v0);
-        if (a <= 0.0f)
-            a = 0.0f;
-        else
-            a = sqrtf(a);
-
-        ptcl->pos.x = (a * sin_val) * scaleX;
-        ptcl->pos.y = 0.0f;
-        ptcl->pos.z = (a * cos_val) * scaleZ;
-
-        ptcl->velocity.x = (a * sin_val) * velocityMag;
-        ptcl->velocity.y = 0.0f;
-        ptcl->velocity.z = (a * cos_val) * velocityMag;
-
-    EMIT_LOOP_FUNCTION_END()
-}
-
-void EmitterCalc::CalcEmitSphere(EmitterInstance* emitter)
-{
-    EMIT_FUNCTION_START()
-
-    f32 scaleX = data->volumeScale.x * emitterSet->emitterVolumeScale.x * emitter->anim[22];
-    f32 scaleY = data->volumeScale.y * emitterSet->emitterVolumeScale.y * emitter->anim[23];
-    f32 scaleZ = data->volumeScale.z * emitterSet->emitterVolumeScale.z * emitter->anim[24];
-
-    f32 arcLength, arcStartAngle;
-
-    if (data->sphereUseLatitude != 0)
-    {
-        arcLength = 0.0f;
-        arcStartAngle = 0.0f;
-    }
-    else
-    {
-        arcLength = data->arcLength;
-        arcStartAngle = (data->arcStartAngleRandom != 0) ? emitter->random.GetF32() * math::F_PI * 2.0f
-                                                         : data->arcStartAngle;
-    }
-
-    EMIT_LOOP_START()
-
-        f32 sin_val, cos_val, angle = (data->sphereUseLatitude != 0) ? emitter->random.GetF32() * math::F_PI * 2.0f
-                                                                     : emitter->random.GetF32() * arcLength + arcStartAngle;
-        math::SinCosRad(&sin_val, &cos_val, angle);
-
-        f32 y = (data->sphereUseLatitude != 0) ? 1.0f - (1.0f - math::CosRad(data->sphereLatitude)) * emitter->random.GetF32()
-                                               : emitter->random.GetF32Range(-1.0f, 1.0f);
-
-        f32 a = 1.0f - y * y;
-        if (a <= 0.0f)
-            a = 0.0f;
-        else
-            a = sqrtf(a);
-
-        math::VEC3 normalizedVel = (math::VEC3){ a * sin_val, y, a * cos_val };
-
-        if (data->sphereUseLatitude != 0 && (data->sphereLatitudeDir.x != 0.0f || data->sphereLatitudeDir.y != 1.0f || data->sphereLatitudeDir.z != 0.0f))
+        f32 sinV, cosV;
+        f32 currentRot = rot;
+        if (res->volumeSurfacePosRand != 0.0f)
         {
-            math::VEC3 base = (math::VEC3){ 0.0f, 1.0f, 0.0f };
-            math::MTX34 mtx;
-            math::MTX34::MakeVectorRotation(&mtx, &base, &data->sphereLatitudeDir);
-
-            math::MTX34::PSMultVec(&normalizedVel, &mtx, &normalizedVel);
+            f32 diff = /* rnd->GetF32Range(-1.0f, 1.0f) */ (rnd->GetF32() - 0.5f) * 2.0f * res->volumeSurfacePosRand / 180.0f * nw::math::F_PI;
+            currentRot += diff;
         }
+        nw::math::SinCosRad(&sinV, &cosV, currentRot);
+        rot += rotPlus;
 
-        ptcl->pos.x = normalizedVel.x * scaleX;
-        ptcl->pos.y = normalizedVel.y * scaleY;
-        ptcl->pos.z = normalizedVel.z * scaleZ;
+        ptcl->pos.x = sinV * scaleX;
+        ptcl->pos.z = cosV * scaleZ;
+        ptcl->pos.y = 0.0f;
 
-        ptcl->velocity.x = normalizedVel.x * velocityMag;
-        ptcl->velocity.y = normalizedVel.y * velocityMag;
-        ptcl->velocity.z = normalizedVel.z * velocityMag;
+        ptcl->vel.x = sinV * figureVel;
+        ptcl->vel.z = cosV * figureVel;
+        ptcl->vel.y = 0.0f;
 
-    EMIT_LOOP_FUNCTION_END()
+        _calcYAxisDiffusion(e, ptcl);
+
+    END_EMIT_FUNCTION()
 }
 
-void EmitterCalc::CalcEmitSphereSameDivide(EmitterInstance* emitter)
+void EmitterCalc::CalcEmitFillCircle(EmitterInstance* __restrict e)
 {
-    EMIT_FUNCTION_START()
+    BEGIN_EMIT_FUNCTION_DECL()
 
-    f32 scaleX = data->volumeScale.x * emitterSet->emitterVolumeScale.x * emitter->anim[22];
-    f32 scaleY = data->volumeScale.y * emitterSet->emitterVolumeScale.y * emitter->anim[23];
-    f32 scaleZ = data->volumeScale.z * emitterSet->emitterVolumeScale.z * emitter->anim[24];
+    register f32 scaleX = CALC_EMIT_SCALE_X();
+    register f32 scaleZ = CALC_EMIT_SCALE_Z_PLANE();
 
-    const math::VEC3* table = gSameDivideSphereTbl[data->sphereDivTblIdx];
+    CALC_EMIT_ROTATION_BASIC()
 
-    for (s32 i = 0; i < numEmit; i++)
+    BEGIN_EMIT_FUNCTION()
+
+        CALC_EMIT_ROTATION()
+
+        f32 r = rnd->GetF32();
+        f32 inner = 1.0f - res->volumeCaliber;
+        r = _sqrtSafe(r + inner * inner * (1.0f - r));
+
+        nw::math::VEC3 dir;
+        dir.x = r * sinV;
+        dir.z = r * cosV;
+        dir.y = 0.0f;
+
+        ptcl->pos.x = dir.x * scaleX;
+        ptcl->pos.z = dir.z * scaleZ;
+        ptcl->pos.y = 0.0f;
+
+        ptcl->vel.x = dir.x * figureVel;
+        ptcl->vel.z = dir.z * figureVel;
+        ptcl->vel.y = 0.0f;
+
+        _calcYAxisDiffusion(e, ptcl);
+
+    END_EMIT_FUNCTION()
+}
+
+void EmitterCalc::CalcEmitSphere(EmitterInstance* __restrict e)
+{
+    BEGIN_EMIT_FUNCTION_DECL()
+
+    register f32 scaleX = CALC_EMIT_SCALE_X();
+    register f32 scaleY = CALC_EMIT_SCALE_Y();
+    register f32 scaleZ = CALC_EMIT_SCALE_Z();
+
+    f32 rotWidth;
+    f32 rotStart;
+    _calcVolumeSweepParams(res, rotWidth, rotStart, rnd);
+
+    BEGIN_EMIT_FUNCTION()
+
+        f32 sinV;
+        f32 cosV;
+        _calcSinCos(res, rnd, rotWidth, rotStart, &sinV, &cosV);
+
+        f32 y = _calcY(res, rnd);
+
+        f32 r = _sqrtSafe(1.0f - y * y);
+
+        nw::math::VEC3 dir;
+        dir.x = r * sinV;
+        dir.z = r * cosV;
+        dir.y = y;
+
+        _rotateDirection(res, &dir);
+
+        ptcl->pos.x = dir.x * scaleX;
+        ptcl->pos.y = dir.y * scaleY;
+        ptcl->pos.z = dir.z * scaleZ;
+
+        ptcl->vel.x = dir.x * figureVel;
+        ptcl->vel.y = dir.y * figureVel;
+        ptcl->vel.z = dir.z * figureVel;
+
+        _calcYAxisDiffusion(e, ptcl);
+
+    END_EMIT_FUNCTION()
+}
+
+void EmitterCalc::CalcEmitSphereSameDivide(EmitterInstance* __restrict e)
+{
+    BEGIN_EMIT_FUNCTION_DECL()
+    (void)rnd; // Suppress unused warning
+
+    register f32 scaleX = CALC_EMIT_SCALE_X();
+    register f32 scaleY = CALC_EMIT_SCALE_Y();
+    register f32 scaleZ = CALC_EMIT_SCALE_Z();
+
+    const f32* sphere_tbl = gSameDivideSphereTbl[res->volumeTblIndex];
+
+    PtclInstance* __restrict ptcl = NULL;
+    for (s32 i = 0; i < emitRate; i++)
     {
-        math::VEC3 normalizedVel = *table++;
+        nw::math::VEC3 dir;
+        dir.x = sphere_tbl[0];
+        dir.y = sphere_tbl[1];
+        dir.z = sphere_tbl[2];
+        sphere_tbl += 3;
 
-        if (data->sphereUseLatitude != 0)
-        {
-            if (!(math::F_PI - 0.0001f < data->sphereLatitude || math::CosRad(data->sphereLatitude) < normalizedVel.y))
-                continue;
-        }
+        if (!_isLatitudeInside(res, dir))
+            continue;
 
         PtclStripe* stripe = NULL;
-        if (data->vertexTransformMode == VertexTransformMode_Stripe)
+        if (res->billboardType == EFT_BILLBOARD_TYPE_STRIPE)
         {
-            stripe = mSys->AllocAndConnectStripe(emitter);
+            stripe = mSys->AllocAndConnectStripe(e);
             if (stripe == NULL)
                 break;
         }
 
-        PtclInstance* ptcl = mSys->AllocPtcl();
+        ptcl = mSys->AllocPtcl();
         if (ptcl == NULL)
             continue;
 
-        ptcl->type = emitter->calc->GetPtclType();
-        ptcl->data = emitter->data;
-        ptcl->complexParam->stripe = stripe;
-        if (stripe != NULL)
-            stripe->particle = ptcl;
+        ptcl->type = e->calc->GetPtclType();
 
-        if (data->sphereUseLatitude != 0 && (data->sphereLatitudeDir.x != 0.0f || data->sphereLatitudeDir.y != 1.0f || data->sphereLatitudeDir.z != 0.0f))
+        if (ptcl != NULL)
         {
-            math::VEC3 base = (math::VEC3){ 0.0f, 1.0f, 0.0f };
-            math::MTX34 mtx;
-            math::MTX34::MakeVectorRotation(&mtx, &base, &data->sphereLatitudeDir);
+            ptcl->res = res;
+            ptcl->complexParam->stripe = stripe;
+            if (stripe != NULL) stripe->ptcl = ptcl;
 
-            math::MTX34::PSMultVec(&normalizedVel, &mtx, &normalizedVel);
-        }
+        _rotateDirection(res, &dir);
 
-        ptcl->pos.x = normalizedVel.x * scaleX;
-        ptcl->pos.y = normalizedVel.y * scaleY;
-        ptcl->pos.z = normalizedVel.z * scaleZ;
+        ptcl->pos.x = dir.x * scaleX;
+        ptcl->pos.y = dir.y * scaleY;
+        ptcl->pos.z = dir.z * scaleZ;
 
-        ptcl->velocity.x = normalizedVel.x * velocityMag;
-        ptcl->velocity.y = normalizedVel.y * velocityMag;
-        ptcl->velocity.z = normalizedVel.z * velocityMag;
+        ptcl->vel.x = dir.x * figureVel;
+        ptcl->vel.y = dir.y * figureVel;
+        ptcl->vel.z = dir.z * figureVel;
 
-    EMIT_LOOP_FUNCTION_END()
+        _calcYAxisDiffusion(e, ptcl);
+
+    END_EMIT_FUNCTION()
 }
 
-void EmitterCalc::CalcEmitSphereSameDivide64(EmitterInstance* emitter)
+void EmitterCalc::CalcEmitSphereSameDivide64(EmitterInstance* __restrict e)
 {
-    EMIT_FUNCTION_START()
+    BEGIN_EMIT_FUNCTION_DECL()
+    (void)rnd; // Suppress unused warning
 
-    f32 scaleX = data->volumeScale.x * emitterSet->emitterVolumeScale.x * emitter->anim[22];
-    f32 scaleY = data->volumeScale.y * emitterSet->emitterVolumeScale.y * emitter->anim[23];
-    f32 scaleZ = data->volumeScale.z * emitterSet->emitterVolumeScale.z * emitter->anim[24];
+    register f32 scaleX = CALC_EMIT_SCALE_X();
+    register f32 scaleY = CALC_EMIT_SCALE_Y();
+    register f32 scaleZ = CALC_EMIT_SCALE_Z();
 
-    const math::VEC3* table = gSameDivideSphere64Tbl[data->sphereDivTblIdx + 2]; // What is the point of the first 2 tables?
+    const f32* sphere_tbl = gSameDivideSphere64Tbl[res->volumeTblIndex + 2]; // What is the point of the first 2 tables?
 
-    for (s32 i = 0; i < numEmit; i++)
+    PtclInstance* __restrict ptcl = NULL;
+    for (s32 i = 0; i < emitRate; i++)
     {
-        math::VEC3 normalizedVel = *table++;
+        nw::math::VEC3 dir;
+        dir.x = sphere_tbl[0];
+        dir.y = sphere_tbl[1];
+        dir.z = sphere_tbl[2];
+        sphere_tbl += 3;
 
-        if (data->sphereUseLatitude != 0)
-        {
-            if (!(math::F_PI - 0.0001f < data->sphereLatitude || math::CosRad(data->sphereLatitude) < normalizedVel.y))
-                continue;
-        }
+        if (!_isLatitudeInside(res, dir))
+            continue;
 
         PtclStripe* stripe = NULL;
-        if (data->vertexTransformMode == VertexTransformMode_Stripe)
+        if (res->billboardType == EFT_BILLBOARD_TYPE_STRIPE)
         {
-            stripe = mSys->AllocAndConnectStripe(emitter);
+            stripe = mSys->AllocAndConnectStripe(e);
             if (stripe == NULL)
                 break;
         }
 
-        PtclInstance* ptcl = mSys->AllocPtcl();
+        ptcl = mSys->AllocPtcl();
         if (ptcl == NULL)
             continue;
 
-        ptcl->type = emitter->calc->GetPtclType();
-        ptcl->data = emitter->data;
-        ptcl->complexParam->stripe = stripe;
-        if (stripe != NULL)
-            stripe->particle = ptcl;
+        ptcl->type = e->calc->GetPtclType();
 
-        if (data->sphereUseLatitude != 0 && (data->sphereLatitudeDir.x != 0.0f || data->sphereLatitudeDir.y != 1.0f || data->sphereLatitudeDir.z != 0.0f))
+        if (ptcl != NULL)
         {
-            math::VEC3 base = (math::VEC3){ 0.0f, 1.0f, 0.0f };
-            math::MTX34 mtx;
-            math::MTX34::MakeVectorRotation(&mtx, &base, &data->sphereLatitudeDir);
+            ptcl->res = res;
+            ptcl->complexParam->stripe = stripe;
+            if (stripe != NULL) stripe->ptcl = ptcl;
 
-            math::MTX34::PSMultVec(&normalizedVel, &mtx, &normalizedVel);
-        }
+        _rotateDirection(res, &dir);
 
-        ptcl->pos.x = normalizedVel.x * scaleX;
-        ptcl->pos.y = normalizedVel.y * scaleY;
-        ptcl->pos.z = normalizedVel.z * scaleZ;
+        ptcl->pos.x = dir.x * scaleX;
+        ptcl->pos.y = dir.y * scaleY;
+        ptcl->pos.z = dir.z * scaleZ;
 
-        ptcl->velocity.x = normalizedVel.x * velocityMag;
-        ptcl->velocity.y = normalizedVel.y * velocityMag;
-        ptcl->velocity.z = normalizedVel.z * velocityMag;
+        ptcl->vel.x = dir.x * figureVel;
+        ptcl->vel.y = dir.y * figureVel;
+        ptcl->vel.z = dir.z * figureVel;
 
-    EMIT_LOOP_FUNCTION_END()
+        _calcYAxisDiffusion(e, ptcl);
+
+    END_EMIT_FUNCTION()
 }
 
-void EmitterCalc::CalcEmitFillSphere(EmitterInstance* emitter)
+void EmitterCalc::CalcEmitFillSphere(EmitterInstance* __restrict e)
 {
-    EMIT_FUNCTION_START()
+    BEGIN_EMIT_FUNCTION_DECL()
 
-    f32 scaleX = data->volumeScale.x * emitterSet->emitterVolumeScale.x * emitter->anim[22];
-    f32 scaleY = data->volumeScale.y * emitterSet->emitterVolumeScale.y * emitter->anim[23];
-    f32 scaleZ = data->volumeScale.z * emitterSet->emitterVolumeScale.z * emitter->anim[24];
+    register f32 scaleX = CALC_EMIT_SCALE_X();
+    register f32 scaleY = CALC_EMIT_SCALE_Y();
+    register f32 scaleZ = CALC_EMIT_SCALE_Z();
 
-    f32 arcLength, arcStartAngle;
+    f32 rotWidth;
+    f32 rotStart;
+    _calcVolumeSweepParams(res, rotWidth, rotStart, rnd);
 
-    if (data->sphereUseLatitude != 0)
-    {
-        arcLength = 0.0f;
-        arcStartAngle = 0.0f;
-    }
-    else
-    {
-        arcLength = data->arcLength;
-        arcStartAngle = (data->arcStartAngleRandom != 0) ? emitter->random.GetF32() * math::F_PI * 2.0f
-                                                         : data->arcStartAngle;
-    }
+    BEGIN_EMIT_FUNCTION()
 
-    EMIT_LOOP_START()
+        f32 sinV;
+        f32 cosV;
+        _calcSinCos(res, rnd, rotWidth, rotStart, &sinV, &cosV);
 
-        f32 sin_val, cos_val, angle = (data->sphereUseLatitude != 0) ? emitter->random.GetF32() * math::F_PI * 2.0f
-                                                                     : emitter->random.GetF32() * arcLength + arcStartAngle;
-        math::SinCosRad(&sin_val, &cos_val, angle);
+        f32 y = _calcY(res, rnd);
 
-        f32 y = (data->sphereUseLatitude != 0) ? 1.0f - (1.0f - math::CosRad(data->sphereLatitude)) * emitter->random.GetF32()
-                                               : emitter->random.GetF32Range(-1.0f, 1.0f);
+        f32 r = _sqrtSafe(1.0f - y * y);
 
-        f32 a = 1.0f - y * y;
-        if (a <= 0.0f)
-            a = 0.0f;
-        else
-            a = sqrtf(a);
+        f32 radius = rnd->GetF32();
+        radius = _sqrtSafe(radius);
+        radius = radius * res->volumeCaliber + 1.0f - res->volumeCaliber;
 
-        f32 extent = emitter->random.GetF32();
-        if (extent <= 0.0f)
-            extent = 0.0f;
-        else
-            extent = sqrtf(extent);
-        extent = extent * data->volumeFillRatio + 1.0f - data->volumeFillRatio;
+        nw::math::VEC3 dir;
+        dir.x = r * sinV;
+        dir.z = r * cosV;
+        dir.y = y;
 
-        math::VEC3 normalizedVel = (math::VEC3){ a * sin_val, y, a * cos_val };
+        _rotateDirection(res, &dir);
 
-        if (data->sphereUseLatitude != 0 && (data->sphereLatitudeDir.x != 0.0f || data->sphereLatitudeDir.y != 1.0f || data->sphereLatitudeDir.z != 0.0f))
-        {
-            math::VEC3 base = (math::VEC3){ 0.0f, 1.0f, 0.0f };
-            math::MTX34 mtx;
-            math::MTX34::MakeVectorRotation(&mtx, &base, &data->sphereLatitudeDir);
+        ptcl->pos.x = dir.x * scaleX * radius;
+        ptcl->pos.y = dir.y * scaleY * radius;
+        ptcl->pos.z = dir.z * scaleZ * radius;
 
-            math::MTX34::PSMultVec(&normalizedVel, &mtx, &normalizedVel);
-        }
+        ptcl->vel.x = dir.x * figureVel;
+        ptcl->vel.y = dir.y * figureVel;
+        ptcl->vel.z = dir.z * figureVel;
 
-        ptcl->pos.x = normalizedVel.x * scaleX * extent;
-        ptcl->pos.y = normalizedVel.y * scaleY * extent;
-        ptcl->pos.z = normalizedVel.z * scaleZ * extent;
+        _calcYAxisDiffusion(e, ptcl);
 
-        ptcl->velocity.x = normalizedVel.x * velocityMag;
-        ptcl->velocity.y = normalizedVel.y * velocityMag;
-        ptcl->velocity.z = normalizedVel.z * velocityMag;
-
-    EMIT_LOOP_FUNCTION_END()
+    END_EMIT_FUNCTION()
 }
 
-void EmitterCalc::CalcEmitCylinder(EmitterInstance* emitter)
+void EmitterCalc::CalcEmitCylinder(EmitterInstance* __restrict e)
 {
-    EMIT_FUNCTION_START()
+    BEGIN_EMIT_FUNCTION_DECL()
 
-    f32 scaleX = data->volumeScale.x * emitterSet->emitterVolumeScale.x * emitter->anim[22];
-    f32 scaleY = data->volumeScale.y * emitterSet->emitterVolumeScale.y * emitter->anim[23];
-    f32 scaleZ = data->volumeScale.z * emitterSet->emitterVolumeScale.z * emitter->anim[24];
+    register f32 scaleX = CALC_EMIT_SCALE_X();
+    register f32 scaleY = CALC_EMIT_SCALE_Y();
+    register f32 scaleZ = CALC_EMIT_SCALE_Z();
 
-    f32 arcLength = data->arcLength;
-    f32 arcStartAngle = data->arcStartAngle;
-    if (data->arcStartAngleRandom != 0)
-        arcStartAngle = emitter->random.GetF32() * math::F_PI * 2.0f;
+    CALC_EMIT_ROTATION_BASIC()
 
-    EMIT_LOOP_START()
+    BEGIN_EMIT_FUNCTION()
 
-        f32 sin_val, cos_val, angle = emitter->random.GetF32() * arcLength + arcStartAngle;
-        math::SinCosRad(&sin_val, &cos_val, angle);
+        CALC_EMIT_ROTATION()
 
-        ptcl->pos.x = sin_val * scaleX;
-        ptcl->pos.y = emitter->random.GetF32Range(-1.0f, 1.0f) * scaleY;
-        ptcl->pos.z = cos_val * scaleZ;
+        f32 y = /* rnd->GetF32Range(-1.0f, 1.0f) */ rnd->GetF32() * 2.0f - 1.0f;
 
-        ptcl->velocity.x = sin_val * velocityMag;
-        ptcl->velocity.y = 0.0f;
-        ptcl->velocity.z = cos_val * velocityMag;
+        ptcl->pos.x = sinV * scaleX;
+        ptcl->pos.z = cosV * scaleZ;
+        ptcl->pos.y = y * scaleY;
 
-    EMIT_LOOP_FUNCTION_END()
+        ptcl->vel.x = sinV * figureVel;
+        ptcl->vel.z = cosV * figureVel;
+        ptcl->vel.y = 0.0f;
+
+        _calcYAxisDiffusion(e, ptcl);
+
+    END_EMIT_FUNCTION()
 }
 
-void EmitterCalc::CalcEmitFillCylinder(EmitterInstance* emitter)
+void EmitterCalc::CalcEmitFillCylinder(EmitterInstance* __restrict e)
 {
-    EMIT_FUNCTION_START()
+    BEGIN_EMIT_FUNCTION_DECL()
 
-    f32 scaleX = data->volumeScale.x * emitterSet->emitterVolumeScale.x * emitter->anim[22];
-    f32 scaleY = data->volumeScale.y * emitterSet->emitterVolumeScale.y * emitter->anim[23];
-    f32 scaleZ = data->volumeScale.z * emitterSet->emitterVolumeScale.z * emitter->anim[24];
+    register f32 scaleX = CALC_EMIT_SCALE_X();
+    register f32 scaleY = CALC_EMIT_SCALE_Y();
+    register f32 scaleZ = CALC_EMIT_SCALE_Z();
 
-    f32 arcLength = data->arcLength;
-    f32 arcStartAngle = data->arcStartAngle;
-    if (data->arcStartAngleRandom != 0)
-        arcStartAngle = emitter->random.GetF32() * math::F_PI * 2.0f;
+    CALC_EMIT_ROTATION_BASIC()
 
-    EMIT_LOOP_START()
+    BEGIN_EMIT_FUNCTION()
 
-        f32 sin_val, cos_val, angle = emitter->random.GetF32() * arcLength + arcStartAngle;
-        math::SinCosRad(&sin_val, &cos_val, angle);
+        CALC_EMIT_ROTATION()
 
-        f32 v0 = emitter->random.GetF32();
-        f32 v1 = 1.0f - data->volumeFillRatio;
+        f32 r = rnd->GetF32();
+        f32 inner = 1.0f - res->volumeCaliber;
+        r = _sqrtSafe(r + inner * inner * (1.0f - r));
 
-        f32 a = v0 + v1 * v1 * (1.0f - v0);
-        if (a <= 0.0f)
-            a = 0.0f;
-        else
-            a = sqrtf(a);
+        f32 y = /* rnd->GetF32Range(-1.0f, 1.0f) */ rnd->GetF32() * 2.0f - 1.0f;
 
-        ptcl->pos.x = (sin_val * a) * scaleX;
-        ptcl->pos.y = emitter->random.GetF32Range(-1.0f, 1.0f) * scaleY;
-        ptcl->pos.z = (cos_val * a) * scaleZ;
+        ptcl->pos.x = sinV * r * scaleX;
+        ptcl->pos.z = cosV * r * scaleZ;
+        ptcl->pos.y = y * scaleY;
 
-        ptcl->velocity.x = sin_val * velocityMag;
-        ptcl->velocity.y = 0.0f;
-        ptcl->velocity.z = cos_val * velocityMag;
+        ptcl->vel.x = sinV * figureVel;
+        ptcl->vel.z = cosV * figureVel;
+        ptcl->vel.y = 0.0f;
 
-    EMIT_LOOP_FUNCTION_END()
+        _calcYAxisDiffusion(e, ptcl);
+
+    END_EMIT_FUNCTION()
 }
 
-void EmitterCalc::CalcEmitBox(EmitterInstance* emitter)
+void EmitterCalc::CalcEmitBox(EmitterInstance* __restrict e)
 {
-    EMIT_FUNCTION_START()
+    BEGIN_EMIT_FUNCTION_DECL()
 
-    f32 scaleX = data->volumeScale.x * emitterSet->emitterVolumeScale.x * emitter->anim[22];
-    f32 scaleY = data->volumeScale.y * emitterSet->emitterVolumeScale.y * emitter->anim[23];
-    f32 scaleZ = data->volumeScale.z * emitterSet->emitterVolumeScale.z * emitter->anim[24];
+    register f32 scaleX = CALC_EMIT_SCALE_X();
+    register f32 scaleY = CALC_EMIT_SCALE_Y();
+    register f32 scaleZ = CALC_EMIT_SCALE_Z();
 
-    EMIT_LOOP_START()
+    BEGIN_EMIT_FUNCTION()
 
-        u32 v0 = emitter->random.GetU32();
-        u32 v1 = emitter->random.GetU32();
+        register u32 coord = rnd->GetU32Direct();
+        register u32 sign  = rnd->GetU32Direct();
 
-        math::VEC3 rndVec = {
-            .x = emitter->random.GetF32Range(-1.0f, 1.0f),
-            .y = emitter->random.GetF32Range(-1.0f, 1.0f),
-            .z = emitter->random.GetF32Range(-1.0f, 1.0f),
-        };
+        nw::math::VEC3 radRnd;
+        radRnd.x = /* rnd->GetF32Range(-1.0f, 1.0f) */ rnd->GetF32() * 2.0f - 1.0f;
+        radRnd.y = /* rnd->GetF32Range(-1.0f, 1.0f) */ rnd->GetF32() * 2.0f - 1.0f;
+        radRnd.z = /* rnd->GetF32Range(-1.0f, 1.0f) */ rnd->GetF32() * 2.0f - 1.0f;
 
-        if (v0 < 0x55555555)
+        if (coord < 0xffffffff / 3 * 1)
         {
-            ptcl->pos.x = scaleX * rndVec.x;
-            ptcl->pos.y = scaleY * rndVec.y;
-            ptcl->pos.z = (v1 < 0x7fffffff) ? scaleZ : -scaleZ;
-        }
-        else if (v0 < 0xAAAAAAAA)
-        {
-            ptcl->pos.x = scaleX * rndVec.x;
-            ptcl->pos.y = (v1 < 0x7fffffff) ? scaleY : -scaleY;
-            ptcl->pos.z = scaleZ * rndVec.z;
-        }
-        else // if (v0 < 0xFFFFFFFF)
-        {
-            ptcl->pos.x = (v1 < 0x7fffffff) ? scaleX : -scaleX;
-            ptcl->pos.y = scaleY * rndVec.y;
-            ptcl->pos.z = scaleZ * rndVec.z;
-        }
-
-        math::VEC3 normalizedVel;
-        if (ptcl->pos.x != 0.0f || ptcl->pos.y != 0.0f || ptcl->pos.z != 0.0f)
-        {
-            normalizedVel = ptcl->pos;
-            normalizedVel.Normalize();
-        }
-
-        ptcl->velocity.x = normalizedVel.x * velocityMag;
-        ptcl->velocity.y = normalizedVel.y * velocityMag;
-        ptcl->velocity.z = normalizedVel.z * velocityMag;
-
-    EMIT_LOOP_FUNCTION_END()
-}
-
-void EmitterCalc::CalcEmitFillBox(EmitterInstance* emitter)
-{
-    EMIT_FUNCTION_START()
-
-    f32 scaleX = data->volumeScale.x * emitterSet->emitterVolumeScale.x * emitter->anim[22];
-    f32 scaleY = data->volumeScale.y * emitterSet->emitterVolumeScale.y * emitter->anim[23];
-    f32 scaleZ = data->volumeScale.z * emitterSet->emitterVolumeScale.z * emitter->anim[24];
-
-    EMIT_LOOP_START()
-
-        f32 v0 = 1.0f - data->volumeFillRatio;
-        if (v0 == 1.0f)
-            v0 = 0.999f;
-
-        if (v0 == 0.0f)
-        {
-            ptcl->pos.x = scaleX * emitter->random.GetF32Range(-1.0f, 1.0f);
-            ptcl->pos.y = scaleY * emitter->random.GetF32Range(-1.0f, 1.0f);
-            ptcl->pos.z = scaleZ * emitter->random.GetF32Range(-1.0f, 1.0f);
-        }
-        else
-        {
-            f32 v1 = emitter->random.GetF32();
-            f32 v2 = 1.0f - v0;
-            f32 v3 = v2 * v0;
-            v1 *= 1.0f - v0*v0*v0;
-
-            if (v1 < v2)
+            if (sign < 0xffffffff / 2)
             {
-                ptcl->pos.x = emitter->random.GetF32();
-                ptcl->pos.y = emitter->random.GetF32() * v2 + v0;
-                ptcl->pos.z = emitter->random.GetF32();
-            }
-            else if (v1 < v2 + v3)
-            {
-                ptcl->pos.x = emitter->random.GetF32() * v2 + v0;
-                ptcl->pos.y = emitter->random.GetF32() * v0;
-                ptcl->pos.z = emitter->random.GetF32();
+                ptcl->pos.x = scaleX * radRnd.x;
+                ptcl->pos.y = scaleY * radRnd.y;
+                ptcl->pos.z = scaleZ;
             }
             else
             {
-                ptcl->pos.x = emitter->random.GetF32() * v0;
-                ptcl->pos.y = emitter->random.GetF32() * v0;
-                ptcl->pos.z = emitter->random.GetF32() * v2 + v0;
+                ptcl->pos.x =  scaleX * radRnd.x;
+                ptcl->pos.y =  scaleY * radRnd.y;
+                ptcl->pos.z = -scaleZ;
+            }
+        }
+        else if (coord < 0xffffffff / 3 * 2)
+        {
+            if (sign < 0xffffffff / 2)
+            {
+                ptcl->pos.x = scaleX * radRnd.x;
+                ptcl->pos.y = scaleY;
+                ptcl->pos.z = scaleZ * radRnd.z;
+            }
+            else
+            {
+                ptcl->pos.x =  scaleX * radRnd.x;
+                ptcl->pos.y = -scaleY;
+                ptcl->pos.z =  scaleZ * radRnd.z;
+            }
+        }
+        else // if (coord < 0xffffffff / 3 * 3)
+        {
+            if (sign < 0xffffffff / 2)
+            {
+                ptcl->pos.x = scaleX;
+                ptcl->pos.y = scaleY * radRnd.y;
+                ptcl->pos.z = scaleZ * radRnd.z;
+            }
+            else
+            {
+                ptcl->pos.x = -scaleX;
+                ptcl->pos.y =  scaleY * radRnd.y;
+                ptcl->pos.z =  scaleZ * radRnd.z;
+            }
+        }
+
+        register nw::math::VEC3 dir;
+        if (!ptcl->pos.IsZero())
+            dir.SetNormalize(ptcl->pos);
+
+        ptcl->vel.x = dir.x * figureVel;
+        ptcl->vel.y = dir.y * figureVel;
+        ptcl->vel.z = dir.z * figureVel;
+
+        _calcYAxisDiffusion(e, ptcl);
+
+    END_EMIT_FUNCTION()
+}
+
+void EmitterCalc::CalcEmitFillBox(EmitterInstance* __restrict e)
+{
+    BEGIN_EMIT_FUNCTION_DECL()
+
+    register f32 scaleX = CALC_EMIT_SCALE_X();
+    register f32 scaleY = CALC_EMIT_SCALE_Y();
+    register f32 scaleZ = CALC_EMIT_SCALE_Z();
+
+    BEGIN_EMIT_FUNCTION()
+
+        f32 r = 1.0f - res->volumeCaliber;
+        if (r == 1.0f)
+            r = 0.999f;
+
+        if (r == 0.0f)
+        {
+            ptcl->pos.x = scaleX * /* rnd->GetF32Range(-1.0f, 1.0f) */ (rnd->GetF32() * 2.0f - 1.0f);
+            ptcl->pos.y = scaleY * /* rnd->GetF32Range(-1.0f, 1.0f) */ (rnd->GetF32() * 2.0f - 1.0f);
+            ptcl->pos.z = scaleZ * /* rnd->GetF32Range(-1.0f, 1.0f) */ (rnd->GetF32() * 2.0f - 1.0f);
+        }
+        else
+        {
+            f32 v = rnd->GetF32();
+            f32 r2 = r * r;
+            f32 r3 = r2 * r;
+
+            f32 volumeA = 1.0f - r;
+            f32 volumeB = volumeA * r;
+
+            v = v * (1.0f - r3);
+
+            if (v < volumeA)
+            {
+                ptcl->pos.x = rnd->GetF32();
+                ptcl->pos.y = rnd->GetF32() * (1.0f - r) + r;
+                ptcl->pos.z = rnd->GetF32();
+            }
+            else if (v < volumeA + volumeB)
+            {
+                ptcl->pos.x = rnd->GetF32() * (1.0f - r) + r;
+                ptcl->pos.y = rnd->GetF32() * r;
+                ptcl->pos.z = rnd->GetF32();
+            }
+            else
+            {
+                ptcl->pos.x = rnd->GetF32() * r;
+                ptcl->pos.y = rnd->GetF32() * r;
+                ptcl->pos.z = rnd->GetF32() * (1.0f - r) + r;
             }
 
-            if (emitter->random.GetF32() < 0.5f)
-                ptcl->pos.x = -ptcl->pos.x;
+            if (rnd->GetF32() < 0.5f)
+                ptcl->pos.x *= -1.0f;
 
-            if (emitter->random.GetF32() < 0.5f)
-                ptcl->pos.y = -ptcl->pos.y;
+            if (rnd->GetF32() < 0.5f)
+                ptcl->pos.y *= -1.0f;
 
-            if (emitter->random.GetF32() < 0.5f)
-                ptcl->pos.z = -ptcl->pos.z;
+            if (rnd->GetF32() < 0.5f)
+                ptcl->pos.z *= -1.0f;
 
             ptcl->pos.x *= scaleX;
             ptcl->pos.y *= scaleY;
             ptcl->pos.z *= scaleZ;
         }
 
-        math::VEC3 normalizedVel;
-        if (ptcl->pos.x != 0.0f || ptcl->pos.y != 0.0f || ptcl->pos.z != 0.0f)
-        {
-            normalizedVel = ptcl->pos;
-            normalizedVel.Normalize();
-        }
+        register nw::math::VEC3 dir;
+        if (!ptcl->pos.IsZero())
+            dir.SetNormalize(ptcl->pos);
 
-        ptcl->velocity.x = normalizedVel.x * velocityMag;
-        ptcl->velocity.y = normalizedVel.y * velocityMag;
-        ptcl->velocity.z = normalizedVel.z * velocityMag;
+        ptcl->vel.x = dir.x * figureVel;
+        ptcl->vel.y = dir.y * figureVel;
+        ptcl->vel.z = dir.z * figureVel;
 
-    EMIT_LOOP_FUNCTION_END()
+        _calcYAxisDiffusion(e, ptcl);
+
+    END_EMIT_FUNCTION()
 }
 
-void EmitterCalc::CalcEmitLine(EmitterInstance* emitter)
+void EmitterCalc::CalcEmitLine(EmitterInstance* __restrict e)
 {
-    EMIT_FUNCTION_START()
+    BEGIN_EMIT_FUNCTION_DECL()
 
-    f32 scaleZ = data->volumeScale.z * emitterSet->emitterVolumeScale.z * emitter->anim[22];
-    f32 center = data->lineCenter * scaleZ;
+    register f32 scaleZ = CALC_EMIT_SCALE_Z_LINE();
+    register f32 centerZ = res->volumeLineCenter * scaleZ;
 
-    EMIT_LOOP_START()
+    BEGIN_EMIT_FUNCTION()
 
         ptcl->pos.x = 0.0f;
+        ptcl->pos.z = rnd->GetF32() * scaleZ - (scaleZ + centerZ) / 2.0f;
         ptcl->pos.y = 0.0f;
-        ptcl->pos.z = emitter->random.GetF32() * scaleZ - (scaleZ + center) / 2.0f;
 
-        ptcl->velocity.x = 0.0f;
-        ptcl->velocity.y = 0.0f;
-        ptcl->velocity.z = velocityMag;
+        ptcl->vel.x = 0.0f;
+        ptcl->vel.z = figureVel;
+        ptcl->vel.y = 0.0f;
 
-    EMIT_LOOP_FUNCTION_END()
+        _calcYAxisDiffusion(e, ptcl);
+
+    END_EMIT_FUNCTION()
 }
 
-void EmitterCalc::CalcEmitLineSameDivide(EmitterInstance* emitter)
+void EmitterCalc::CalcEmitLineSameDivide(EmitterInstance* __restrict e)
 {
-    EMIT_FUNCTION_START()
+    BEGIN_EMIT_FUNCTION_DECL()
+    (void)rnd; // Suppress unused warning
 
-    f32 scaleZ = data->volumeScale.z * emitterSet->emitterVolumeScale.z * emitter->anim[22];
-    f32 center = data->lineCenter * scaleZ;
+    register f32 scaleZ = CALC_EMIT_SCALE_Z_LINE();
+    register f32 centerZ = res->volumeLineCenter * scaleZ;
 
-    f32 pos;
-    f32 lengthUnit;
+    register f32 t      = 0.0f;
+    register f32 t_plus = 1.0f / (f32)emitRate;
 
-    if (numEmit == 1)
+    if (emitRate == 1)
     {
-        pos = 0.5f;
-        lengthUnit = 0.0f;
+        t      = 0.5f;
+        t_plus = 0.0f;
     }
     else
     {
-        pos = 0.0f;
-        lengthUnit = 1.0f / (f32)(numEmit - 1);
+        t      = 0.0f;
+        t_plus = 1.0f / (f32)(emitRate - 1);
     }
 
-    EMIT_LOOP_START()
+    BEGIN_EMIT_FUNCTION()
 
         ptcl->pos.x = 0.0f;
+        ptcl->pos.z = t * scaleZ - (scaleZ + centerZ) / 2.0f;
         ptcl->pos.y = 0.0f;
-        ptcl->pos.z = pos * scaleZ - (scaleZ + center) / 2.0f;
 
-        ptcl->velocity.x = 0.0f;
-        ptcl->velocity.y = 0.0f;
-        ptcl->velocity.z = velocityMag;
+        t += t_plus;
 
-        pos += lengthUnit;
+        ptcl->vel.x = 0.0f;
+        ptcl->vel.z = figureVel;
+        ptcl->vel.y = 0.0f;
 
-    EMIT_LOOP_FUNCTION_END()
+        _calcYAxisDiffusion(e, ptcl);
+
+    END_EMIT_FUNCTION()
 }
 
-void EmitterCalc::CalcEmitRectangle(EmitterInstance* emitter)
+void EmitterCalc::CalcEmitRectangle(EmitterInstance* __restrict e)
 {
-    EMIT_FUNCTION_START()
+    BEGIN_EMIT_FUNCTION_DECL()
 
-    f32 scaleX = data->volumeScale.x * emitterSet->emitterVolumeScale.x * emitter->anim[22];
-    f32 scaleZ = data->volumeScale.z * emitterSet->emitterVolumeScale.z * emitter->anim[23];
+    register f32 scaleX = CALC_EMIT_SCALE_X();
+    register f32 scaleZ = CALC_EMIT_SCALE_Z_PLANE();
 
-    EMIT_LOOP_START()
+    BEGIN_EMIT_FUNCTION()
 
-        u32 v0 = emitter->random.GetU32();
-        u32 v1 = emitter->random.GetU32();
+        register u32 coord = rnd->GetU32Direct();
+        register u32 sign  = rnd->GetU32Direct();
 
-        math::VEC3 rndVec = {
-            .x = emitter->random.GetF32Range(-1.0f, 1.0f),
-            .y = 0.0f,
-            .z = emitter->random.GetF32Range(-1.0f, 1.0f),
-        };
+        f32 x = /* rnd->GetF32Range(-1.0f, 1.0f) */ rnd->GetF32() * 2.0f - 1.0f;
+        f32 z = /* rnd->GetF32Range(-1.0f, 1.0f) */ rnd->GetF32() * 2.0f - 1.0f;
 
-        if (v0 < 0x7fffffff)
+        if (coord < 0xffffffff / 2)
         {
-            ptcl->pos.x = scaleX * rndVec.x;
-            ptcl->pos.y = 0.0f;
-            ptcl->pos.z = (v1 < 0x7fffffff) ? scaleZ : -scaleZ;
+            if (sign < 0xffffffff / 2)
+            {
+                ptcl->pos.x = scaleX * x;
+                ptcl->pos.y = 0.0f;
+                ptcl->pos.z = scaleZ;
+            }
+            else
+            {
+                ptcl->pos.x =  scaleX * x;
+                ptcl->pos.y =  0.0f;
+                ptcl->pos.z = -scaleZ;
+            }
         }
-        else // if (v0 < 0xFFFFFFFF)
+        else // if (coord < 0xffffffff)
         {
-            ptcl->pos.x = (v1 < 0x7fffffff) ? scaleX : -scaleX;
-            ptcl->pos.y = 0.0f;
-            ptcl->pos.z = scaleZ * rndVec.z;
+            if (sign < 0xffffffff / 2)
+            {
+                ptcl->pos.x = scaleX;
+                ptcl->pos.y = 0.0f;
+                ptcl->pos.z = scaleZ * z;
+            }
+            else
+            {
+                ptcl->pos.x = -scaleX;
+                ptcl->pos.y =  0.0f;
+                ptcl->pos.z =  scaleZ * z;
+            }
         }
 
-        math::VEC3 normalizedVel;
-        if (ptcl->pos.x != 0.0f || ptcl->pos.y != 0.0f || ptcl->pos.z != 0.0f)
-        {
-            normalizedVel = ptcl->pos;
-            normalizedVel.Normalize();
-        }
+        register nw::math::VEC3 dir;
+        if (!ptcl->pos.IsZero())
+            dir.SetNormalize(ptcl->pos);
 
-        ptcl->velocity.x = normalizedVel.x * velocityMag;
-        ptcl->velocity.y = 0.0f;
-        ptcl->velocity.z = normalizedVel.z * velocityMag;
+        ptcl->vel.x = dir.x * figureVel;
+        ptcl->vel.z = dir.z * figureVel;
+        ptcl->vel.y = 0.0f;
 
-    EMIT_LOOP_FUNCTION_END()
+        _calcYAxisDiffusion(e, ptcl);
+
+    END_EMIT_FUNCTION()
 }
 
-void EmitterCalc::CalcEmitPrimitive(EmitterInstance* emitter)
+void EmitterCalc::CalcEmitPrimitive(EmitterInstance* __restrict e)
 {
-    if (emitter->volumePrimitive == NULL)
+    if (e->emitVolumePrimitive == NULL)
         return;
 
-    EMIT_FUNCTION_START()
-    (void)emitterSet; // Suppress unused warning
+    BEGIN_EMIT_FUNCTION_DECL()
+    (void)set; // Suppress unused warning
+    (void)rnd; // ^^^
 
-    math::VEC3* pos = static_cast<math::VEC3*>(emitter->volumePrimitive->vbPos.buffer);
-    math::VEC3* normal = static_cast<math::VEC3*>(emitter->volumePrimitive->vbNormal.buffer);
-    u32 numVertices = emitter->volumePrimitive->vbPos.bufferSize / sizeof(math::VEC3);
+    nw::math::VEC3* pos = static_cast<nw::math::VEC3*>(e->emitVolumePrimitive->GetPositionVertexBuffer().GetVertexBuffer());
+    nw::math::VEC3* nor = static_cast<nw::math::VEC3*>(e->emitVolumePrimitive->GetNoramlVertexBuffer().GetVertexBuffer());
+    nw::math::VEC4* col = static_cast<nw::math::VEC4*>(e->emitVolumePrimitive->GetColorVertexBuffer().GetVertexBuffer()); // <--- Unused, but function literally does not match without it
 
-    if (emitter->data->primitiveEmitType == 0)
+    u32 vertexNum = e->emitVolumePrimitive->GetPositionVertexBuffer().GetVertexBufferSize() / (sizeof(f32) * 3);
+
+    switch (e->res->volumePrimEmitType)
     {
-        for (u32 i = 0; i < numVertices; i++)
+    case EFT_VOLUME_PRIM_EMIT_TYPE_NORMAL:
         {
-            PtclInstance* ptcl = mSys->AllocPtcl(emitter);
-            if (ptcl == NULL)
-                return;
+            for (u32 i = 0; i < vertexNum; i++)
+            {
+                PtclInstance* ptcl = AllocPtclInstance(mSys, e);
+                if (ptcl == NULL)
+                    return;
 
-            ptcl->pos = *pos++;
-            ptcl->velocity = *normal++ * velocityMag;
+                ptcl->pos.x = pos->x;
+                ptcl->pos.y = pos->y;
+                ptcl->pos.z = pos->z;
 
-        EMIT_LOOP_FUNCTION_END()
-    }
-    else if (emitter->data->primitiveEmitType == 1)
-    {
-        for (s32 i = 0; i < numEmit; i++)
+                ptcl->vel.x = nor->x * figureVel;
+                ptcl->vel.y = nor->y * figureVel;
+                ptcl->vel.z = nor->z * figureVel;
+
+                _calcYAxisDiffusion(e, ptcl);
+
+                EmitCommon(e, ptcl);
+
+                pos++;
+                nor++;
+                col++;
+            }
+        }
+        break;
+
+    case EFT_VOLUME_PRIM_EMIT_TYPE_RANDOM:
         {
-            u32 idx = (u32)(numVertices * emitter->random.GetF32());
+            for (s32 i = 0; i < emitRate; i++)
+            {
+                u32 index = static_cast<u32>(vertexNum * e->rnd.GetF32());
 
-            PtclInstance* ptcl = mSys->AllocPtcl(emitter);
-            if (ptcl == NULL)
-                return;
+                PtclInstance* ptcl = AllocPtclInstance(mSys, e);
+                if (ptcl == NULL)
+                    return;
 
-            ptcl->pos = pos[idx];
-            ptcl->velocity = normal[idx] * velocityMag;
+                ptcl->pos.x = pos[index].x;
+                ptcl->pos.y = pos[index].y;
+                ptcl->pos.z = pos[index].z;
 
-        EMIT_LOOP_FUNCTION_END()
-    }
-    else if (emitter->data->primitiveEmitType == 2)
-    {
-        for (s32 i = 0; i < numEmit; i++)
+                ptcl->vel.x = nor[index].x * figureVel;
+                ptcl->vel.y = nor[index].y * figureVel;
+                ptcl->vel.z = nor[index].z * figureVel;
+
+                _calcYAxisDiffusion(e, ptcl);
+
+                EmitCommon(e, ptcl);
+            }
+        }
+        break;
+
+    case EFT_VOLUME_PRIM_EMIT_TYPE_INDEX:
         {
-            u32 idx = emitter->primitiveEmitCounter++ % numVertices;
+            for (s32 i = 0; i < emitRate; i++)
+            {
+                u32 index = static_cast<u32>(e->primEmitCounter) % vertexNum;
 
-            PtclInstance* ptcl = mSys->AllocPtcl(emitter);
-            if (ptcl == NULL)
-                return;
+                PtclInstance* ptcl = AllocPtclInstance(mSys, e);
+                if (ptcl == NULL)
+                    return;
 
-            ptcl->pos = pos[idx];
-            ptcl->velocity = normal[idx] * velocityMag;
+                ptcl->pos.x = pos[index].x;
+                ptcl->pos.y = pos[index].y;
+                ptcl->pos.z = pos[index].z;
 
-        EMIT_LOOP_FUNCTION_END()
+                ptcl->vel.x = nor[index].x * figureVel;
+                ptcl->vel.y = nor[index].y * figureVel;
+                ptcl->vel.z = nor[index].z * figureVel;
+
+                _calcYAxisDiffusion(e, ptcl);
+
+                EmitCommon(e, ptcl);
+
+                e->primEmitCounter++;
+            }
+        }
+        break;
     }
 
-    emitter->emitterBehaviorFlg |= EmitterBehaviorFlag_IsEmitted;
+    e->emitterBehaviorFlag |= EFT_EMITTER_BEHAVIOR_FLAG_IS_EMIT;
 }
 
 } } // namespace nw::eft

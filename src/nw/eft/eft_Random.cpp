@@ -3,8 +3,8 @@
 
 namespace nw { namespace eft {
 
-math::VEC3* PtclRandom::mVec3Tbl = NULL;
-math::VEC3* PtclRandom::mNormalizedVec3Tbl = NULL;
+nw::math::VEC3* PtclRandom::mVec3Tbl           = NULL;
+nw::math::VEC3* PtclRandom::mNormalizedVec3Tbl = NULL;
 
 Random PtclRandom::gRandom;
 
@@ -15,23 +15,31 @@ Random* PtclRandom::GetGlobalRandom()
 
 void PtclRandom::Initialize()
 {
-    // Brute-forced seed
-    // PS. Where is the 8, Nintendo?
-    Random random(12345679);
+    Random rnd(12345679);
 
-    mVec3Tbl = static_cast<math::VEC3*>(AllocFromStaticHeap(sizeof(math::VEC3) * 0x200));
-    mNormalizedVec3Tbl = static_cast<math::VEC3*>(AllocFromStaticHeap(sizeof(math::VEC3) * 0x200));
+    mVec3Tbl           = static_cast<nw::math::VEC3*>(AllocFromStaticHeap(sizeof(nw::math::VEC3) * cNumVec3Tbl));
+    mNormalizedVec3Tbl = static_cast<nw::math::VEC3*>(AllocFromStaticHeap(sizeof(nw::math::VEC3) * cNumVec3Tbl));
 
-    for (s32 i = 0; i < 0x200; i++)
+    for (s32 i = 0; i < cNumVec3Tbl; i++)
     {
-        mVec3Tbl[i].x = random.GetF32Range(-1.0f, 1.0f);
-        mVec3Tbl[i].y = random.GetF32Range(-1.0f, 1.0f);
-        mVec3Tbl[i].z = random.GetF32Range(-1.0f, 1.0f);
-        mNormalizedVec3Tbl[i].x = random.GetF32Range(-1.0f, 1.0f);
-        mNormalizedVec3Tbl[i].y = random.GetF32Range(-1.0f, 1.0f);
-        mNormalizedVec3Tbl[i].z = random.GetF32Range(-1.0f, 1.0f);
+        mVec3Tbl[i].x = /* rnd.GetF32Range(-1.0f, 1.0f) */ rnd.GetF32() * 2.0f - 1.0f;
+        mVec3Tbl[i].y = /* rnd.GetF32Range(-1.0f, 1.0f) */ rnd.GetF32() * 2.0f - 1.0f;
+        mVec3Tbl[i].z = /* rnd.GetF32Range(-1.0f, 1.0f) */ rnd.GetF32() * 2.0f - 1.0f;
+
+        mNormalizedVec3Tbl[i].x = /* rnd.GetF32Range(-1.0f, 1.0f) */ rnd.GetF32() * 2.0f - 1.0f;
+        mNormalizedVec3Tbl[i].y = /* rnd.GetF32Range(-1.0f, 1.0f) */ rnd.GetF32() * 2.0f - 1.0f;
+        mNormalizedVec3Tbl[i].z = /* rnd.GetF32Range(-1.0f, 1.0f) */ rnd.GetF32() * 2.0f - 1.0f;
         mNormalizedVec3Tbl[i].Normalize();
     }
+}
+
+void PtclRandom::Finalize()
+{
+    FreeFromStaticHeap(mVec3Tbl);
+    FreeFromStaticHeap(mNormalizedVec3Tbl);
+
+    mVec3Tbl = NULL;
+    mNormalizedVec3Tbl = NULL;
 }
 
 } } // namespace nw::eft

@@ -8,17 +8,20 @@ namespace nw { namespace eft {
 class EmitterSimpleGpuCalc : public EmitterSimpleCalc
 {
 public:
-    EmitterSimpleGpuCalc(System* system)
-        : EmitterSimpleCalc(system)
+    explicit EmitterSimpleGpuCalc(System* sys)
+        : EmitterSimpleCalc(sys)
     {
     }
 
     virtual void CalcEmitter(EmitterInstance* emitter);
-    virtual u32 CalcParticle(EmitterInstance* emitter, CpuCore core, bool noCalcBehavior, bool noMakePtclAttributeBuffer);
+    virtual u32 CalcParticle(EmitterInstance* emitter, CpuCore core, bool skipBehavior, bool skipMakeAttribute);
 
-    virtual PtclType GetPtclType() const { return PtclType_Simple; }
+    virtual PtclType GetPtclType() const
+    {
+        return EFT_PTCL_TYPE_SIMPLE;
+    }
 };
-static_assert(sizeof(EmitterSimpleGpuCalc) == 4, "EmitterSimpleGpuCalc size mismatch");
+static_assert(sizeof(EmitterSimpleGpuCalc) == 4, "nw::eft::EmitterSimpleGpuCalc size mismatch");
 
 } } // namespace nw::eft
 

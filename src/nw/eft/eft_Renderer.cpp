@@ -1,5 +1,4 @@
 #include <nw/eft/eft_Config.h>
-#include <nw/eft/eft_Emitter.h>
 #include <nw/eft/eft_EmitterSet.h>
 #include <nw/eft/eft_Misc.h>
 #include <nw/eft/eft_Particle.h>
@@ -15,213 +14,183 @@ namespace nw { namespace eft {
 
 s32 Renderer::ComparePtclViewZ(const void* a, const void* b)
 {
-    const PtclViewZ* ptcl_a = static_cast<const PtclViewZ*>(a);
-    const PtclViewZ* ptcl_b = static_cast<const PtclViewZ*>(b);
+    const sortPtcl* src = static_cast<const sortPtcl*>(a);
+    const sortPtcl* dst = static_cast<const sortPtcl*>(b);
 
-    if (ptcl_a->z < 0.0f && ptcl_b->z < 0.0f)
+    if (src->z < 0.0f && dst->z < 0.0f)
     {
-        if (ptcl_a->z < ptcl_b->z)
+        if (src->z < dst->z)
             return -1;
     }
     else
     {
-        if (ptcl_a->z > ptcl_b->z)
+        if (src->z > dst->z)
             return -1;
     }
 
     return 1;
 }
 
-Renderer::Renderer(System* argSystem, const Config& config)
-    : system(argSystem)
+Renderer::Renderer(System* system, const Config& config)
+    : mSystem(system)
 {
-    depthBufferTextureOffset.x = 0.0f;
-    depthBufferTextureOffset.y = 0.0f;
-    depthBufferTextureScale.x = 1.0f;
-    depthBufferTextureScale.y = 1.0f;
-    frameBufferTextureOffset.x = 0.0f;
-    frameBufferTextureOffset.y = 0.0f;
-    frameBufferTextureScale.x = 1.0f;
-    frameBufferTextureScale.y = 1.0f;
+    mDepthTextureOffset.x               = 0.0f;
+    mDepthTextureOffset.y               = 0.0f;
+    mDepthTextureScale.x                = 1.0f;
+    mDepthTextureScale.y                = 1.0f;
+    mFrameBufferTextureOffset.x         = 0.0f;
+    mFrameBufferTextureOffset.y         = 0.0f;
+    mFrameBufferTextureScale.x          = 1.0f;
+    mFrameBufferTextureScale.y          = 1.0f;
+    mCurrentDrawingType                 = EFT_PTCL_TYPE_MAX;
+    mCurrentShaderType                  = EFT_SHADER_TYPE_NORMAL;
+    mDrawViewFlag                       = EFT_DRAW_VIEW_FLAG_ALL;
+    mRenderingEmitterNum                = 0;
+    mRenderingParticleNum               = 0;
+    mCurrentPrimitive                   = NULL;
+    mDrawPrimitiveType                  = Draw::PRIM_TYPE_QUADS;
+    mViewDirtyFlag                      = true;
 
-    currentParticleType = PtclType_Max;
-    shaderType = ShaderType_Normal;
-    renderVisibilityFlags = 0x3F;
-    numDrawEmitter = 0;
-    numDrawParticle = 0;
-    _unused = 1;
+    for (u32 i = 0; i < EFT_TEXTURE_SLOT_MAX; i++)
+        mExtensionTexture[i] = Texture(0);
 
-    primitive = NULL;
-    primitiveMode = 0x13;
-
-    for (u32 i = 0; i < TextureSlot_Max; i++)
-        textures[i] = NULL;
-
-    math::VEC3* pos = static_cast<nw::math::VEC3*>(AllocFromStaticHeap(sizeof(nw::math::VEC3) * 4));
-    pos[0].x = -0.5f;
-    pos[0].y = 0.5f;
-    pos[0].z = 0.0f;
-    pos[1].x = -0.5f;
-    pos[1].y = -0.5f;
-    pos[1].z = 0.0f;
-    pos[2].x = 0.5f;
-    pos[2].y = -0.5f;
-    pos[2].z = 0.0f;
-    pos[3].x = 0.5f;
-    pos[3].y = 0.5f;
-    pos[3].z = 0.0f;
-    vbPos.SetVertexBuffer(pos, sizeof(nw::math::VEC3) * 4, 3);
-    vbPos.Invalidate();
+    const f32 particleWH = 0.5f;
+    nw::math::VEC3* pos = static_cast<nw::math::VEC3*>(AllocFromStaticHeap(sizeof(nw::math::VEC3) * 4));
+    {
+        pos[0].x = -particleWH;
+        pos[0].y =  particleWH;
+        pos[0].z =  0.0f;
+        pos[1].x = -particleWH;
+        pos[1].y = -particleWH;
+        pos[1].z =  0.0f;
+        pos[2].x =  particleWH;
+        pos[2].y = -particleWH;
+        pos[2].z =  0.0f;
+        pos[3].x =  particleWH;
+        pos[3].y =  particleWH;
+        pos[3].z =  0.0f;
+    }
+    mPositionVB.SetVertexBuffer(pos, sizeof(nw::math::VEC3) * 4, 3);
+    DCFlushRange(pos, sizeof(nw::math::VEC3) * 4);
 
     u32* index = static_cast<u32*>(AllocFromStaticHeap(sizeof(u32) * 4));
-    index[0] = 0;
-    index[1] = 1;
-    index[2] = 2;
-    index[3] = 3;
-    vbIndex.SetVertexBuffer(index, sizeof(u32) * 4, 1);
-    vbIndex.Invalidate();
+    {
+        index[0] = 0;
+        index[1] = 1;
+        index[2] = 2;
+        index[3] = 3;
+    }
+    mIndexVB.SetVertexBuffer(index, sizeof(u32) * 4, 1);
+    DCFlushRange(index, sizeof(u32) * 4);
 
-    u32 doubleBufferSize = config.doubleBufferSize;
-    doubleBufferSize += config.numParticleMax * sizeof(PtclAttributeBuffer);
-    doubleBufferSize += 64                    * sizeof(ViewUniformBlock);
-    doubleBufferSize += config.numEmitterMax  * sizeof(EmitterDynamicUniformBlock*);
+    u32 tempBufferSize = config.GetDoubleBufferSize() +
+                         config.GetParticleNum() * sizeof(PtclAttributeBuffer) +
+                         EFT_GROUP_MAX           * sizeof(ViewUniformBlock) +
+                         config.GetEmitterNum()  * sizeof(EmitterDynamicUniformBlock*);
 
-    doubleBuffer.Initialize(doubleBufferSize, config.isTripleBuffer);
+    mTemporaryBuffer.Initialize(tempBufferSize, config.IsEnableTripleBuffer());
 }
 
-void Renderer::BeginRender(const math::MTX44& proj, const math::MTX34& view, const math::VEC3& cameraWorldPos, f32 zNear, f32 zFar)
+Renderer::~Renderer()
 {
-    renderContext.SetupCommonState();
+    mTemporaryBuffer.Finalize();
+    FreeFromStaticHeap(mPositionVB.GetVertexBuffer());
+    FreeFromStaticHeap(mIndexVB.GetVertexBuffer());
+    mRenderContext.~Rendercontext();
+}
 
-    this->view = math::MTX44(view);
+void Renderer::BeginRender(const nw::math::MTX44& proj, const nw::math::MTX34& view, const nw::math::VEC3& camPos, f32 near, f32 far)
+{
+    mRenderContext.SetupCommonState();
 
-    math::MTX34 billboard34;
-    math::MTX34::Transpose(&billboard34, &view);
+    mMatView = nw::math::MTX44(view);
 
-    billboard.m[0][0] = billboard34.m[0][0];
-    billboard.m[0][1] = billboard34.m[0][1];
-    billboard.m[0][2] = billboard34.m[0][2];
-    billboard.m[0][3] = 0.0f;
-    billboard.m[1][0] = billboard34.m[1][0];
-    billboard.m[1][1] = billboard34.m[1][1];
-    billboard.m[1][2] = billboard34.m[1][2];
-    billboard.m[1][3] = 0.0f;
-    billboard.m[2][0] = billboard34.m[2][0];
-    billboard.m[2][1] = billboard34.m[2][1];
-    billboard.m[2][2] = billboard34.m[2][2];
-    billboard.m[2][3] = 0.0f;
-    billboard.m[3][0] = 0.0f;
-    billboard.m[3][1] = 0.0f;
-    billboard.m[3][2] = 0.0f;
-    billboard.m[3][3] = 1.0f;
+    nw::math::MTX34 billboardMtx;
+    MTX34Transpose(&billboardMtx, &view);
+    billboardMtx._03 = billboardMtx._13 = billboardMtx._23 = 0.0f;
+    mMatBillboard.m[0][0] = billboardMtx.m[0][0]; mMatBillboard.m[0][1] = billboardMtx.m[0][1]; mMatBillboard.m[0][2] = billboardMtx.m[0][2]; mMatBillboard.m[0][3] = billboardMtx.m[0][3];
+    mMatBillboard.m[1][0] = billboardMtx.m[1][0]; mMatBillboard.m[1][1] = billboardMtx.m[1][1]; mMatBillboard.m[1][2] = billboardMtx.m[1][2]; mMatBillboard.m[1][3] = billboardMtx.m[1][3];
+    mMatBillboard.m[2][0] = billboardMtx.m[2][0]; mMatBillboard.m[2][1] = billboardMtx.m[2][1]; mMatBillboard.m[2][2] = billboardMtx.m[2][2]; mMatBillboard.m[2][3] = billboardMtx.m[2][3];
+    mMatBillboard.m[3][0] = 0.0f;                 mMatBillboard.m[3][1] = 0.0f;                 mMatBillboard.m[3][2] = 0.0f;                 mMatBillboard.m[3][3] = 1.0f;
 
-    eyeVec.x = billboard34.m[0][2];
-    eyeVec.y = billboard34.m[1][2];
-    eyeVec.z = billboard34.m[2][2];
+    mEyeVec.x = billboardMtx._02;
+    mEyeVec.y = billboardMtx._12;
+    mEyeVec.z = billboardMtx._22;
 
-    eyePos = cameraWorldPos;
+    mEyePos = camPos;
 
-    // Why? Couldn't you have used this->view?
-    math::MTX44 view44;
-    view44.m[0][0] = view.m[0][0];
-    view44.m[0][1] = view.m[0][1];
-    view44.m[0][2] = view.m[0][2];
-    view44.m[0][3] = view.m[0][3];
-    view44.m[1][0] = view.m[1][0];
-    view44.m[1][1] = view.m[1][1];
-    view44.m[1][2] = view.m[1][2];
-    view44.m[1][3] = view.m[1][3];
-    view44.m[2][0] = view.m[2][0];
-    view44.m[2][1] = view.m[2][1];
-    view44.m[2][2] = view.m[2][2];
-    view44.m[2][3] = view.m[2][3];
-    view44.m[3][0] = 0.0f;
-    view44.m[3][1] = 0.0f;
-    view44.m[3][2] = 0.0f;
-    view44.m[3][3] = 1.0f;
+    // Why? Couldn't you have used mMatView?
+    nw::math::MTX44 view44;
+    view44.m[0][0] = view.m[0][0]; view44.m[0][1] = view.m[0][1]; view44.m[0][2] = view.m[0][2]; view44.m[0][3] = view.m[0][3];
+    view44.m[1][0] = view.m[1][0]; view44.m[1][1] = view.m[1][1]; view44.m[1][2] = view.m[1][2]; view44.m[1][3] = view.m[1][3];
+    view44.m[2][0] = view.m[2][0]; view44.m[2][1] = view.m[2][1]; view44.m[2][2] = view.m[2][2]; view44.m[2][3] = view.m[2][3];
+    view44.m[3][0] = 0.0f;         view44.m[3][1] = 0.0f;         view44.m[3][2] = 0.0f;         view44.m[3][3] = 1.0f;
+    mMatViewProj.SetMult(proj, view44);
 
-    math::MTX44::Concat(&viewProj, &proj , &view44);
-
-    viewUniformBlock = static_cast<ViewUniformBlock*>(AllocFromDoubleBuffer(sizeof(ViewUniformBlock)));
-    if (viewUniformBlock != NULL)
+    mViewUniformBlock = static_cast<ViewUniformBlock*>(AllocFromDoubleBuffer(sizeof(ViewUniformBlock)));
+    if (mViewUniformBlock)
     {
-        viewUniformBlock->viewMat = this->view;
-        viewUniformBlock->projMat = proj;
-        viewUniformBlock->vpMat = viewProj;
-        viewUniformBlock->bldMat = billboard;
-        viewUniformBlock->eyeVec.xyz() = eyeVec;
-        viewUniformBlock->eyeVec.w = 0.0f;
-        viewUniformBlock->eyePos.xyz() = eyePos;
-        viewUniformBlock->eyePos.w = 0.0f;
-        viewUniformBlock->depthBufferTexMat.xy() = depthBufferTextureScale;
-        viewUniformBlock->depthBufferTexMat.zw() = depthBufferTextureOffset;
-        viewUniformBlock->frameBufferTexMat.xy() = frameBufferTextureScale;
-        viewUniformBlock->frameBufferTexMat.zw() = frameBufferTextureOffset;
-        viewUniformBlock->viewParam.x = zNear;
-        viewUniformBlock->viewParam.y = zFar;
-        viewUniformBlock->viewParam.z = zNear * zFar;
-        viewUniformBlock->viewParam.w = zFar - zNear;
+        mViewUniformBlock->viewMat = mMatView;
+        mViewUniformBlock->projMat = proj;
+        mViewUniformBlock->vpMat   = mMatViewProj;
+        mViewUniformBlock->bldMat  = mMatBillboard;
+        mViewUniformBlock->eyeVec  = nw::math::VEC4(mEyeVec);
+        mViewUniformBlock->eyePos  = nw::math::VEC4(mEyePos);
 
-        GX2EndianSwap(viewUniformBlock, sizeof(ViewUniformBlock));
-        GX2Invalidate(GX2_INVALIDATE_CPU_UNIFORM_BLOCK, viewUniformBlock, sizeof(ViewUniformBlock));
+        mViewUniformBlock->depthBufferTexMat.x = mDepthTextureScale.x;
+        mViewUniformBlock->depthBufferTexMat.y = mDepthTextureScale.y;
+        mViewUniformBlock->depthBufferTexMat.z = mDepthTextureOffset.x;
+        mViewUniformBlock->depthBufferTexMat.w = mDepthTextureOffset.y;
 
-        _unused = 1;
+        mViewUniformBlock->frameBufferTexMat.x = mFrameBufferTextureScale.x;
+        mViewUniformBlock->frameBufferTexMat.y = mFrameBufferTextureScale.y;
+        mViewUniformBlock->frameBufferTexMat.z = mFrameBufferTextureOffset.x;
+        mViewUniformBlock->frameBufferTexMat.w = mFrameBufferTextureOffset.y;
+
+        mViewUniformBlock->viewParam.x = near;
+        mViewUniformBlock->viewParam.y = far;
+        mViewUniformBlock->viewParam.z = near * far;
+        mViewUniformBlock->viewParam.w = far - near;
+
+        GX2EndianSwap(mViewUniformBlock, sizeof(ViewUniformBlock));
+        GX2Invalidate(GX2_INVALIDATE_CPU_UNIFORM_BLOCK, mViewUniformBlock, sizeof(ViewUniformBlock));
+
+        mViewDirtyFlag = true;
     }
 }
 
 bool Renderer::SetupParticleShaderAndVertex(ParticleShader* shader, MeshType meshType, Primitive* primitive)
 {
     shader->Bind();
+    shader->BindViewUniformBlock(mViewUniformBlock);
 
+    mViewDirtyFlag = false;
+
+    if (meshType == EFT_MESH_TYPE_PARTICLE)
     {
-        const ViewUniformBlock* viewUniformBlock = this->viewUniformBlock;
-        shader->vertexViewUniformBlock.BindUniformBlock(viewUniformBlock);
-        shader->fragmentViewUniformBlock.BindUniformBlock(viewUniformBlock);
-    }
+        mPositionVB.BindBuffer(shader->GetPositionAttribute(), sizeof(nw::math::VEC3) * 4, sizeof(nw::math::VEC3));
+        if (shader->GetIndexAttribute() != EFT_INVALID_ATTRIBUTE)
+            mIndexVB.BindBuffer(shader->GetIndexAttribute(), sizeof(u32) * 4, sizeof(u32));
 
-    _unused = 0;
-
-    if (meshType == MeshType_Particle)
-    {
-        vbPos.BindBuffer(shader->attrPosBuffer, sizeof(math::VEC3) * 4, sizeof(math::VEC3));
-        if (shader->attrIndexBuffer != 0xFFFFFFFF)
-            vbIndex.BindBuffer(shader->attrIndexBuffer, sizeof(u32) * 4, sizeof(u32));
-
-        primitiveMode = 0x13;
-        this->primitive = NULL;
+        mDrawPrimitiveType = Draw::PRIM_TYPE_QUADS;
+        mCurrentPrimitive = NULL;
     }
     else
     {
-        if (primitive == NULL || primitive->numIndex == 0)
+        if (primitive == NULL || primitive->GetIndexNum() == 0)
             return false;
 
-        this->primitive = primitive;
-        if (!primitive->initialized)
+        mCurrentPrimitive = primitive;
+        if (!mCurrentPrimitive->IsInitialized())
             return false;
 
-        {
-            if (shader->attrPosBuffer != 0xFFFFFFFF && primitive->vbPos.buffer != NULL)
-                primitive->vbPos.BindBuffer(shader->attrPosBuffer, primitive->vbPos.bufferSize, sizeof(math::VEC3));
-        }
+        mCurrentPrimitive->BindPosionBuffer    (shader->GetPositionAttribute());
+        mCurrentPrimitive->BindTextureCrdBuffer(shader->GetTextureCoordAttribute());
+        mCurrentPrimitive->BindColorBuffer     (shader->GetColorAttribute());
+        if (shader->GetNormalAttribute() != EFT_INVALID_ATTRIBUTE)
+            mCurrentPrimitive->BindNormalBuffer(shader->GetNormalAttribute());
 
-        {
-            if (shader->attrTexCoordBuffer != 0xFFFFFFFF && primitive->vbTexCoord.buffer != NULL)
-                primitive->vbTexCoord.BindBuffer(shader->attrTexCoordBuffer, primitive->vbTexCoord.bufferSize, sizeof(math::VEC4));
-        }
-
-        {
-            if (shader->attrColorBuffer != 0xFFFFFFFF && primitive->vbColor.buffer != NULL)
-                primitive->vbColor.BindBuffer(shader->attrColorBuffer, primitive->vbColor.bufferSize, sizeof(ut::Color4f));
-        }
-
-        u32 attrNormalBuffer = shader->attrNormalBuffer;
-        if (attrNormalBuffer != 0xFFFFFFFF)
-        {
-            if (attrNormalBuffer != 0xFFFFFFFF && primitive->vbNormal.buffer != NULL)
-                primitive->vbNormal.BindBuffer(attrNormalBuffer, primitive->vbNormal.bufferSize, sizeof(math::VEC3));
-        }
-
-        primitiveMode = 4;
+        mDrawPrimitiveType = Draw::PRIM_TYPE_TRIANGLES;
     }
 
     return true;
@@ -229,261 +198,260 @@ bool Renderer::SetupParticleShaderAndVertex(ParticleShader* shader, MeshType mes
 
 void Renderer::SetupTexture(ParticleShader* shader, const TextureRes* texture0, const TextureRes* texture1, const TextureRes* texture2)
 {
-    if (texture0 != NULL && texture0->initialized != 0)
-        renderContext.SetupTexture(texture0, TextureSlot_0, shader->fragmentSamplerLocations[0]);
+    if (texture0 && texture0->handle)
+        mRenderContext.SetupTexture(texture0, EFT_TEXTURE_SLOT_0, shader->GetTextureSamplerLocation(EFT_TEXTURE_SLOT_0));
 
-    if (texture1 != NULL && texture1->initialized != 0)
-        renderContext.SetupTexture(texture1, TextureSlot_1, shader->fragmentSamplerLocations[1]);
+    if (texture1 && texture1->handle)
+        mRenderContext.SetupTexture(texture1, EFT_TEXTURE_SLOT_1, shader->GetTextureSamplerLocation(EFT_TEXTURE_SLOT_1));
 
-    if (texture2 != NULL && texture2->initialized != 0)
-        renderContext.SetupTexture(texture2, TextureSlot_2, shader->fragmentSamplerLocations[2]);
+    if (texture2 && texture2->handle)
+        mRenderContext.SetupTexture(texture2, EFT_TEXTURE_SLOT_2, shader->GetTextureSamplerLocation(EFT_TEXTURE_SLOT_2));
 
-    for (u32 i = TextureSlot_Frame_Buffer; i < TextureSlot_Max; i++)
+    for (u32 i = EFT_TEXTURE_SLOT_FRAME_BUFFER; i < EFT_TEXTURE_SLOT_MAX; i++)
     {
-        if (textures[i] != NULL && shader->fragmentSamplerLocations[i].location != 0xFFFFFFFF)
+        TextureSlot slot = static_cast<TextureSlot>(i);
+
+        if (mExtensionTexture[slot] &&
+            shader->GetTextureSamplerLocation(slot).IsValid())
         {
-            if (i == TextureSlot_Curl_Noise)
-                renderContext.SetupUserFragment2DArrayTexture(textures[i], TextureSlot(i), shader->fragmentSamplerLocations[i]);
+            if (slot == EFT_TEXTURE_SLOT_CURL_NOISE)
+                mRenderContext.SetupUserFragment2DArrayTexture(mExtensionTexture[slot], slot, shader->GetTextureSamplerLocation(slot));
 
             else
-                renderContext.SetupTexture(textures[i], TextureSlot(i), shader->fragmentSamplerLocations[i]);
+                mRenderContext.SetupTexture(mExtensionTexture[slot], slot, shader->GetTextureSamplerLocation(slot));
         }
 
-        if (textures[i] != NULL && shader->vertexSamplerLocations[i].location != 0xFFFFFFFF)
+        if (mExtensionTexture[slot] &&
+            shader->GetVertexTextureSamplerLocation(slot).IsValid())
         {
-            if (i == TextureSlot_Curl_Noise)
-                renderContext.SetupVertexArrayTexture(textures[i], TextureSlot(i), shader->vertexSamplerLocations[i]);
+            if (slot == EFT_TEXTURE_SLOT_CURL_NOISE)
+                mRenderContext.SetupVertexArrayTexture(mExtensionTexture[slot], slot, shader->GetVertexTextureSamplerLocation(slot));
 
             else
-                renderContext.SetupUserVertexTexture(textures[i], TextureSlot(i), shader->vertexSamplerLocations[i]);
+                mRenderContext.SetupUserVertexTexture(mExtensionTexture[slot], slot, shader->GetVertexTextureSamplerLocation(slot));
         }
     }
 }
 
-void Renderer::DrawCpuEntry(ParticleShader* shader, u32 primitiveMode, u32 firstVertex, u32 numInstances, PtclAttributeBuffer* ptclAttributeBuffer, Primitive* primitive)
+void Renderer::DrawCpuEntry(ParticleShader* shader, Draw::PrimitiveType drawType, u32 startNum, u32 entryNum, PtclAttributeBuffer* buffer, Primitive* primitive)
 {
-    if (ptclAttributeBuffer != NULL)
-        BindParticleAttributeBlock(ptclAttributeBuffer, shader, firstVertex, numInstances);
+    if (buffer)
+        BindParticleAttributeBlock(buffer, shader, startNum, entryNum);
 
-    if (primitive != NULL)
-        GX2DrawIndexedEx(static_cast<GX2PrimitiveType>(primitiveMode), primitive->numIndex, GX2_INDEX_FORMAT_U32, primitive->vbIndex.buffer, 0, numInstances);
-
+    if (primitive)
+        Draw::DrawInstanceIndexedPrimitive(drawType, primitive->GetIndexNum(), primitive->GetIndexBuffer(), entryNum);
     else
-        GX2DrawEx(static_cast<GX2PrimitiveType>(primitiveMode), 4, 0, numInstances);
+        Draw::DrawInstancePrimitive(drawType, 4, entryNum);
 }
 
-void Renderer::DrawGpuEntry(ParticleShader* shader, u32 primitiveMode, u32 firstVertex, u32 numInstances, PtclAttributeBufferGpu* ptclAttributeBufferGpu, Primitive* primitive)
+void Renderer::DrawGpuEntry(ParticleShader* shader, Draw::PrimitiveType drawType, u32 startNum, u32 entryNum, PtclAttributeBufferGpu* buffer, Primitive* primitive)
 {
-    if (ptclAttributeBufferGpu != NULL)
-        BindGpuParticleAttributeBlock(ptclAttributeBufferGpu, shader, firstVertex, numInstances);
+    if (buffer)
+        BindGpuParticleAttributeBlock(buffer, shader, startNum, entryNum);
 
-    if (primitive != NULL)
-        GX2DrawIndexedEx(static_cast<GX2PrimitiveType>(primitiveMode), primitive->numIndex, GX2_INDEX_FORMAT_U32, primitive->vbIndex.buffer, 0, numInstances);
-
+    if (primitive)
+        Draw::DrawInstanceIndexedPrimitive(drawType, primitive->GetIndexNum(), primitive->GetIndexBuffer(), entryNum);
     else
-        GX2DrawEx(static_cast<GX2PrimitiveType>(primitiveMode), 4, 0, numInstances);
+        Draw::DrawInstancePrimitive(drawType, 4, entryNum);
 }
 
-void Renderer::RequestParticle(const EmitterInstance* emitter, ParticleShader* shader, bool isChild, void* argData, bool draw)
+void Renderer::RequestParticle(const EmitterInstance* emitter, ParticleShader* shader, bool bChild, void* userParam, bool bDraw)
 {
-    const SimpleEmitterData* data = emitter->data;
+    const SimpleEmitterData* res = emitter->GetSimpleEmitterData();
 
-    u32 numParticles = emitter->numParticles;
-    CustomShaderCallBackID callbackID = static_cast<CustomShaderCallBackID>(data->shaderUserSetting);
-    ZBufATestType zBufATestType = data->zBufATestType;
-    BlendType blendType = data->blendType;
-    DisplaySideType displaySideType = data->displaySideType;
-    MeshType meshType = data->meshType;
-    bool gpuCalc = shader->vertexShaderKey.flags[0] & 0x2000000;
+    ZBufATestType           zBuffATest      = res->zBufATestType;
+    BlendType               blendType       = res->blendType;
+    CustomShaderCallBackID  shaderCallback  = static_cast<CustomShaderCallBackID>(res->userShaderSetting);
+    u32                     numPtcl         = emitter->ptclNum;
+    MeshType                meshType        = res->meshType;
+    DisplaySideType         dispSideType    = res->displaySide;
+    bool                    isGpu           = shader->IsGpuAcceleration();
 
-    if (isChild)
+    if (bChild)
     {
-        const ChildData* childData = emitter->GetChildData();
+        const ChildData* cdata = emitter->GetChildData();
 
-        numParticles = emitter->numChildParticles;
-        callbackID = static_cast<CustomShaderCallBackID>(childData->shaderUserSetting);
-        zBufATestType = childData->zBufATestType;
-        blendType = childData->blendType;
-        displaySideType = childData->displaySideType;
-        meshType = childData->meshType;
+        zBuffATest      = cdata->childZBufATestType;
+        blendType       = cdata->childBlendType;
+        numPtcl         = emitter->childPtclNum;
+        shaderCallback  = static_cast<CustomShaderCallBackID>(cdata->childUserShaderSetting);
+        meshType        = cdata->childMeshType;
+        dispSideType    = cdata->childDisplaySide;
     }
 
-    renderContext.SetupZBufATest(zBufATestType);
-    renderContext.SetupBlendType(blendType);
-    renderContext.SetupDisplaySideType(displaySideType);
-
-    if (system->GetCustomShaderRenderStateSetCallback(callbackID) != NULL)
     {
-        RenderStateSetArg arg = {
-            .emitter = emitter,
-            .renderer = this,
-            .flushCache = true,
-            .argData = argData,
-        };
-        system->GetCustomShaderRenderStateSetCallback(callbackID)(arg);
+        mRenderContext.SetupZBufATest(zBuffATest);
+        mRenderContext.SetupBlendType(blendType);
+        mRenderContext.SetupDisplaySideType(dispSideType);
     }
 
-    else if (callbackID != CustomShaderCallBackID_Invalid)
+    if (mSystem->GetCustomShaderRenderStateSetCallback(shaderCallback))
     {
-        RenderStateSetArg arg = {
-            .emitter = emitter,
-            .renderer = this,
-            .flushCache = true,
-            .argData = argData,
-        };
-        shader->SetUserUniformBlockFromData(arg, (ParticleShader::UserUniformBlockID)9, "userUniformBlockParam");
+        RenderStateSetArg arg;
+        arg.emitter = emitter;
+        arg.renderer = this;
+        arg.cacheFlush = true;
+        arg.userParam = userParam;
+        mSystem->GetCustomShaderRenderStateSetCallback(shaderCallback)(arg);
+    }
+    else if (shaderCallback != EFT_CUSTOM_SHADER_CALLBACK_NONE)
+    {
+        RenderStateSetArg arg;
+        arg.emitter = emitter;
+        arg.renderer = this;
+        arg.cacheFlush = true;
+        arg.userParam = userParam;
+        shader->SetUserUniformBlockFromData(arg, ParticleShader::UNIFORM_BLOCK_USER_VERTEX_ID_0);
     }
 
-    if (system->GetDrawPathRenderStateSetCallback(static_cast<DrawPathFlag>(1 << emitter->data->_bitForUnusedFlag)) != NULL)
+    if (mSystem->GetDrawPathRenderStateSetCallback(static_cast<DrawPathFlag>(1 << emitter->res->drawPath)))
     {
-        RenderStateSetArg arg = {
-            .emitter = emitter,
-            .renderer = this,
-            .flushCache = true,
-            .argData = argData,
-        };
-        system->GetDrawPathRenderStateSetCallback(static_cast<DrawPathFlag>(1 << emitter->data->_bitForUnusedFlag))(arg);
+        RenderStateSetArg arg;
+        arg.emitter = emitter;
+        arg.renderer = this;
+        arg.cacheFlush = true;
+        arg.userParam = userParam;
+        mSystem->GetDrawPathRenderStateSetCallback(static_cast<DrawPathFlag>(1 << emitter->res->drawPath))(arg);
     }
 
-    if (!draw)
+    if (!bDraw)
         return;
 
-    if (!gpuCalc && (!isChild && data->flags & 0x200))
+    if (!isGpu)
     {
-        u32 i = 0;
-
-        PtclViewZ* sortedPtcls = static_cast<PtclViewZ*>(AllocFromDoubleBuffer(sizeof(PtclViewZ) * numParticles));
-        if (sortedPtcls != NULL)
+        if (!bChild && res->flg & EFT_EMITTER_FLAG_ENABLE_SORTPARTICLE)
         {
-            PtclInstance* ptcl = emitter->particleHead;
-            if (ptcl == NULL)
-                return;
+            u32 cnt = 0;
 
-            while (ptcl != NULL)
+            sortPtcl* sortPtcls = static_cast<sortPtcl*>(AllocFromDoubleBuffer(sizeof(sortPtcl) * numPtcl));
+            if (sortPtcls)
             {
-                sortedPtcls[i].ptcl = ptcl;
-                sortedPtcls[i].z = view.m[2][0] * ptcl->worldPos.x + view.m[2][1] * ptcl->worldPos.y + view.m[2][2] * ptcl->worldPos.z + view.m[2][3];
-                sortedPtcls[i].idx = i;
+                PtclInstance* p = emitter->ptclHead;
+                if (p == NULL)
+                    return;
 
-                ptcl = ptcl->next; i++;
+                while (p)
+                {
+                    sortPtcls[cnt].ptcl = p;
+                    sortPtcls[cnt].z     = mMatView.f._20 * p->worldPos.x +
+                                           mMatView.f._21 * p->worldPos.y +
+                                           mMatView.f._22 * p->worldPos.z +
+                                           mMatView.f._23;
+                    sortPtcls[cnt].index = cnt;
+                    p = p->next;
+                    cnt++;
+                }
+
+                qsort(sortPtcls, cnt, sizeof(sortPtcl), ComparePtclViewZ);
+
+                for (u32 i = 0; i < cnt; i++)
+                {
+                    BindParticleAttributeBlock(&emitter->ptclAttributeBuffer[sortPtcls[i].index], shader, 0, 1);
+
+                    if (meshType == EFT_MESH_TYPE_PRIMITIVE && mCurrentPrimitive)
+                        Draw::DrawInstanceIndexedPrimitive(mDrawPrimitiveType, mCurrentPrimitive->GetIndexNum(), mCurrentPrimitive->GetIndexBuffer(), 1);
+                    else
+                        Draw::DrawInstancePrimitive(mDrawPrimitiveType, 4, 1);
+                }
+
+                mRenderingParticleNum += cnt;
             }
-
-            qsort(sortedPtcls, i, sizeof(PtclViewZ), ComparePtclViewZ);
-
-            for (u32 j = 0; j < i; j++)
-            {
-                BindParticleAttributeBlock(&emitter->ptclAttributeBuffer[sortedPtcls[j].idx], shader, 0, 1);
-
-                if (meshType == MeshType_Primitive && primitive != NULL)
-                    GX2DrawIndexed(static_cast<GX2PrimitiveType>(primitiveMode), primitive->numIndex, GX2_INDEX_FORMAT_U32, primitive->vbIndex.buffer);
-
-                else
-                    GX2Draw(static_cast<GX2PrimitiveType>(primitiveMode), 4);
-            }
-
-            this->numDrawParticle += i;
         }
-    }
-    else if (!gpuCalc)
-    {
-        u32 numDrawParticle;
-        PtclAttributeBuffer* ptclAttributeBuffer;
-
-        if (!isChild)
-        {
-            numDrawParticle = emitter->numDrawParticle;
-            ptclAttributeBuffer = emitter->ptclAttributeBuffer;
-        }
-
         else
         {
-            numDrawParticle = emitter->numDrawChildParticle;
-            ptclAttributeBuffer = emitter->childPtclAttributeBuffer;
+            PtclAttributeBuffer* ptclAttributeBuffer = emitter->ptclAttributeBuffer;
+            u32 entryNum = emitter->entryNum;
+
+            if (bChild)
+            {
+                ptclAttributeBuffer = emitter->childPtclAttributeBuffer;
+                entryNum = emitter->childEntryNum;
+            }
+
+            DrawCpuEntry(shader, mDrawPrimitiveType, 0, entryNum, ptclAttributeBuffer, mCurrentPrimitive);
+
+            mRenderingParticleNum += entryNum;
         }
-
-        DrawCpuEntry(shader, primitiveMode, 0, numDrawParticle, ptclAttributeBuffer, primitive);
-
-        this->numDrawParticle += numDrawParticle;
-    }
-    else if (shader->vertexShaderKey.flags[0] & 0x8000000)
-    {
-        BindGpuParticleAttributeBlock(emitter->ptclAttributeBufferGpu, shader, 0, emitter->numDrawParticle);
-
-        bool posBind = const_cast<EmitterInstance*>(emitter)->posStreamOutAttributeBuffer.Bind(shader->attrStreamOutPosBuffer, 0, emitter->swapStreamOut, false);
-        bool vecBind = const_cast<EmitterInstance*>(emitter)->vecStreamOutAttributeBuffer.Bind(shader->attrStreamOutVecBuffer, 1, emitter->swapStreamOut, false);
-
-        if (!posBind || !vecBind)
-            return;
-
-        DrawGpuEntry(shader, primitiveMode, 0, emitter->numDrawParticle, NULL, primitive);
-
-        this->numDrawParticle += emitter->numDrawParticle;
-    }
-    else if (emitter->controller->emissionRatio < 1.0f && !emitter->controller->emissionRatioChanged)
-    {
-        s32 max = (u32)((f32)emitter->numPtclAttributeBufferGpuMax * emitter->controller->emissionRatio);
-        if (emitter->currentPtclAttributeBufferGpuIdx < emitter->numDrawParticle && emitter->currentPtclAttributeBufferGpuIdx < max)
-            DrawGpuEntry(shader, primitiveMode, emitter->numPtclAttributeBufferGpuMax - (max - emitter->currentPtclAttributeBufferGpuIdx), max - emitter->currentPtclAttributeBufferGpuIdx, emitter->ptclAttributeBufferGpu, primitive);
-
-        DrawGpuEntry(shader, primitiveMode, 0, emitter->currentPtclAttributeBufferGpuIdx, emitter->ptclAttributeBufferGpu, primitive);
-
-        this->numDrawParticle += emitter->numDrawParticle;
     }
     else
     {
-        DrawGpuEntry(shader, primitiveMode, 0, emitter->numDrawParticle, emitter->ptclAttributeBufferGpu, primitive);
+        if (shader->IsUseStreamOut())
+        {
+            EmitterInstance* ccemt = const_cast<EmitterInstance*>(emitter);
 
-        this->numDrawParticle += emitter->numDrawParticle;
+            BindGpuParticleAttributeBlock(emitter->ptclAttributeBufferGpu, shader, 0, emitter->entryNum);
+
+            bool ret0 = ccemt->positionStreamOutBuffer.Bind(shader->mPositionInput, 0, ccemt->streamOutFlip, false);
+            bool ret1 = ccemt->vectorStreamOutBuffer  .Bind(shader->mVectorInput,   1, ccemt->streamOutFlip, false);
+
+            if (!ret0 || !ret1)
+                return;
+
+            DrawGpuEntry(shader, mDrawPrimitiveType, 0, emitter->entryNum, NULL, mCurrentPrimitive);
+        }
+        else
+        {
+            if (emitter->controller->mEmissionRatio < 1.0f && !emitter->controller->mEmissionRatioChanged)
+            {
+                u32 emitMax = (u32)(emitter->gpuParticleBufferNum * emitter->controller->mEmissionRatio);
+
+                if (emitter->gpuParticleBufferFillNum < emitter->entryNum && emitter->gpuParticleBufferFillNum < emitMax)
+                {
+                    s32 deleteNum = emitMax - emitter->gpuParticleBufferFillNum;
+                    DrawGpuEntry(shader, mDrawPrimitiveType, emitter->gpuParticleBufferNum - deleteNum, deleteNum, emitter->ptclAttributeBufferGpu, mCurrentPrimitive);
+                }
+
+                DrawGpuEntry(shader, mDrawPrimitiveType, 0, emitter->gpuParticleBufferFillNum, emitter->ptclAttributeBufferGpu, mCurrentPrimitive);
+            }
+            else
+            {
+                DrawGpuEntry(shader, mDrawPrimitiveType, 0, emitter->entryNum, emitter->ptclAttributeBufferGpu, mCurrentPrimitive);
+            }
+        }
+
+        mRenderingParticleNum += emitter->entryNum;
     }
 
-    numDrawEmitter++;
+    mRenderingEmitterNum++;
 }
 
-bool Renderer::EntryChildParticleSub(const EmitterInstance* emitter, void* argData, bool draw)
+bool Renderer::EntryChildParticleSub(const EmitterInstance* emitter, void* userParam, bool bDraw)
 {
-    if (emitter->numDrawChildParticle == 0 || emitter->childEmitterDynamicUniformBlock == NULL || emitter->childPtclAttributeBuffer == NULL || !draw)
+    if (emitter->childEntryNum == 0 || emitter->childEmitterDynamicUniformBlock == NULL || emitter->childPtclAttributeBuffer == NULL || !bDraw)
         return false;
 
-    ParticleShader* shader = emitter->childShader[shaderType];
+    ParticleShader* shader = emitter->childShader[mCurrentShaderType];
     if (shader == NULL)
         return false;
 
-    const ChildData* childData = emitter->GetChildData();
+    const ChildData* cres = emitter->GetChildData();
 
-    if (!SetupParticleShaderAndVertex(shader, childData->meshType, emitter->childPrimitive))
+    if (!SetupParticleShaderAndVertex(shader, cres->childMeshType, emitter->childPrimitive))
         return false;
 
-    {
-        const EmitterStaticUniformBlock* emitterStaticUniformBlock = emitter->childEmitterStaticUniformBlock;
-        shader->vertexEmitterStaticUniformBlock.BindUniformBlock(emitterStaticUniformBlock);
-        shader->fragmentEmitterStaticUniformBlock.BindUniformBlock(emitterStaticUniformBlock);
-    }
+    shader->BindEmitterStaticUniformBlock (emitter->childEmitterStaticUniformBlock);
+    shader->BindEmitterDynamicUniformBlock(emitter->childEmitterDynamicUniformBlock);
 
-    {
-        const EmitterDynamicUniformBlock* emitterDynamicUniformBlock = emitter->childEmitterDynamicUniformBlock;
-        shader->vertexEmitterDynamicUniformBlock.BindUniformBlock(emitterDynamicUniformBlock);
-        shader->fragmentEmitterDynamicUniformBlock.BindUniformBlock(emitterDynamicUniformBlock);
-    }
-
-    SetupTexture(shader, &childData->texture, NULL, NULL);
+    const TextureRes* texture0 = &cres->childTex;
+    SetupTexture(shader, texture0, NULL, NULL);
 
     shader->EnableInstanced();
-    RequestParticle(emitter, shader, true, argData, draw);
+    RequestParticle(emitter, shader, true, userParam, bDraw);
     shader->DisableInstanced();
 
     return true;
 }
 
-bool Renderer::EntryParticleSub(const EmitterInstance* emitter, void* argData, bool draw)
+bool Renderer::EntryParticleSub(const EmitterInstance* emitter, void* userParam, bool bDraw)
 {
-    if (emitter->numDrawParticle == 0 || emitter->emitterDynamicUniformBlock == NULL || !draw)
+    if (emitter->entryNum == 0 || emitter->emitterDynamicUniformBlock == NULL || !bDraw)
         return false;
 
-    ParticleShader* shader = emitter->shader[shaderType];
+    ParticleShader* shader = emitter->shader[mCurrentShaderType];
     if (shader == NULL)
         return false;
 
-    if (!(shader->vertexShaderKey.flags[0] & 0x2000000))
+    if (!shader->IsGpuAcceleration())
     {
         if (emitter->ptclAttributeBuffer == NULL)
             return false;
@@ -494,116 +462,113 @@ bool Renderer::EntryParticleSub(const EmitterInstance* emitter, void* argData, b
             return false;
     }
 
-    const SimpleEmitterData* data = emitter->data;
+    const SimpleEmitterData* res = emitter->GetSimpleEmitterData();
 
-    if (!SetupParticleShaderAndVertex(shader, data->meshType, emitter->primitive))
+    if (!SetupParticleShaderAndVertex(shader, res->meshType, emitter->primitive))
         return false;
 
-    {
-        const EmitterStaticUniformBlock* emitterStaticUniformBlock = emitter->emitterStaticUniformBlock;
-        shader->vertexEmitterStaticUniformBlock.BindUniformBlock(emitterStaticUniformBlock);
-        shader->fragmentEmitterStaticUniformBlock.BindUniformBlock(emitterStaticUniformBlock);
-    }
+    shader->BindEmitterStaticUniformBlock (emitter->emitterStaticUniformBlock);
+    shader->BindEmitterDynamicUniformBlock(emitter->emitterDynamicUniformBlock);
 
-    {
-        const EmitterDynamicUniformBlock* emitterDynamicUniformBlock = emitter->emitterDynamicUniformBlock;
-        shader->vertexEmitterDynamicUniformBlock.BindUniformBlock(emitterDynamicUniformBlock);
-        shader->fragmentEmitterDynamicUniformBlock.BindUniformBlock(emitterDynamicUniformBlock);
-    }
-
-    SetupTexture(shader, &data->textures[0], &data->textures[1], &data->textures[2]);
+    const TextureRes* texture0 = &res->texRes[EFT_TEXTURE_SLOT_0];
+    const TextureRes* texture1 = &res->texRes[EFT_TEXTURE_SLOT_1];
+    const TextureRes* texture2 = &res->texRes[EFT_TEXTURE_SLOT_2];
+    SetupTexture(shader, texture0, texture1, texture2);
 
     shader->EnableInstanced();
-    RequestParticle(emitter, shader, false, argData, draw);
+    RequestParticle(emitter, shader, false, userParam, bDraw);
     shader->DisableInstanced();
 
     return true;
 }
 
-void Renderer::EntryParticle(const EmitterInstance* emitter, void* argData)
+void Renderer::EntryParticle(const EmitterInstance* emitter, void* userParam)
 {
-    if (viewUniformBlock == NULL)
+    if (mViewUniformBlock == NULL)
         return;
 
-    primitive = NULL;
+    mCurrentPrimitive = NULL;
 
-    CustomShaderDrawOverrideCallback callback = system->GetCustomShaderDrawOverrideCallback(static_cast<CustomShaderCallBackID>(emitter->data->shaderUserSetting));
-    ShaderDrawOverrideArg arg = {
-        .emitter = emitter,
-        .renderer = this,
-        .flushCache = true,
-        .argData = argData,
-    };
+    CustomShaderDrawOverrideCallback parentShaderPreDrawCallBack = mSystem->GetCustomShaderDrawOverrideCallback(static_cast<CustomShaderCallBackID>(emitter->res->userShaderSetting));
 
-    if (!(emitter->controller->renderVisibilityFlags & renderVisibilityFlags))
+    ShaderDrawOverrideArg arg;
+    arg.emitter = emitter;
+    arg.renderer = this;
+    arg.cacheFlush = true;
+    arg.userParam = userParam;
+
+    if (!(emitter->controller->GetDrawViewFalg() & mDrawViewFlag))
         return;
 
-    bool stripe = false;
-    if (emitter->data->vertexTransformMode == VertexTransformMode_Stripe
-        || emitter->data->vertexTransformMode == VertexTransformMode_Complex_Stripe)
+    bool bStripeDraw = false;
+    if (emitter->GetBillboardType() == EFT_BILLBOARD_TYPE_STRIPE ||
+        emitter->GetBillboardType() == EFT_BILLBOARD_TYPE_COMPLEX_STRIPE)
     {
-        EntryStripe(emitter, argData);
-        stripe = true;
+        EntryStripe(emitter, userParam);
+        bStripeDraw = true;
     }
 
-    if (emitter->data->type == EmitterType_Complex)
+    if (emitter->GetEmitterType() == EFT_EMITTER_TYPE_COMPLEX)
     {
-        bool hasChild = emitter->HasChild();
+        bool isChild = emitter->IsHasChildParticle();
+        const ComplexEmitterData* cres = emitter->GetComplexEmitterData();
 
-        const ComplexEmitterData* cdata = emitter->GetComplexEmitterData();
-        CustomShaderDrawOverrideCallback childCallback = NULL;
+        CustomShaderDrawOverrideCallback childShaderPreDrawCallBack = NULL;
 
-        if (hasChild)
-            childCallback = system->GetCustomShaderDrawOverrideCallback(static_cast<CustomShaderCallBackID>(emitter->GetChildData()->shaderUserSetting));
-
-        if (hasChild && cdata->childFlags & 0x1000)
+        if (isChild)
         {
-            currentParticleType = PtclType_Child;
-
-            if (childCallback != NULL)
-                childCallback(arg);
-
-            else
-                EntryChildParticleSub(emitter, argData);
+            const ChildData* childRes = emitter->GetChildData();
+            childShaderPreDrawCallBack = mSystem->GetCustomShaderDrawOverrideCallback(static_cast<CustomShaderCallBackID>(childRes->childUserShaderSetting));
         }
 
-        if (cdata->displayParent != 0 && !stripe)
+        if (isChild && cres->childFlg & EFT_CHILD_FLAG_PRE_CHILD_DRAW)
         {
-            currentParticleType = PtclType_Complex;
+            mCurrentDrawingType = EFT_PTCL_TYPE_CHILD;
 
-            if (callback != NULL)
-                callback(arg);
+            if (childShaderPreDrawCallBack)
+                childShaderPreDrawCallBack(arg);
 
             else
-                EntryParticleSub(emitter, argData);
+                EntryChildParticleSub(emitter, userParam);
         }
 
-        if (hasChild && !(cdata->childFlags & 0x1000))
+        if (cres->isDisplayParent && !bStripeDraw)
         {
-            currentParticleType = PtclType_Child;
+            mCurrentDrawingType = EFT_PTCL_TYPE_COMPLEX;
 
-            if (childCallback != NULL)
-                childCallback(arg);
+            if (parentShaderPreDrawCallBack)
+                parentShaderPreDrawCallBack(arg);
 
             else
-                EntryChildParticleSub(emitter, argData);
+                EntryParticleSub(emitter, userParam);
+        }
+
+        if (isChild && !(cres->childFlg & EFT_CHILD_FLAG_PRE_CHILD_DRAW))
+        {
+            mCurrentDrawingType = EFT_PTCL_TYPE_CHILD;
+
+            if (childShaderPreDrawCallBack)
+                childShaderPreDrawCallBack(arg);
+
+            else
+                EntryChildParticleSub(emitter, userParam);
         }
     }
     else
     {
-        if (emitter->data->displayParent != 0 /* && !stripe */)
+        if (emitter->res->isDisplayParent /* && !bStripeDraw */)
         {
-            currentParticleType = PtclType_Simple;
+            mCurrentDrawingType = EFT_PTCL_TYPE_SIMPLE;
 
-            if (callback != NULL)
-                callback(arg);
+            if (parentShaderPreDrawCallBack)
+                parentShaderPreDrawCallBack(arg);
 
             else
-                EntryParticleSub(emitter, argData);
+                EntryParticleSub(emitter, userParam);
         }
     }
 
-    currentParticleType = PtclType_Max;
+    mCurrentDrawingType = EFT_PTCL_TYPE_MAX;
 }
 
 void Renderer::BeginStremOut()
@@ -614,14 +579,14 @@ void Renderer::BeginStremOut()
 
 void Renderer::CalcStremOutParticle(const EmitterInstance* emitter, bool bind)
 {
-    if (emitter->numDrawParticle == 0 || emitter->emitterDynamicUniformBlock == NULL)
+    if (emitter->entryNum == 0 || emitter->emitterDynamicUniformBlock == NULL)
         return;
 
-    ParticleShader* shader = emitter->shader[ShaderType_Normal];
+    ParticleShader* shader = emitter->shader[EFT_SHADER_TYPE_NORMAL];
     if (shader == NULL)
         return;
 
-    if (!(shader->vertexShaderKey.flags[0] & 0x2000000))
+    if (!shader->IsGpuAcceleration())
     {
         if (emitter->ptclAttributeBuffer == NULL)
             return;
@@ -632,43 +597,42 @@ void Renderer::CalcStremOutParticle(const EmitterInstance* emitter, bool bind)
             return;
     }
 
-    const SimpleEmitterData* data = emitter->data;
+    const SimpleEmitterData* res = emitter->GetSimpleEmitterData();
 
-    if (!SetupParticleShaderAndVertex(shader, data->meshType, emitter->primitive))
+    if (!SetupParticleShaderAndVertex(shader, res->meshType, emitter->primitive))
         return;
 
-    {
-        const EmitterStaticUniformBlock* emitterStaticUniformBlock = emitter->emitterStaticUniformBlock;
-        shader->vertexEmitterStaticUniformBlock.BindUniformBlock(emitterStaticUniformBlock);
-        shader->fragmentEmitterStaticUniformBlock.BindUniformBlock(emitterStaticUniformBlock);
-    }
-
-    {
-        const EmitterDynamicUniformBlock* emitterDynamicUniformBlock = emitter->emitterDynamicUniformBlock;
-        shader->vertexEmitterDynamicUniformBlock.BindUniformBlock(emitterDynamicUniformBlock);
-        shader->fragmentEmitterDynamicUniformBlock.BindUniformBlock(emitterDynamicUniformBlock);
-    }
+    shader->BindEmitterStaticUniformBlock (emitter->emitterStaticUniformBlock);
+    shader->BindEmitterDynamicUniformBlock(emitter->emitterDynamicUniformBlock);
 
     shader->EnableInstanced();
-
-    BindGpuParticleAttributeBlock(emitter->ptclAttributeBufferGpu, shader, 0, emitter->numDrawParticle);
-
-    if (bind)
     {
-        bool posBind = const_cast<EmitterInstance*>(emitter)->posStreamOutAttributeBuffer.Bind(shader->attrStreamOutPosBuffer, 0, emitter->swapStreamOut, true);
-        bool vecBind = const_cast<EmitterInstance*>(emitter)->vecStreamOutAttributeBuffer.Bind(shader->attrStreamOutVecBuffer, 1, emitter->swapStreamOut, true);
+        EmitterInstance* ccemt = const_cast<EmitterInstance*>(emitter);
 
-        if (!posBind || !vecBind)
-            return;
+        u32 gCounter = mSystem->GetGlobalCounter(); // <--- Unused, but function literally does not match without it
+
+        //if (emitter->streamOutCounter != gCounter)
+        {
+            BindGpuParticleAttributeBlock(emitter->ptclAttributeBufferGpu, shader, 0, emitter->entryNum);
+
+            if (bind)
+            {
+                bool ret_pos = ccemt->positionStreamOutBuffer.Bind(shader->mPositionInput, 0, ccemt->streamOutFlip, true);
+                bool ret_vec = ccemt->vectorStreamOutBuffer  .Bind(shader->mVectorInput,   1, ccemt->streamOutFlip, true);
+
+                if (!ret_pos || !ret_vec)
+                    return;
+            }
+
+            Draw::DrawInstancePrimitive(Draw::PRIM_TYPE_POINTS, 1, emitter->entryNum);
+
+            ccemt->positionStreamOutBuffer.UnBind(0);
+            ccemt->vectorStreamOutBuffer  .UnBind(1);
+
+            ccemt->positionStreamOutBuffer.UnBind(0);
+            ccemt->vectorStreamOutBuffer  .UnBind(1);
+        }
     }
-
-    GX2DrawEx(GX2_PRIMITIVE_POINTS, 1, 0, emitter->numDrawParticle);
-
-    const_cast<EmitterInstance*>(emitter)->posStreamOutAttributeBuffer.UnBind(0);
-    const_cast<EmitterInstance*>(emitter)->vecStreamOutAttributeBuffer.UnBind(1);
-
-    const_cast<EmitterInstance*>(emitter)->posStreamOutAttributeBuffer.UnBind(0);
-    const_cast<EmitterInstance*>(emitter)->vecStreamOutAttributeBuffer.UnBind(1);
 
     shader->DisableInstanced();
 }

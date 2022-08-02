@@ -13,106 +13,132 @@ namespace nw { namespace eft {
 
 void System::BeginFrame()
 {
-    numCalcEmitter = 0;
-    numCalcParticle = 0;
-    numCalcParticleGpu = 0;
-    numCalcStripe = 0;
-    numEmittedParticle = 0;
-    activeGroupsFlg = 0;
+    mNumEmitterCalc = 0;
+    mNumPtclCalc    = 0;
+    mNumGpuPtclCalc = 0;
+    mNumEmittedPtcl = 0;
+    mNumStripeCalc  = 0;
+    mEnableGroupID  = 0;
+    mMarkingSwapFlag = false;
+    mGlobalCounter++;
 
-    counter++;
-    _unused = 0;
-    streamOutEmitterHead = NULL;
+    mStreamOutEmitter = NULL;
 
-    memset(_unusedFlags, 0, CpuCore_Max * 64 * sizeof(u32));
+    memset(mEnableRenderPath, 0, EFT_GROUP_MAX * sizeof(u32) * EFT_CPU_CORE_MAX);
 
     RemoveStripe_();
+
     FlushDelayFreeList();
 }
 
 void System::SwapDoubleBuffer()
 {
-    for (u32 i = 0; i < CpuCore_Max; i++)
-        renderers[i]->SwapDoubleBuffer();
+    for (u32 core = 0; core < EFT_CPU_CORE_MAX; core++)
+        mRenderer[core]->SwapDoubleBuffer();
 
-    doubleBufferSwapped = 1;
+    mCalcSwapFlag = true;
 }
 
-void System::CalcParticle(bool flushCache)
+void System::CalcParticle(bool cacheFlush)
 {
-    for (u32 i = 0; i < 64u; i++)
-        for (EmitterInstance* emitter = emitterGroups[i]; emitter != NULL; emitter = emitter->next)
+    for (u32 i = 0; i < EFT_GROUP_MAX; i++)
+    {
+        EmitterInstance* emitter = mEmitterHead[i];
+        while (emitter != NULL)
         {
-            CalcParticle(emitter, CpuCore_1);
-            _unusedFlags[CpuCore_1][emitter->groupID] |= 1 << emitter->data->_bitForUnusedFlag;
+            CalcParticle(emitter, EFT_CPU_CORE_1);
 
-            if (emitter->data->type == EmitterType_Complex
-                && (static_cast<const ComplexEmitterData*>(emitter->data)->childFlags & 1))
+            mEnableRenderPath[EFT_CPU_CORE_1][emitter->groupID] |= 1 << emitter->res->drawPath;
+
+            if (emitter->res->type == EFT_EMITTER_TYPE_COMPLEX)
             {
-                EmitChildParticle();
-                CalcChildParticle(emitter, CpuCore_1);
+                const ComplexEmitterData* res  = static_cast<const ComplexEmitterData*>(emitter->res);
+                if (res->childFlg & EFT_CHILD_FLAG_ENABLE)
+                {
+                    EmitChildParticle();
+                    CalcChildParticle(emitter, EFT_CPU_CORE_1);
+                }
             }
+
+            emitter = emitter->next;
         }
+    }
 
     RemovePtcl();
 
-    if (flushCache)
+    if (cacheFlush)
     {
         FlushCache();
         FlushGpuCache();
     }
 }
 
-void System::CalcEmitter(u8 groupID, f32 emissionSpeed)
+void System::CalcEmitter(u8 groupID, f32 frameRate)
 {
-    activeGroupsFlg |= 1ULL << groupID;
-    for (EmitterInstance* emitter = emitterGroups[groupID]; emitter != NULL; emitter = emitter->next)
-        CalcEmitter(emitter, emissionSpeed);
+    mEnableGroupID |= (u64)((u64)0x1 << (u64)(groupID));
+
+    EmitterInstance* emitter = mEmitterHead[groupID];
+    while (emitter != NULL)
+    {
+        CalcEmitter(emitter, frameRate);
+        emitter = emitter->next;
+    }
 }
 
-void System::CalcEmitter(EmitterInstance* emitter, f32 emissionSpeed)
+void System::CalcEmitter(EmitterInstance* emitter, f32 frameRate)
 {
-    if (emitter->emitterSet->noCalc == 0 && activeGroupsFlg & (1ULL << emitter->groupID))
+    if (!emitter->emitterSet->IsStopCalc() &&
+        ((mEnableGroupID & (u64)((u64)0x1 << (u64)emitter->groupID)) != false))
     {
-        if (emitter->emissionSpeed != emissionSpeed)
+        if (emitter->frameRate != frameRate)
         {
-            emitter->preCalcCounter = emitter->counter;
-            emitter->emissionSpeed = emissionSpeed;
+          //emitter->emitCnt    = 0.0f;
+            emitter->preEmitCnt = emitter->cnt;
+          //emitter->emitSaving = 0.0f;
+            emitter->frameRate  = frameRate;
         }
 
-        if (GetCurrentCustomActionEmitterPreCalcCallback(emitter) != NULL)
+        if (GetCurrentCustomActionEmitterPreCalcCallback(emitter))
         {
-            EmitterPreCalcArg arg = { .emitter = emitter };
+            EmitterPreCalcArg arg;
+            arg.emitter = emitter;
             GetCurrentCustomActionEmitterPreCalcCallback(emitter)(arg);
         }
-        else if (GetCustomShaderEmitterPreCalcCallback(static_cast<CustomShaderCallBackID>(emitter->data->shaderUserSetting)) != NULL)
+        else if (GetCustomShaderEmitterPreCalcCallback(static_cast<CustomShaderCallBackID>(emitter->res->userShaderSetting)))
         {
-            ShaderEmitterPreCalcArg arg = { .emitter = emitter };
-            GetCustomShaderEmitterPreCalcCallback(static_cast<CustomShaderCallBackID>(emitter->data->shaderUserSetting))(arg);
+            ShaderEmitterPreCalcArg arg;
+            arg.emitter = emitter;
+            GetCustomShaderEmitterPreCalcCallback(static_cast<CustomShaderCallBackID>(emitter->res->userShaderSetting))(arg);
         }
         else
         {
             emitter->calc->CalcEmitter(emitter);
         }
 
-        if (GetCurrentCustomActionEmitterPostCalcCallback(emitter) != NULL)
+        if (GetCurrentCustomActionEmitterPostCalcCallback(emitter))
         {
-            EmitterPostCalcArg arg = { .emitter = emitter };
+            EmitterPostCalcArg arg;
+            arg.emitter = emitter;
             GetCurrentCustomActionEmitterPostCalcCallback(emitter)(arg);
         }
 
-        if (emitter->shader[ShaderType_Normal]->vertexShaderKey.flags[0] & 0x8000000)
+        if (emitter->shader[EFT_SHADER_TYPE_NORMAL]->IsUseStreamOut())
         {
-            if (streamOutEmitterHead == NULL)
-                streamOutEmitterTail = streamOutEmitterHead = emitter;
-
+            if (mStreamOutEmitter == NULL)
+            {
+                mStreamOutEmitter = emitter;
+                mStreamOutEmitterTail = mStreamOutEmitter;
+                mStreamOutEmitterTail->nextStreamOutList = NULL;
+            }
             else
-                streamOutEmitterTail = (streamOutEmitterTail->nextStreamOut = emitter);
-
-            emitter->nextStreamOut = NULL;
+            {
+                mStreamOutEmitterTail->nextStreamOutList = emitter;
+                mStreamOutEmitterTail = emitter;
+                mStreamOutEmitterTail->nextStreamOutList = NULL;
+            }
         }
 
-        numCalcEmitter++;
+        mNumEmitterCalc++;
     }
 }
 
@@ -121,280 +147,321 @@ void System::CalcParticle(EmitterInstance* emitter, CpuCore core)
     if (emitter == NULL || emitter->calc == NULL)
         return;
 
-    CustomShaderEmitterPostCalcCallback callback = GetCustomShaderEmitterPostCalcCallback(static_cast<CustomShaderCallBackID>(emitter->data->shaderUserSetting));
+    CustomShaderEmitterPostCalcCallback particleEmitterPostCB = GetCustomShaderEmitterPostCalcCallback(static_cast<CustomShaderCallBackID>(emitter->res->userShaderSetting));
 
-    bool noCalcBehavior = false;
-    if ((activeGroupsFlg & (1ULL << emitter->groupID)) == 0)
-        noCalcBehavior = true;
-    if (emitter->emitterSet->noCalc != 0)
-        noCalcBehavior = true;
+    bool skipBehavior = false;
+    if ((mEnableGroupID & (u64)((u64)0x1 << (u64)emitter->groupID)) == 0)
+        skipBehavior = true;
+    if (emitter->emitterSet->IsStopCalc())
+        skipBehavior = true;
 
-    if (callback != NULL)
+    if (particleEmitterPostCB)
     {
-        ShaderEmitterPostCalcArg arg = {
-            .emitter = emitter,
-            .noCalcBehavior = noCalcBehavior,
-            .childParticle = false,
-        };
-        callback(arg);
+        ShaderEmitterPostCalcArg arg;
+        arg.emitter = emitter;
+        arg.isChild = false;
+        arg.skipBehavior = skipBehavior;
+        particleEmitterPostCB(arg);
     }
 
-    u32 numCalc = emitter->calc->CalcParticle(emitter, core, noCalcBehavior, false);
-    numCalcParticle += numCalc;
+    s32 numCalc = emitter->calc->CalcParticle(emitter, core, skipBehavior, false);
+    mNumPtclCalc += numCalc;
 
-    if (emitter->shader[ShaderType_Normal] != NULL && emitter->shader[ShaderType_Normal]->vertexShaderKey.flags[0] & 0x2000000)
-        numCalcParticleGpu += numCalc;
+    if (emitter->IsGpuAcceleration())
+        mNumGpuPtclCalc += numCalc;
 
-    if (emitter->data->vertexTransformMode == VertexTransformMode_Stripe)
-        numCalcStripe += numCalc;
+    if (emitter->res->billboardType == EFT_BILLBOARD_TYPE_STRIPE)
+        mNumStripeCalc += numCalc;
 
-    if (emitter->data->vertexTransformMode == VertexTransformMode_Complex_Stripe)
-        numCalcStripe++;
+    if (emitter->res->billboardType == EFT_BILLBOARD_TYPE_COMPLEX_STRIPE)
+        mNumStripeCalc++;
 
-    _unusedFlags[core][emitter->groupID] |= 1 << emitter->data->_bitForUnusedFlag;
+    mEnableRenderPath[core][emitter->groupID] |= 1 << emitter->res->drawPath;
 }
 
 void System::CalcChildParticle(EmitterInstance* emitter, CpuCore core)
 {
-    if (emitter == NULL || emitter->calc == NULL || emitter->data->type != EmitterType_Complex)
+    if (emitter == NULL || emitter->calc == NULL || emitter->GetEmitterType() != EFT_EMITTER_TYPE_COMPLEX)
         return;
 
-    bool noCalcBehavior = false;
-    if ((activeGroupsFlg & (1ULL << emitter->groupID)) == 0)
-        noCalcBehavior = true;
-    if (emitter->emitterSet->noCalc != 0)
-        noCalcBehavior = true;
+    bool skipBehavior = false;
+    if ((mEnableGroupID & (u64)((u64)0x1 << (u64)emitter->groupID)) == 0)
+        skipBehavior = true;
+    if (emitter->emitterSet->IsStopCalc())
+        skipBehavior = true;
 
-    if (emitter->HasChild())
+    if (emitter->IsHasChildParticle())
     {
-        CustomShaderEmitterPostCalcCallback callback = GetCustomShaderEmitterPostCalcCallback(static_cast<CustomShaderCallBackID>(emitter->GetChildData()->shaderUserSetting));
-        if (callback != NULL)
+        const ChildData* childData = emitter->GetChildData();
+
+        CustomShaderEmitterPostCalcCallback childParticleEmitterPostCB = GetCustomShaderEmitterPostCalcCallback(static_cast<CustomShaderCallBackID>(childData->childUserShaderSetting));
+        if (childParticleEmitterPostCB)
         {
-            ShaderEmitterPostCalcArg arg = {
-                .emitter = emitter,
-                .noCalcBehavior = noCalcBehavior,
-                .childParticle = true,
-            };
-            callback(arg);
+            ShaderEmitterPostCalcArg arg;
+            arg.emitter = emitter;
+            arg.isChild = true;
+            arg.skipBehavior = skipBehavior;
+            childParticleEmitterPostCB(arg);
         }
     }
 
-    if (emitter->HasChild())
-        numCalcParticle += emitter->calc->CalcChildParticle(emitter, core, noCalcBehavior, false);
+    if (emitter->IsHasChildParticle())
+        mNumPtclCalc += emitter->calc->CalcChildParticle(emitter, core, skipBehavior, false);
 }
 
 void System::FlushCache()
 {
-    for (u32 i = 0; i < CpuCore_Max; i++)
-        renderers[i]->FlushCache();
+    for (u32 core = 0; core < EFT_CPU_CORE_MAX; core++)
+        mRenderer[core]->FlushCache();
 }
 
 void System::FlushGpuCache()
 {
-    GX2Invalidate(static_cast<GX2InvalidateType>(GX2_INVALIDATE_ATTRIB_BUFFER
-                                                 | GX2_INVALIDATE_TEXTURE
-                                                 | GX2_INVALIDATE_UNIFORM_BLOCK
-                                                 | GX2_INVALIDATE_SHADER), NULL, 0xFFFFFFFF);
+    GX2Invalidate(static_cast<GX2InvalidateType>(GX2_INVALIDATE_ATTRIB_BUFFER |
+                                                 GX2_INVALIDATE_TEXTURE       |
+                                                 GX2_INVALIDATE_UNIFORM_BLOCK |
+                                                 GX2_INVALIDATE_SHADER),
+                  NULL, 0xFFFFFFFF);
 }
 
 void System::SwapStreamOutBuffer()
 {
-    for (EmitterInstance* emitter = streamOutEmitterHead; emitter != NULL; emitter = emitter->nextStreamOut)
-        emitter->swapStreamOut ^= 1;
+    if (mStreamOutEmitter == NULL)
+        return;
+
+    EmitterInstance* temp = mStreamOutEmitter;
+    while (temp)
+    {
+        if (temp->streamOutFlip)
+            temp->streamOutFlip = false;
+        else
+            temp->streamOutFlip = true;
+
+        temp = temp->nextStreamOutList;
+    }
 }
 
 void System::CalcStreamOutEmittter()
 {
-    if (streamOutEmitterHead == NULL)
+    if (mStreamOutEmitter == NULL)
         return;
 
-    renderers[OSGetCoreId()]->BeginStremOut();
-
-    for (EmitterInstance* emitter = streamOutEmitterHead; emitter != NULL; emitter = emitter->nextStreamOut)
-        renderers[OSGetCoreId()]->CalcStremOutParticle(emitter, true);
-
-    renderers[OSGetCoreId()]->EndStremOut();
+    mRenderer[GetCurrentCore()]->BeginStremOut();
+    {
+        EmitterInstance* temp = mStreamOutEmitter;
+        while (temp)
+        {
+            mRenderer[GetCurrentCore()]->CalcStremOutParticle(temp, true);
+            temp = temp->nextStreamOutList;
+        }
+    }
+    mRenderer[GetCurrentCore()]->EndStremOut();
 }
 
-void System::BeginRender(const math::MTX44& proj, const math::MTX34& view, const math::VEC3& cameraWorldPos, f32 zNear, f32 zFar)
+void System::BeginRender(const nw::math::MTX44& proj, const nw::math::MTX34& view, const nw::math::VEC3& camPos, f32 nearClip, f32 farClip)
 {
-    this->view[OSGetCoreId()] = math::MTX44(view);
-    renderers[OSGetCoreId()]->BeginRender(proj, view, cameraWorldPos, zNear, zFar);
+    mViewMatrix[GetCurrentCore()] = nw::math::MTX44(view);
+    mRenderer[GetCurrentCore()]->BeginRender(proj, view, camPos, nearClip, farClip);
 }
 
 s32 System::ComparePtclViewZ(const void* a, const void* b)
 {
-    const PtclViewZ* ptcl_a = static_cast<const PtclViewZ*>(a);
-    const PtclViewZ* ptcl_b = static_cast<const PtclViewZ*>(b);
+    const sortEmitterSets* src = static_cast<const sortEmitterSets*>(a);
+    const sortEmitterSets* dst = static_cast<const sortEmitterSets*>(b);
 
-    if (ptcl_a->z < 0.0f && ptcl_b->z < 0.0f)
+    if (src->z < 0.0f && dst->z < 0.0f)
     {
-        if (ptcl_a->z < ptcl_b->z)
+        if (src->z < dst->z)
             return -1;
     }
     else
     {
-        if (ptcl_a->z > ptcl_b->z)
+        if (src->z > dst->z)
             return -1;
     }
 
     return 1;
 }
 
-static u32 Float32ToBits24(f32 val)
+static u32 Float32ToBits24(f32 value)
 {
-    union
+    enum
     {
-        u32* ui;
-        f32* f;
-    } bit_cast = { .f = &val }; // Using a union instead of casting to suppress warning
-    u32 valU32 = *bit_cast.ui;
+        SIGN32 = 0x80000000,
+        SIGN24 = 0x00800000,
 
-    u32 sign     = (valU32 & 0x80000000); // >> 31;
-    s32 exponent = (valU32 & 0x7F800000)     >> 23;
-    u32 fraction = (valU32 & 0x007FFFFF); // >>  0;
+        EXP_BIAS32 = 127,
+        EXP_BIAS24 = 63,
+        EXP_MASK32 = 0x7F800000,
+        EXP_MASK24 = 0x007F0000,
 
-    u32 valU24 = (sign != 0) ? 0x800000 : 0;
+        FRACTION_WIDTH32 = 23,
+        FRACTION_MASK32  = 0x007FFFFF,
+        FRACTION_WIDTH24 = 16,
+        FRACTION_MASK24  = 0x0000FFFF
+    };
 
-    if ((valU32 & ~0x80000000) == 0)
-        exponent = 0;
+    u32 bits32 = *reinterpret_cast<u32*>(&value);
+
+    u32 sign = bits32 & SIGN32;
+    s32 exp = (s32)((bits32 & EXP_MASK32) >> FRACTION_WIDTH32);
+    u32 fraction = bits32 & FRACTION_MASK32;
+
+    u32 bits24 = 0;
+    bits24 |= (sign != 0) ? SIGN24 : 0;
+
+    if ((bits32 & ~SIGN32) == 0)
+        exp = 0;
 
     else
-        exponent -= 64;
+        exp = exp - EXP_BIAS32 + EXP_BIAS24;
 
-    fraction >>= 7;
+    fraction = fraction >> (FRACTION_WIDTH32 - FRACTION_WIDTH24);
 
-    if (exponent >= 0)
+    if (exp < 0)
     {
-        if (exponent > 127)
-            valU24 = 0x7F0000;
-
-        else
-            valU24 = valU24 | fraction | (exponent & 0x7Fu) << 16;
+    }
+    else if (exp > 127)
+    {
+        bits24 = (u32)0x7F << FRACTION_WIDTH24;
+    }
+    else
+    {
+        bits24 |= fraction & FRACTION_MASK24;
+        bits24 |= ((u32)exp & 0x7F) << FRACTION_WIDTH24;
     }
 
-    return valU24;
+    return bits24;
 }
 
-void System::AddSortBuffer(u8 groupID, u32 flag)
+void System::AddSortBuffer(u8 groupID, u32 drawPathFlag)
 {
-    CpuCore core = static_cast<CpuCore>(OSGetCoreId());
-
-    for (EmitterSet* emitterSet = emitterSetGroupHead[groupID]; emitterSet != NULL; emitterSet = emitterSet->next)
+    s32 core = GetCurrentCore();
+    EmitterSet* set = mEmitterSetHead[groupID];
+    if (set)
     {
-        if (!(emitterSet->numEmitter > 0 && emitterSet->_unusedFlags & flag && emitterSet->noDraw == 0 && emitterSet->_unusedFlags != 0))
-            continue;
-
-        math::VEC3 pos = {
-            .x = emitterSet->matrixSRT.m[0][3],
-            .y = emitterSet->matrixSRT.m[1][3],
-            .z = emitterSet->matrixSRT.m[2][3],
-        };
-
-        sortedEmitterSets[core][numSortedEmitterSets[core]].emitterSet = emitterSet;
-        f32 z = view[core].m[2][0] * pos.x + view[core].m[2][1] * pos.y + view[core].m[2][2] * pos.z + view[core].m[2][3];
-        sortedEmitterSets[core][numSortedEmitterSets[core]].z = emitterSet->renderPriority << 24 | Float32ToBits24(z);
-        numSortedEmitterSets[core]++;
-    }
-
-    _unused1[core] |= flag;
-}
-
-void System::RenderSortBuffer(void* argData, RenderEmitterProfilerCallback callback)
-{
-    CpuCore core = static_cast<CpuCore>(OSGetCoreId());
-    if (numSortedEmitterSets[core] == 0)
-    {
-        _unused1[core] = 0;
-        return;
-    }
-
-    qsort(sortedEmitterSets[core], numSortedEmitterSets[core], sizeof(PtclViewZ), ComparePtclViewZ);
-
-    for (u32 i = 0; i < numSortedEmitterSets[core]; i++)
-    {
-        if (callback != NULL)
+        while(set)
         {
-            RenderEmitterProfilerArg arg = {
-                .system = this,
-                .emitterSet = sortedEmitterSets[core][i].emitterSet,
-                .emitter = NULL,
-                ._C = 1,
-                .flushCache = true,
-                .argData = argData,
-            };
-            callback(arg);
-        }
-
-        for (s32 j = sortedEmitterSets[core][i].emitterSet->numEmitterAtCreate - 1; j >= 0; j--)
-        {
-            if (!(sortedEmitterSets[core][i].emitterSet->createID == sortedEmitterSets[core][i].emitterSet->emitters[j]->emitterSetCreateID
-                  && sortedEmitterSets[core][i].emitterSet->emitters[j]->calc != NULL && _unused1[core] & (1 << sortedEmitterSets[core][i].emitterSet->emitters[j]->data->_bitForUnusedFlag)))
-                continue;
-
-            EmitterInstance* emitter = sortedEmitterSets[core][i].emitterSet->emitters[j];
-            if (callback != NULL)
+            if (set->IsAlive() && (set->mDrawPathFlag & drawPathFlag))
             {
-                RenderEmitterProfilerArg arg = {
-                    .system = this,
-                    .emitterSet = NULL,
-                    .emitter = emitter,
-                    ._C = 0,
-                    .flushCache = true,
-                    .argData = argData,
-                };
-                callback(arg);
+                if (!set->mIsStopDraw && set->GetNumEmitter() != 0 && set->mDrawPathFlag)
+                {
+                    nw::math::VEC3 rPos;
+                    set->GetPos(rPos);
+                    mSortEmittetSet[core][mSortEmitterSetIx[core]].emitterSet = set;
+                    f32 viewZ = mViewMatrix[core].f._20 * rPos.x + mViewMatrix[core].f._21 * rPos.y + mViewMatrix[core].f._22 * rPos.z + mViewMatrix[core].f._23 * 1.0f;
+                    mSortEmittetSet[core][mSortEmitterSetIx[core]].z = (set->GetDrawPriority() << 24) | Float32ToBits24(viewZ);
+                    mSortEmitterSetIx[core]++;
+                }
+                set = set->mNext;
             }
             else
             {
-                RenderEmitter(emitter, argData);
+                set = set->mNext;
             }
-        }
-
-        if (callback != NULL)
-        {
-            RenderEmitterProfilerArg arg = {
-                .system = this,
-                .emitterSet = sortedEmitterSets[core][i].emitterSet,
-                .emitter = NULL,
-                ._C = 0,
-                .flushCache = true,
-                .argData = argData,
-            };
-            callback(arg);
         }
     }
 
-    numSortedEmitterSets[core] = 0;
-    _unused1[core] = 0;
+    mCurrentDrawPathFlag[core] |= drawPathFlag;
 }
 
-void System::RenderEmitter(const EmitterInstance* emitter, void* argData)
+void System::RenderSortBuffer(void* userParam, RenderEmitterProfilerCallback profiler)
+{
+    s32 core = GetCurrentCore();
+
+    if (mSortEmitterSetIx[core] == 0)
+    {
+        mCurrentDrawPathFlag[core] = 0;
+        return;
+    }
+
+    qsort(mSortEmittetSet[core], mSortEmitterSetIx[core], sizeof(sortEmitterSets), ComparePtclViewZ);
+
+    for (u32 i = 0; i < mSortEmitterSetIx[core]; i++)
+    {
+        if (profiler)
+        {
+            RenderEmitterProfilerArg arg;
+            arg.system = this;
+            arg.emitterSet = mSortEmittetSet[core][i].emitterSet;
+            arg.emitter = NULL;
+            arg.beforeRenderEmitter = true;
+            arg.cacheFlush = true;
+            arg.userParam = userParam;
+            profiler(arg);
+        }
+
+        for (s32 j = mSortEmittetSet[core][i].emitterSet->GetNumCreatedEmitter() - 1; j >= 0; --j)
+        {
+            if (mSortEmittetSet[core][i].emitterSet->GetCreateID() == mSortEmittetSet[core][i].emitterSet->mInstance[j]->emitterSetCreateID &&
+                mSortEmittetSet[core][i].emitterSet->mInstance[j]->calc &&
+                (mCurrentDrawPathFlag[core] & (1 << mSortEmittetSet[core][i].emitterSet->mInstance[j]->res->drawPath)))
+            {
+                u32 flag = mSortEmittetSet[core][i].emitterSet->GetUserData(); // <--- Unused, but function literally does not match without it
+                flag = 0;
+
+                EmitterInstance* emitter = mSortEmittetSet[core][i].emitterSet->mInstance[j];
+                if (profiler)
+                {
+                    RenderEmitterProfilerArg arg;
+                    arg.system = this;
+                    arg.emitterSet = NULL;
+                    arg.beforeRenderEmitter = false;
+                    arg.emitter = emitter;
+                    arg.cacheFlush = true;
+                    arg.userParam = userParam;
+                    profiler(arg);
+                }
+                else
+                {
+                    RenderEmitter(emitter, userParam);
+                }
+            }
+        }
+
+        if (profiler)
+        {
+            RenderEmitterProfilerArg arg;
+            arg.system = this;
+            arg.emitterSet = mSortEmittetSet[core][i].emitterSet;
+            arg.beforeRenderEmitter = false;
+            arg.emitter = NULL;
+            arg.cacheFlush = true;
+            arg.userParam = userParam;
+            profiler(arg);
+        }
+    }
+
+    mSortEmitterSetIx[core] = 0;
+    mCurrentDrawPathFlag[core] = 0;
+}
+
+void System::RenderEmitter(const EmitterInstance* emitter, void* userParam)
 {
     if (emitter == NULL)
         return;
 
-    CpuCore core = static_cast<CpuCore>(OSGetCoreId());
+    CpuCore core = GetCurrentCore();
 
-    if (GetCurrentCustomActionEmitterDrawOverrideCallback(emitter) != NULL)
+    if (GetCurrentCustomActionEmitterDrawOverrideCallback(emitter))
     {
-        EmitterDrawOverrideArg arg = {
-            .emitter = emitter,
-            .renderer = renderers[core],
-            .flushCache = true,
-            .argData = argData,
-        };
+        EmitterDrawOverrideArg arg;
+        arg.emitter = emitter;
+        arg.renderer = mRenderer[ core ];
+        arg.cacheFlush = true;
+        arg.userParam = userParam;
         GetCurrentCustomActionEmitterDrawOverrideCallback(emitter)(arg);
     }
     else
     {
-        renderers[core]->EntryParticle(emitter, argData);
+        mRenderer[core]->EntryParticle(emitter, userParam);
     }
 }
 
 void System::EndRender()
 {
-    renderers[OSGetCoreId()]->EndRender();
+    s32 core = GetCurrentCore();
+    mRenderer[core]->EndRender();
 }
 
 } } // namespace nw::eft

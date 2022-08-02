@@ -7,8 +7,8 @@ namespace nw { namespace eft {
 CurlNoiseTbl g_CurlNoiseTbl32;
 CurlNoiseTexture g_CurlNoiseTexture;
 
-// RGB data, Width = Height = Depth / Array Length = 32
-u8 g_curlNoiseTbl32[32*32*32][3] = {
+// RGB data = 3 bytes, Width = Height = Depth | Array Length = 32
+u8 g_curlNoiseTbl32[3 * 32*32*32] = {
     204,  22, 200,
      10, 208,   0,
     106, 186,  42,
@@ -32779,130 +32779,121 @@ u8 g_curlNoiseTbl32[32*32*32][3] = {
      19, 241,  15,
 };
 
-const void* EmitterCalc::_ptclField_CurlNoise(EmitterInstance* emitter, PtclInstance* ptcl, const void* fieldData, f32 emissionSpeed)
+const void* EmitterCalc::_ptclField_CurlNoise(EmitterInstance* __restrict e, PtclInstance* __restrict ptcl, const void* fieldData, f32 frameRate)
 {
-    const FieldCurlNoiseData* curlNoiseData = static_cast<const FieldCurlNoiseData*>(fieldData);
+    const FieldCurlNoiseData* dat = static_cast<const FieldCurlNoiseData*>(fieldData);
 
-    f32 time = emitter->counter;
+    f32 time    = e->cnt;
+    f32 sizeMul = dat->fieldCurlNoiseScale;
+    f32 spdMulX = dat->fieldCurlNoiseInfluence.x;
+    f32 spdMulY = dat->fieldCurlNoiseInfluence.y;
+    f32 spdMulZ = dat->fieldCurlNoiseInfluence.z;
+    f32 ofsXSpd = dat->fieldCurlNoiseSpeed.x;
+    f32 ofsYSpd = dat->fieldCurlNoiseSpeed.y;
+    f32 ofsZSpd = dat->fieldCurlNoiseSpeed.z;
+    f32 ofsBase = dat->fieldCurlNoiseBase;
+    if (dat->isFieldCurlNoiseBaseRandom & 1) ofsBase *= ptcl->random[0];
+    s32 ipType  = dat->isFieldCurlNoiseInterpolation & 1;
 
-    f32 scale = curlNoiseData->scale;
-    math::VEC3 weight = curlNoiseData->weight;
-    math::VEC3 speed = curlNoiseData->speed;
+    nw::math::Vector3 ofs;
+    ofs.x = ptcl->pos.x;
+    ofs.y = ptcl->pos.y;
+    ofs.z = ptcl->pos.z;
 
-    f32 offset = curlNoiseData->offset;
-    if (curlNoiseData->randomOffset & 1)
-        offset *= ptcl->randomVec4.x;
+    ofs.x *= sizeMul;
+    ofs.y *= sizeMul;
+    ofs.z *= sizeMul;
+    ofs.x += ofsXSpd * time;
+    ofs.y += ofsYSpd * time;
+    ofs.z += ofsZSpd * time;
 
-    u32 interpolation = curlNoiseData->interpolation & 1;
-
-    f32 z = ptcl->pos.x * scale + speed.x * time + offset;
-    f32 y = ptcl->pos.y * scale + speed.y * time + offset;
-    f32 x = ptcl->pos.z * scale + speed.z * time + offset;
-
-    s32 zS32 = (s32)z;
-    s32 yS32 = (s32)y;
-    s32 xS32 = (s32)x;
-
-    CurlNoiseTbl& curlNoiseTbl = g_CurlNoiseTbl32;
-    math::VEC3 velocity;
-
-    if (interpolation == 0)
-        velocity = curlNoiseTbl.GetVec3(zS32, yS32, xS32);
-
+    nw::math::Vector3 add;
+    if (ipType == 0)
+        add = g_CurlNoiseTbl32.GetCurlNoiseS8((s32)(ofs.x + ofsBase), (s32)(ofs.y + ofsBase), (s32)(ofs.z + ofsBase));
     else
-    {
-        f32 zDelta = z - zS32;
-        f32 yDelta = y - yS32;
-        f32 xDelta = x - xS32;
-        f32 zDeltaInv = 1.0f - zDelta;
-        f32 yDeltaInv = 1.0f - yDelta;
-        f32 xDeltaInv = 1.0f - xDelta;
+        add = g_CurlNoiseTbl32.GetCurlNoiseS8Interpolate(ofs.x + ofsBase, ofs.y + ofsBase, ofs.z + ofsBase);
 
-        math::VEC3 x0y0z0 = curlNoiseTbl.GetVec3(zS32 + 0, yS32 + 0, xS32 + 0);
-        math::VEC3 x0y0z1 = curlNoiseTbl.GetVec3(zS32 + 1, yS32 + 0, xS32 + 0);
-        math::VEC3 x0y1z0 = curlNoiseTbl.GetVec3(zS32 + 0, yS32 + 1, xS32 + 0);
-        math::VEC3 x0y1z1 = curlNoiseTbl.GetVec3(zS32 + 1, yS32 + 1, xS32 + 0);
-        math::VEC3 x1y0z0 = curlNoiseTbl.GetVec3(zS32 + 0, yS32 + 0, xS32 + 1);
-        math::VEC3 x1y0z1 = curlNoiseTbl.GetVec3(zS32 + 1, yS32 + 0, xS32 + 1);
-        math::VEC3 x1y1z0 = curlNoiseTbl.GetVec3(zS32 + 0, yS32 + 1, xS32 + 1);
-        math::VEC3 x1y1z1 = curlNoiseTbl.GetVec3(zS32 + 1, yS32 + 1, xS32 + 1);
+    add.x *= spdMulX;
+    add.y *= spdMulY;
+    add.z *= spdMulZ;
 
-        math::VEC3 x0y0z, x0y1z, x0yz;
-        math::VEC3 x1y0z, x1y1z, x1yz;
+    ptcl->vel.x += add.x;
+    ptcl->vel.y += add.y;
+    ptcl->vel.z += add.z;
 
-        math::VEC3::Scale(&x0y0z0, &x0y0z0, zDeltaInv);
-        math::VEC3::Scale(&x0y0z1, &x0y0z1, zDelta);
-        math::VEC3::Add(&x0y0z, &x0y0z0, &x0y0z1);
-
-        math::VEC3::Scale(&x0y1z0, &x0y1z0, zDeltaInv);
-        math::VEC3::Scale(&x0y1z1, &x0y1z1, zDelta);
-        math::VEC3::Add(&x0y1z, &x0y1z0, &x0y1z1);
-
-        math::VEC3::Scale(&x0y0z, &x0y0z, yDeltaInv);
-        math::VEC3::Scale(&x0y1z, &x0y1z, yDelta);
-        math::VEC3::Add(&x0yz, &x0y0z, &x0y1z);
-
-        math::VEC3::Scale(&x1y0z0, &x1y0z0, zDeltaInv);
-        math::VEC3::Scale(&x1y0z1, &x1y0z1, zDelta);
-        math::VEC3::Add(&x1y0z, &x1y0z0, &x1y0z1);
-
-        math::VEC3::Scale(&x1y1z0, &x1y1z0, zDeltaInv);
-        math::VEC3::Scale(&x1y1z1, &x1y1z1, zDelta);
-        math::VEC3::Add(&x1y1z, &x1y1z0, &x1y1z1);
-
-        math::VEC3::Scale(&x1y0z, &x1y0z, yDeltaInv);
-        math::VEC3::Scale(&x1y1z, &x1y1z, yDelta);
-        math::VEC3::Add(&x1yz, &x1y0z, &x1y1z);
-
-        math::VEC3::Scale(&x0yz, &x0yz, xDeltaInv);
-        math::VEC3::Scale(&x1yz, &x1yz, xDelta);
-        math::VEC3::Add(&velocity, &x0yz, &x1yz);
-    }
-
-    ptcl->velocity.x += velocity.x * weight.x;
-    ptcl->velocity.y += velocity.y * weight.y;
-    ptcl->velocity.z += velocity.z * weight.z;
-
-    return curlNoiseData + 1;
+    return dat + 1;
 }
 
 void CurlNoiseTexture::Initialize()
 {
-    imagePtr = NULL;
+    #define   _CURL_NOISE_TEXTURE_WIDTH     32
+    #define   _CURL_NOISE_TEXTURE_HEIGHT    32
+    #define   _CURL_NOISE_TEXTURE_DEPTH     32
 
-    GX2SurfaceFormat format = GX2_SURFACE_FORMAT_TCS_R8_G8_B8_A8_UNORM;
-    GX2InitTexture(&gx2Texture, 32, 32, 32, 0, format, GX2_SURFACE_DIM_2D_ARRAY);
+    textureImage = NULL;
+
+    GX2InitTexture(&gx2Texture,
+                   _CURL_NOISE_TEXTURE_WIDTH,
+                   _CURL_NOISE_TEXTURE_HEIGHT,
+                   _CURL_NOISE_TEXTURE_DEPTH,
+                   0,
+                   GX2_SURFACE_FORMAT_TCS_R8_G8_B8_A8_UNORM,
+                   GX2_SURFACE_DIM_2D_ARRAY);
+
     gx2Texture.surface.tileMode = GX2_TILE_MODE_LINEAR_ALIGNED;
-
     GX2CalcSurfaceSizeAndAlignment(&gx2Texture.surface);
     GX2InitTextureRegs(&gx2Texture);
 
-    imagePtr = AllocFromStaticHeap(gx2Texture.surface.imageSize, gx2Texture.surface.alignment);
-    GX2InitTexturePtrs(&gx2Texture, imagePtr, NULL);
+    textureImage = AllocFromStaticHeap(gx2Texture.surface.imageSize, gx2Texture.surface.alignment);
+    GX2InitTexturePtrs(&gx2Texture, textureImage, NULL);
 
-    const u8* dataU8 = static_cast<const u8*>(&g_curlNoiseTbl32[0][0]);
+    u32 idx = 0;
+    for (u32 z = 0; z < _CURL_NOISE_TEXTURE_DEPTH; z++)
+    {
+        for (u32 y = 0; y < _CURL_NOISE_TEXTURE_HEIGHT; y++)
+        {
+            for (u32 x = 0; x < _CURL_NOISE_TEXTURE_WIDTH; x++)
+            {
+                u32 height = y * gx2Texture.surface.pitch;
+                u32 depth = z * (gx2Texture.surface.pitch * _CURL_NOISE_TEXTURE_HEIGHT);
 
-    for (u32 z = 0; z < 32; z++)
-        for (u32 y = 0; y < 32; y++)
-            for (u32 x = 0; x < 32; x++)
-                ((u32*)imagePtr)[z * (gx2Texture.surface.pitch * 32) + y * gx2Texture.surface.pitch + x] = (  *dataU8++ << 8
-                                                                                                            | *dataU8++ << 16
-                                                                                                            | *dataU8++ << 24
-                                                                                                            | 0xFF  );
+                u8 b = g_curlNoiseTbl32[idx    ];
+                u8 g = g_curlNoiseTbl32[idx + 1];
+                u8 r = g_curlNoiseTbl32[idx + 2];
+                u8 a = 255;
+
+                ((u32*)textureImage)[depth + height + x] = ( r << 24 |
+                                                             g << 16 |
+                                                             b <<  8 |
+                                                             a <<  0 );
+                idx += 3;
+            }
+        }
+    }
 
     DCFlushRange(gx2Texture.surface.imagePtr, gx2Texture.surface.imageSize);
 }
 
+void CurlNoiseTexture::Finalize()
+{
+    if (textureImage)
+        FreeFromStaticHeap(textureImage);
+}
+
 void InitializeCurlNoise()
 {
-    g_CurlNoiseTbl32.length = 32;
-    g_CurlNoiseTbl32.data = g_curlNoiseTbl32;
+    g_CurlNoiseTbl32.Initialize(32, g_curlNoiseTbl32);
     g_CurlNoiseTexture.Initialize();
 }
 
-const GX2Texture* GetCurlNoiseTexture()
+void FinalizeCurlNoise()
 {
-    return &g_CurlNoiseTexture.gx2Texture;
+    g_CurlNoiseTexture.Finalize();
+}
+
+Texture GetCurlNoiseTexture()
+{
+    return g_CurlNoiseTexture.GetTexture();
 }
 
 } }

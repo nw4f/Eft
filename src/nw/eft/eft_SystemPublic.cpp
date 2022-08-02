@@ -10,33 +10,95 @@
 
 namespace nw { namespace eft {
 
-void System::ClearResource(Heap* heap, u32 resourceID)
+void System::ClearResource(Heap* heap, u32 resId)
 {
     if (heap != NULL)
     {
-        resources[resourceID]->Finalize(heap);
-        heap->Free(resources[resourceID]);
+        mResource[resId]->Finalize(heap);
+        heap->Free(mResource[resId]);
     }
 
     else
     {
-        Heap* resHeap = resources[resourceID]->heap;
-        resources[resourceID]->Finalize(resHeap);
-        resHeap->Free(resources[resourceID]);
+        Heap* heapTemp = mResource[resId]->GetHeap();
+        mResource[resId]->Finalize(heapTemp);
+        heapTemp->Free(mResource[resId]);
     }
 
-    resources[resourceID] = NULL;
+    mResource[resId] = NULL;
 }
 
-void System::EntryResource(Heap* heap, void* resource, u32 resourceID, bool _unusedArg)
+void System::EntryResource(Heap* heap, void* bin, u32 resId, bool delayCompile)
 {
-    if ((u32)resource & 0x7F)
+    if ((u32)bin % 128)
         ERROR("resource memory must be 128 byte alignment.\n");
 
-    if (resources[resourceID] != NULL)
-        ClearResource(NULL, resourceID);
+    if (mResource[resId] != NULL)
+        ClearResource(NULL, resId);
 
-    resources[resourceID] = new (heap->Alloc(sizeof(Resource))) Resource(heap, resource, resourceID, this, _unusedArg);
+    mResource[resId] = new (heap->Alloc(sizeof(Resource))) Resource(heap, bin, resId, this, delayCompile);
+}
+
+void System::KillAllEmitter()
+{
+    memset(mEmitterHead,    0, EFT_GROUP_MAX * sizeof(EmitterInstance*));
+    memset(mEmitterSetHead, 0, EFT_GROUP_MAX * sizeof(EmitterSet*));
+    memset(mEmitterSetTail, 0, EFT_GROUP_MAX * sizeof(EmitterSet*));
+    memset(mStripeHead,     0, EFT_GROUP_MAX * sizeof(PtclStripe*));
+
+    ShaderEmitterFinalizeArg arg;
+
+    for (s32 i = 0; i < mNumEmitterData; i++)
+    {
+        if (mEmitter[i].calc)
+        {
+            CustomShaderCallBackID shaderCallback = static_cast<CustomShaderCallBackID>(mEmitter[i].res->userShaderSetting);
+            CustomShaderEmitterFinalizeCallback cb = GetCustomShaderEmitterFinalizeCallback(shaderCallback);
+            if (cb)
+            {
+                arg.emitter = &mEmitter[i];
+                cb(arg);
+            }
+
+            if (mEmitter[i].gpuParticleBufferNum > 0 && mEmitter[i].ptclAttributeBufferGpu)
+            {
+                FreeFromDynamicHeap(mEmitter[i].ptclAttributeBufferGpu);
+                mEmitter[i].ptclAttributeBufferGpu = NULL;
+                mEmitter[i].gpuParticleBufferNum = 0;
+
+                mEmitter[i].positionStreamOutBuffer.Finalize();
+                mEmitter[i].vectorStreamOutBuffer.Finalize();
+            }
+        }
+
+        mEmitter[i].calc = NULL;
+    }
+
+    for (s32 i = 0; i < mNumPtclData; i++)
+        mPtcl[i].res = NULL;
+
+    for (u32 i = 0; i < mNumStripeData; i++)
+        mStripe[i].res = NULL;
+
+    for (s32 i = 0; i < mNumEmitterSet; i++)
+        mEmitterSet[i].mNumEmitter = 0;
+
+    mNumEmitterSetCalc  = 0;
+    mNumFreeEmitter     = mNumEmitterData;
+    mNumStripeCalc      = 0;
+    mCurPtclIx          = 0;
+
+    for (u32 i = 0; i < EFT_CPU_CORE_MAX; ++i)
+    {
+        mStripeRemoveIdx[i] = 0;
+        mPtclAdditionIdx[i] = 0;
+
+        for (s32 j = 0; j < mNumPtclData; ++j)
+            mPtclAdditionArray[i][j] = NULL;
+
+        for (u32 j = 0; j < mNumStripeData; ++j)
+            mStripeRemoveArray[i][j] = NULL;
+    }
 }
 
 void System::KillEmitter(EmitterInstance* emitter)
@@ -44,41 +106,47 @@ void System::KillEmitter(EmitterInstance* emitter)
     if (emitter->calc == NULL)
         ERROR("Emitter Double Kill.\n");
 
-    PtclInstance* ptcl;
+    PtclInstance* ptcl = emitter->ptclHead;
 
-    for (ptcl = emitter->particleHead; ptcl != NULL; ptcl = ptcl->next)
+    while (ptcl != NULL)
     {
-        CustomActionParticleRemoveCallback callback = GetCurrentCustomActionParticleRemoveCallback(ptcl->emitter);
-        if (callback != NULL)
+        CustomActionParticleRemoveCallback cb = GetCurrentCustomActionParticleRemoveCallback(ptcl->emitter);
+        if (cb)
         {
-            ParticleRemoveArg arg = { .ptcl = ptcl };
-            callback(arg);
+            ParticleRemoveArg arg;
+            arg.particle = ptcl;
+            cb(arg);
         }
 
-        ptcl->data = NULL;
+        ptcl->res = NULL;
 
-        if (ptcl->complexParam != NULL && ptcl->complexParam->stripe != NULL)
-            AddStripeRemoveList(ptcl->complexParam->stripe, CpuCore_1);
+        if (ptcl->complexParam && ptcl->complexParam->stripe)
+            AddStripeRemoveList(ptcl->complexParam->stripe, EFT_CPU_CORE_1);
+
+        ptcl = ptcl->next;
     }
 
-    for (ptcl = emitter->childParticleHead; ptcl != NULL; ptcl = ptcl->next)
+    ptcl = emitter->childHead;
+    while (ptcl != NULL)
     {
-        CustomActionParticleRemoveCallback callback = GetCurrentCustomActionParticleRemoveCallback(ptcl->emitter);
-        if (callback != NULL)
+        CustomActionParticleRemoveCallback cb = GetCurrentCustomActionParticleRemoveCallback(ptcl->emitter);
+        if (cb)
         {
-            ParticleRemoveArg arg = { .ptcl = ptcl };
-            callback(arg);
+            ParticleRemoveArg arg;
+            arg.particle = ptcl;
+            cb(arg);
         }
 
-        ptcl->data = NULL;
+        ptcl->res = NULL;
+        ptcl = ptcl->next;
     }
 
-    if (emitter == emitterGroups[emitter->groupID])
+    if (emitter == mEmitterHead[emitter->groupID])
     {
-        emitterGroups[emitter->groupID] = emitter->next;
+        mEmitterHead[emitter->groupID] = emitter->next;
 
-        if (emitterGroups[emitter->groupID] != NULL)
-            emitterGroups[emitter->groupID]->prev = NULL;
+        if (mEmitterHead[emitter->groupID] != NULL)
+            mEmitterHead[emitter->groupID]->prev = NULL;
     }
     else
     {
@@ -89,56 +157,101 @@ void System::KillEmitter(EmitterInstance* emitter)
             emitter->prev->next = emitter->next;
     }
 
-    CustomShaderCallBackID callbackID = static_cast<CustomShaderCallBackID>(emitter->data->shaderUserSetting);
-    if (GetCustomShaderEmitterFinalizeCallback(callbackID) != NULL)
+    CustomShaderCallBackID shaderCallback = static_cast<CustomShaderCallBackID>(emitter->res->userShaderSetting);
+    if (GetCustomShaderEmitterFinalizeCallback(shaderCallback))
     {
-        ShaderEmitterFinalizeArg arg = { .emitter = emitter };
-        GetCustomShaderEmitterFinalizeCallback(callbackID)(arg);
+        ShaderEmitterFinalizeArg arg;
+        arg.emitter = emitter;
+        GetCustomShaderEmitterFinalizeCallback(shaderCallback)(arg);
     }
 
-    if (emitter->numPtclAttributeBufferGpuMax != 0 && emitter->ptclAttributeBufferGpu != NULL)
+    if (emitter->gpuParticleBufferNum != 0 && emitter->ptclAttributeBufferGpu)
     {
         FreeFromDynamicHeap(emitter->ptclAttributeBufferGpu, false);
         emitter->ptclAttributeBufferGpu = NULL;
-        emitter->numPtclAttributeBufferGpuMax = 0;
+        emitter->gpuParticleBufferNum = 0;
 
-        emitter->posStreamOutAttributeBuffer.Finalize();
-        emitter->vecStreamOutAttributeBuffer.Finalize();
+        emitter->positionStreamOutBuffer.Finalize();
+        emitter->vectorStreamOutBuffer.Finalize();
     }
 
     RemoveStripe_();
 
-    if (emitter->emitterSet != NULL) emitter->emitterSet->numEmitter--;
-    emitter->emitterSetCreateID = 0xFFFFFFFF;
-    emitter->calc = NULL;
+    if (emitter->emitterSet)
+        emitter->emitterSet->mNumEmitter--;
 
-    numUnusedEmitters++;
-    if(emitter->emitterSet->numEmitter == 0)
-        numCalcEmitterSet--;
+    emitter->emitterSetCreateID = 0xFFFFFFFF;
+
+    emitter->calc = NULL;
+    mNumFreeEmitter++;
+
+    if(emitter->emitterSet->mNumEmitter == 0)
+        mNumEmitterSetCalc--;
 }
 
 void System::KillEmitterGroup(u8 groupID)
 {
-    for (EmitterInstance* emitter = emitterGroups[groupID]; emitter != NULL; emitter = emitter->next)
+    EmitterInstance* emitter = mEmitterHead[groupID];
+    while (emitter != NULL)
+    {
         KillEmitter(emitter);
+        emitter = emitter->next;
+    }
 
-    emitterSetGroupHead[groupID] = NULL;
-    emitterSetGroupTail[groupID] = NULL;
+    mEmitterSetHead[groupID] = NULL;
+    mEmitterSetTail[groupID] = NULL;
 }
 
-void System::KillEmitterSet(EmitterSet* emitterSet)
+void System::KillEmitterSet(EmitterSet* set)
 {
-    if (!(emitterSet->numEmitter > 0))
+    if (!set->IsAlive())
         return;
 
-    RemoveEmitterSetFromDrawList(emitterSet);
+    RemoveEmitterSetFromDrawList(set);
 
-    for (s32 i = 0; i < emitterSet->numEmitterAtCreate; i++)
-        if (emitterSet->emitters[i]->emitterSetCreateID == emitterSet->createID
-            && emitterSet->emitters[i]->calc != NULL)
+    for (s32 i = 0; i < set->mNumEmitterFirst; i++)
+    {
+        if (set->mInstance[i]->emitterSetCreateID == set->GetCreateID() &&
+            set->mInstance[i]->calc)
         {
-            KillEmitter(emitterSet->emitters[i]);
+            KillEmitter(set->mInstance[i]);
         }
+    }
+}
+
+s32 System::SearchEmitterSetID(const char* name, s32 resId) const
+{
+    if (mResource[resId] == NULL)
+        return EFT_INVALID_EMITTER_SET_ID;
+
+    return mResource[resId]->SearchEmitterSetID(name);
+}
+
+void System::KillEmitterSet(const char* emitterSetName, u32 resId)
+{
+    s32 setId = SearchEmitterSetID(emitterSetName, resId);
+
+    for (s32 i = 0; i < mNumEmitterSet; i++)
+    {
+        if (mEmitterSet[i].GetEmitterSetID() == setId &&
+            mEmitterSet[i].GetResourceID()   == resId)
+        {
+            KillEmitterSet(&mEmitterSet[i]);
+        }
+    }
+}
+
+const char* System::SearchEmitterSetName(s32 emsetId, s32 resId) const
+{
+    if (mResource[resId] == NULL)
+        return NULL;
+
+    return mResource[resId]->GetEmitterSetName(emsetId);
+}
+
+void System::SetShaderType(ShaderType type, CpuCore core)
+{
+    mRenderer[core]->SetShaderType(type);
 }
 
 } } // namespace nw::eft

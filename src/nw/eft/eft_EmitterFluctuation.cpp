@@ -4,68 +4,80 @@
 
 namespace nw { namespace eft {
 
-f32* EmitterCalc::sFluctuationTbl = NULL;
+f32* EmitterCalc::sFluctuationTbl         = NULL;
 f32* EmitterCalc::sFluctuationSawToothTbl = NULL;
-f32* EmitterCalc::sFluctuationRectTbl = NULL;
+f32* EmitterCalc::sFluctuationRectTbl     =  NULL;
 
 void EmitterCalc::InitializeFluctuationTable()
 {
-    sFluctuationTbl = static_cast<f32*>(AllocFromStaticHeap(sizeof(f32) * 128));
-    sFluctuationSawToothTbl = static_cast<f32*>(AllocFromStaticHeap(sizeof(f32) * 128));
-    sFluctuationRectTbl = static_cast<f32*>(AllocFromStaticHeap(sizeof(f32) * 128));
+    sFluctuationTbl         = static_cast<f32*>(AllocFromStaticHeap(sizeof(f32) * EFT_FLUCTUATION_TABLE_NUM));
+    sFluctuationSawToothTbl = static_cast<f32*>(AllocFromStaticHeap(sizeof(f32) * EFT_FLUCTUATION_TABLE_NUM));
+    sFluctuationRectTbl     = static_cast<f32*>(AllocFromStaticHeap(sizeof(f32) * EFT_FLUCTUATION_TABLE_NUM));
 
-    for (s32 i = 0; i < 128; i++)
-        sFluctuationTbl[i] = nw::math::CosRad(i / 128.0f * 2.0f * 3.14159f) * 0.5f + 0.5f;
+    for (s32 i = 0; i < EFT_FLUCTUATION_TABLE_NUM; i++)
+    {
+        f32 sinVal = nw::math::CosRad((f32)i / (f32)EFT_FLUCTUATION_TABLE_NUM * 2.0f * 3.14159f) * 0.5f + 0.5f;
+        sFluctuationTbl[i] = sinVal;
+    }
 
-    for (s32 i = 0; i < 128; i++)
-        sFluctuationSawToothTbl[i] = i / 128.0f;
+    for (s32 i = 0; i < EFT_FLUCTUATION_TABLE_NUM; i++)
+        sFluctuationSawToothTbl[i] = (f32)i / EFT_FLUCTUATION_TABLE_NUM;
 
-    for (s32 i = 0; i < 128; i++)
-        if (i < 64)
+    for (s32 i = 0; i < EFT_FLUCTUATION_TABLE_NUM; i++)
+    {
+        if (i < EFT_FLUCTUATION_TABLE_NUM / 2)
             sFluctuationRectTbl[i] = 1.0f;
         else
             sFluctuationRectTbl[i] = 0.0f;
+    }
 }
 
-void EmitterCalc::CalcFluctuation(EmitterInstance* emitter, PtclInstance* ptcl)
+void EmitterCalc::FinalzieFluctuationTable()
 {
-    const ComplexEmitterData* data = static_cast<const ComplexEmitterData*>(emitter->data);
-    const FluctuationData* fluctuationData = reinterpret_cast<const FluctuationData*>((u32)data + data->fluctuationDataOffs);
+    FreeFromStaticHeap(sFluctuationTbl);
+    FreeFromStaticHeap(sFluctuationRectTbl);
+    FreeFromStaticHeap(sFluctuationSawToothTbl);
+}
 
-    f32 fluxX = 1.0f;
-    s32 idxX = (s32)((ptcl->counterS32 + fluctuationData->x.phase + 128.0f / fluctuationData->x.frequency * ptcl->randomVec4.x * fluctuationData->x.enableRandom) * fluctuationData->x.frequency) & 127;
+void EmitterCalc::CalcFluctuation(EmitterInstance* __restrict e, PtclInstance* __restrict ptcl)
+{
+    const ComplexEmitterData* res  = reinterpret_cast<const ComplexEmitterData*>(e->res);
+    const FluctuationData*    fres = reinterpret_cast<const FluctuationData*>((u32)e->res + res->fluctuationDataOffset);
 
-    if (data->fluctuationFlags & 8)
-        fluxX = 1.0f - sFluctuationTbl[idxX] * fluctuationData->x.amplitude;
+    f32 fluctuationX = 1.0f;
+    s32 tblIdxX = ((s32)((ptcl->cntS + fres->fluctuationPhaseInitX + (EFT_FLUCTUATION_TABLE_NUM / fres->fluctuationFreqX) * ptcl->random[0] * fres->fluctuationPhaseRndX) * fres->fluctuationFreqX)) & EFT_FLUCTUATION_TABLE_MASK;
 
-    if (data->fluctuationFlags & 0x10)
-        fluxX = 1.0f - sFluctuationSawToothTbl[idxX] * fluctuationData->x.amplitude;
+    if (res->fluctuationFlg & EFT_FLUCTUATION_FALG_USE_SIN_WAVE)
+        fluctuationX = 1.0f - sFluctuationTbl[tblIdxX] * fres->fluctuationScaleX;
 
-    if (data->fluctuationFlags & 0x20)
-        fluxX = 1.0f - sFluctuationRectTbl[idxX] * fluctuationData->x.amplitude;
+    if (res->fluctuationFlg & EFT_FLUCTUATION_FALG_USE_SAW_TOOTH_WAVE)
+        fluctuationX = 1.0f - sFluctuationSawToothTbl[tblIdxX] * fres->fluctuationScaleX;
 
-    if (data->fluctuationFlags & 2) ptcl->fluctuationAlpha = fluxX;
-    if (data->fluctuationFlags & 4) ptcl->fluctuationScale.x = fluxX;
+    if (res->fluctuationFlg & EFT_FLUCTUATION_FALG_USE_RECT_WAVE)
+        fluctuationX = 1.0f - sFluctuationRectTbl[tblIdxX] * fres->fluctuationScaleX;
 
-    if (data->fluctuationFlags & 0x40)
+    if (res->fluctuationFlg & EFT_FLUCTUATION_FALG_APPLY_ALPHA) ptcl->fluctuationAlpha  = fluctuationX;
+    if (res->fluctuationFlg & EFT_FLUCTUATION_FALG_APPLY_SCALE) ptcl->fluctuationScaleX = fluctuationX;
+
+    if (res->fluctuationFlg & EFT_FLUCTUATION_FALG_APPLY_SCALEY)
     {
-        f32 fluxY = 1.0f;
-        s32 idxY = (s32)((ptcl->counterS32 + fluctuationData->y.phase + 128.0f / fluctuationData->y.frequency * ptcl->randomVec4.x * fluctuationData->y.enableRandom) * fluctuationData->y.frequency) & 127;
+        f32 fluctuationY = 1.0f;
+        s32 tblIdxY = ((s32)((ptcl->cntS + fres->fluctuationPhaseInitY + (EFT_FLUCTUATION_TABLE_NUM / fres->fluctuationFreqY) * ptcl->random[0] * fres->fluctuationPhaseRndY) * fres->fluctuationFreqY)) & EFT_FLUCTUATION_TABLE_MASK;
 
-        if (data->fluctuationFlags & 8)
-            fluxY = 1.0f - sFluctuationTbl[idxY] * fluctuationData->y.amplitude;
+        if (res->fluctuationFlg & EFT_FLUCTUATION_FALG_USE_SIN_WAVE)
+            fluctuationY = 1.0f - sFluctuationTbl[tblIdxY] * fres->fluctuationScaleY;
 
-        if (data->fluctuationFlags & 0x10)
-            fluxY = 1.0f - sFluctuationSawToothTbl[idxY] * fluctuationData->y.amplitude;
+        if (res->fluctuationFlg & EFT_FLUCTUATION_FALG_USE_SAW_TOOTH_WAVE)
+            fluctuationY = 1.0f - sFluctuationSawToothTbl[tblIdxY] * fres->fluctuationScaleY;
 
-        if (data->fluctuationFlags & 0x20)
-            fluxY = 1.0f - sFluctuationRectTbl[idxY] * fluctuationData->y.amplitude;
+        if (res->fluctuationFlg & EFT_FLUCTUATION_FALG_USE_RECT_WAVE)
+            fluctuationY = 1.0f - sFluctuationRectTbl[tblIdxY] * fres->fluctuationScaleY;
 
-        if (data->fluctuationFlags & 4) ptcl->fluctuationScale.y = fluxY;
+        if (res->fluctuationFlg & EFT_FLUCTUATION_FALG_APPLY_SCALE) ptcl->fluctuationScaleY = fluctuationY;
     }
     else
     {
-        if (data->fluctuationFlags & 4) ptcl->fluctuationScale.y = fluxX;
+        if (res->fluctuationFlg & EFT_FLUCTUATION_FALG_APPLY_SCALE) ptcl->fluctuationScaleY = fluctuationX;
     }
 }
 

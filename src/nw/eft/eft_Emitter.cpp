@@ -3,631 +3,712 @@
 #include <nw/eft/eft_Misc.h>
 #include <nw/eft/eft_Primitive.h>
 #include <nw/eft/eft_Shader.h>
-#include <nw/eft/eft_System.h>
 
 namespace nw { namespace eft {
 
 System* EmitterCalc::mSys = NULL;
 
-void EmitterInstance::Init(const SimpleEmitterData* data)
+void EmitterInstance::Init(const SimpleEmitterData* resource)
 {
-    this->data = data;
+    res                     = resource;
+    emissionInterval        = resource->emitStep - rnd.GetS32(resource->emitStepRnd);
+    fadeRequestFrame        = -1.0f;
+    emitterInitialRandom    = rnd.GetF32();
+    fadeAlpha               = 1.0f;
+    frameRate               = 1.0f;
+    streamOutCounter        = 0;
+    emitDistPrevPos.x       = emitterSet->GetRTMatrix()._03;
+    emitDistPrevPos.y       = emitterSet->GetRTMatrix()._13;
+    emitDistPrevPos.z       = emitterSet->GetRTMatrix()._23;
+    followType              = res->ptclFollowType;
 
-    emissionInterval = data->emitInterval - random.GetS32(data->emitIntervalRandom);
-    fadeStartFrame = -1.0f;
-    randomF32 = random.GetF32();
-    fadeAlpha = 1.0f;
-    emissionSpeed = 1.0f;
-    _unused = 0;
+    animValEmitterRT.SetIdentity();
+    animValEmitterSRT.SetIdentity();
 
-    prevPos.x = emitterSet->matrixRT.m[0][3];
-    prevPos.y = emitterSet->matrixRT.m[1][3];
-    prevPos.z = emitterSet->matrixRT.m[2][3];
+    animArrayEmitter        = (KeyFrameAnimArray*)res->animKeyTable.animKeyTable;
 
-    ptclFollowType = data->ptclFollowType;
-
-    math::MTX34::Copy(&animMatrixRT,  &math::MTX34::Identity());
-    math::MTX34::Copy(&animMatrixSRT, &math::MTX34::Identity());
-
-    animArray = data->keyAnimArray.ptr;
-
-    if (animArray != NULL)
+    if (animArrayEmitter)
     {
-        KeyFrameAnim* anim = reinterpret_cast<KeyFrameAnim*>(animArray + 1);
-        for (u32 i = 0; i < animArray->numAnim; i++)
+        KeyFrameAnim* anim = _getFirstKeyFrameAnim(animArrayEmitter);
+        for (u32 i = 0; i < animArrayEmitter->numAnims; i++)
         {
-            if (anim->animValIdx < 27)
+            if (anim->target < EFT_ANIM_EMITTER_MAX)
             {
-                usedAnimArray[numUsedAnim++] = anim;
+                emitterAnimKey[emitterAnimNum++] = anim;
 
-                if (anim->animValIdx == 8)
-                    emitterBehaviorFlg |= EmitterBehaviorFlag_HasTransAnim;
+                if (anim->target == EFT_ANIM_EM_TX)
+                    emitterBehaviorFlag |= EFT_EMITTER_BEHAVIOR_FLAG_MATRIX_TRANS_ANIM;
 
-                if (anim->animValIdx == 5)
-                    emitterBehaviorFlg |= EmitterBehaviorFlag_HasRotateAnim;
+                if (anim->target == EFT_ANIM_EM_RX)
+                    emitterBehaviorFlag |= EFT_EMITTER_BEHAVIOR_FLAG_MATRIX_ROTATE_ANIM;
 
-                if (anim->animValIdx == 8 || anim->animValIdx == 5 || anim->animValIdx == 2)
-                    emitterBehaviorFlg |= EmitterBehaviorFlag_HasSRTAnim;
+                if (anim->target == EFT_ANIM_EM_TX || anim->target == EFT_ANIM_EM_RX || anim->target == EFT_ANIM_EM_SX)
+                    emitterBehaviorFlag |= EFT_EMITTER_BEHAVIOR_FLAG_MATRIX_ANIM;
             }
 
-            if (anim->animValIdx > 27)
-                ptclAnimArray[anim->animValIdx - (27 + 1)] = anim;
+            if (anim->target > EFT_ANIM_EMITTER_MAX)
+                particleAnimKey[EFT_ANIM_8KEY_OFFSET(anim->target)] = anim;
 
-            anim = reinterpret_cast<KeyFrameAnim*>((u32)anim + anim->nextOffs);
+            anim = _getNextKeyFrameAnim(anim);
         }
     }
 }
 
-void _copyTextureShiftAnimParm(TexUvShiftAnimUbo* ubo, u32* flag, const TextureEmitterData* texAnimParam, TextureSlot slot, u8 forceRandomType0)
+#define TEXTURE0_PTN_START_RANDAM               0x00000001
+#define TEXTURE1_PTN_START_RANDAM               0x00000002
+#define TEXTURE0_PTN_ENABLE_LIFE_FIT            0x00000004
+#define TEXTURE0_PTN_ENABLE_CLAMP               0x00000008
+#define TEXTURE0_PTN_ENABLE_LOOP                0x00000010
+#define TEXTURE0_PTN_ENABLE_RANDOM              0x00000020
+#define TEXTURE1_PTN_ENABLE_LIFE_FIT            0x00000040
+#define TEXTURE1_PTN_ENABLE_CLAMP               0x00000080
+#define TEXTURE1_PTN_ENABLE_LOOP                0x00000100
+#define TEXTURE1_PTN_ENABLE_RANDOM              0x00000200
+
+#define TEXTURE0_INV_U_RANDOM                   0x00000400
+#define TEXTURE0_INV_V_RANDOM                   0x00000800
+#define TEXTURE1_INV_U_RANDOM                   0x00001000
+#define TEXTURE1_INV_V_RANDOM                   0x00002000
+#define TEXTURE2_INV_U_RANDOM                   0x00004000
+#define TEXTURE2_INV_V_RANDOM                   0x00008000
+
+#define TEXTURE0_SURFACE_NO_CROSSFADE           0x00010000
+#define TEXTURE1_SURFACE_NO_CROSSFADE           0x00020000
+
+#define ROTATE_DIR_RANDOM_X                     0x00040000
+#define ROTATE_DIR_RANDOM_Y                     0x00080000
+#define ROTATE_DIR_RANDOM_Z                     0x00100000
+
+#define FLUCTUATION_X_TYPE_SIN                  0x00200000
+#define FLUCTUATION_X_TYPE_SAWTOOTH             0x00400000
+#define FLUCTUATION_X_TYPE_RECT                 0x00800000
+#define FLUCTUATION_Y_TYPE_SIN                  0x01000000
+#define FLUCTUATION_Y_TYPE_SAWTOOTH             0x02000000
+#define FLUCTUATION_Y_TYPE_RECT                 0x04000000
+
+#define PRIMITIVE_SCALE_Y_TO_Z                  0x08000000
+
+#define TEXTURE0_PTN_ENABLE_SURFACE             0x10000000
+#define TEXTURE1_PTN_ENABLE_SURFACE             0x20000000
+
+void _copyTextureShiftAnimParm(TexUvShiftAnimUbo* ubo, u32* flag, const TextureEmitterData* data, TextureSlot slot, u8 fixedRandom)
 {
-    ubo->pm0.zw() = texAnimParam->texInitScroll;
-    ubo->pm1.xy() = texAnimParam->texInitScrollRandom;
-    ubo->pm0.xy() = texAnimParam->texIncScroll;
+    ubo->scrollInit.x       = data->uvScrollInit.x;
+    ubo->scrollInit.y       = data->uvScrollInit.y;
+    ubo->scrollInitRand.x   = data->uvScrollInitRand.x;
+    ubo->scrollInitRand.y   = data->uvScrollInitRand.y;
+    ubo->scrollAdd.x        = data->uvScroll.x;
+    ubo->scrollAdd.y        = data->uvScroll.y;
+    ubo->rotInit            = data->uvRotInit;
+    ubo->rotInitRand        = data->uvRotInitRand;
+    ubo->rotAdd             = data->uvRot;
+    ubo->scaleInit.x        = data->uvScaleInit.x;
+    ubo->scaleInit.y        = data->uvScaleInit.y;
+    ubo->scaleInitRand.x    = data->uvScaleInitRand.x;
+    ubo->scaleInitRand.y    = data->uvScaleInitRand.y;
+    ubo->scaleAdd.x         = data->uvScale.x;
+    ubo->scaleAdd.y         = data->uvScale.y;
+    ubo->uvScale.x          = data->texUScale;
+    ubo->uvScale.y          = data->texVScale;
+    ubo->uvDiv.x            = data->numTexDivX;
+    ubo->uvDiv.y            = data->numTexDivY;
 
-    ubo->pm3.y    = texAnimParam->texInitRotate;
-    ubo->pm3.z    = texAnimParam->texInitRotateRandom;
-    ubo->pm3.x    = texAnimParam->texIncRotate;
-
-    ubo->pm2.xy() = texAnimParam->texInitScale;
-    ubo->pm2.zw() = texAnimParam->texInitScaleRandom;
-    ubo->pm1.zw() = texAnimParam->texIncScale;
-
-    ubo->pm4.xy() = texAnimParam->uvScaleInit;
-
-    ubo->pm4.z    = (f32)texAnimParam->texPtnAnimIdxDiv[0];
-    ubo->pm4.w    = (f32)texAnimParam->texPtnAnimIdxDiv[1];
-
-    if (slot == TextureSlot_0)
+    if (slot == EFT_TEXTURE_SLOT_0)
     {
-        if (texAnimParam->texInvURandom != 0)
-            *flag |= 0x0400;
+        if (data->isTexURandomInv)
+            *flag |= TEXTURE0_INV_U_RANDOM;
 
-        if (texAnimParam->texInvVRandom != 0)
-            *flag |= 0x0800;
+        if (data->isTexVRandomInv)
+            *flag |= TEXTURE0_INV_V_RANDOM;
 
-        ubo->pm3.w = 0.0f;
+        ubo->randomType = 0.0f;
     }
 
-    if (slot == TextureSlot_1)
+    if (slot == EFT_TEXTURE_SLOT_1)
     {
-        if (texAnimParam->texInvURandom != 0)
-            *flag |= 0x1000;
+        if (data->isTexURandomInv)
+            *flag |= TEXTURE1_INV_U_RANDOM;
 
-        if (texAnimParam->texInvVRandom != 0)
-            *flag |= 0x2000;
+        if (data->isTexVRandomInv)
+            *flag |= TEXTURE1_INV_V_RANDOM;
 
-        ubo->pm3.w = 1.0f;
+        ubo->randomType = 1.0f;
     }
 
-    if (slot == TextureSlot_2)
+    if (slot == EFT_TEXTURE_SLOT_2)
     {
-        if (texAnimParam->texInvURandom != 0)
-            *flag |= 0x4000;
+        if (data->isTexURandomInv)
+            *flag |= TEXTURE2_INV_U_RANDOM;
 
-        if (texAnimParam->texInvVRandom != 0)
-            *flag |= 0x8000;
+        if (data->isTexVRandomInv)
+            *flag |= TEXTURE2_INV_V_RANDOM;
 
-        ubo->pm3.w = 2.0f;
+        ubo->randomType = 2.0f;
     }
 
-    if (forceRandomType0 != 0)
-        ubo->pm3.w = 0.0f;
+    if (fixedRandom)
+        ubo->randomType = 0.0f;
 }
 
-void _copyTexturePtnAnimParm(TexPtnAnimUbo* ubo, u32* flag, const TextureEmitterData* texAnimParam, TextureSlot slot)
+void _copyTexturePtnAnimParm(TexPtnAnimUbo* ubo, u32* flag, const TextureEmitterData* data, TextureSlot slot)
 {
-    u32 flag_texPtnAnimRandStart;
-    u32 flag_texPtnAnimLifeFit;
-    u32 flag_texPtnAnimClamp;
-    u32 flag_texPtnAnimLoop;
-    u32 flag_texPtnAnimRandom;
-    u32 flag_texSurfaceNoCrossFade;
-    u32 flag_texPtnAnimSurface;
+    u32 bitPtnStartRandom       = TEXTURE0_PTN_START_RANDAM;
+    u32 bitPtnEnableLifeFit     = TEXTURE0_PTN_ENABLE_LIFE_FIT;
+    u32 bitPtnEnableClamp       = TEXTURE0_PTN_ENABLE_CLAMP;
+    u32 bitPtnEnableLoop        = TEXTURE0_PTN_ENABLE_LOOP;
+    u32 bitPtnEnableRandom      = TEXTURE0_PTN_ENABLE_RANDOM;
+    u32 bitSurDisableCrossFade  = TEXTURE0_SURFACE_NO_CROSSFADE;
+    u32 bitPtnEnableSurface     = TEXTURE0_PTN_ENABLE_SURFACE;
 
-  //if (slot == TextureSlot_0)
+    if (slot == EFT_TEXTURE_SLOT_1)
     {
-        flag_texPtnAnimRandStart   = 0x00000001;
-        flag_texPtnAnimLifeFit     = 0x00000004;
-        flag_texPtnAnimClamp       = 0x00000010;
-        flag_texPtnAnimLoop        = 0x00000020;
-        flag_texPtnAnimRandom      = 0x00000008;
-        flag_texSurfaceNoCrossFade = 0x00010000;
-        flag_texPtnAnimSurface     = 0x10000000;
+        bitPtnStartRandom       = TEXTURE1_PTN_START_RANDAM;
+        bitPtnEnableLifeFit     = TEXTURE1_PTN_ENABLE_LIFE_FIT;
+        bitPtnEnableClamp       = TEXTURE1_PTN_ENABLE_CLAMP;
+        bitPtnEnableLoop        = TEXTURE1_PTN_ENABLE_LOOP;
+        bitPtnEnableRandom      = TEXTURE1_PTN_ENABLE_RANDOM;
+        bitSurDisableCrossFade  = TEXTURE1_SURFACE_NO_CROSSFADE;
+        bitPtnEnableSurface     = TEXTURE1_PTN_ENABLE_SURFACE;
     }
 
-    if (slot == TextureSlot_1)
+    if (data->isTexPatAnimRand)
+        *flag |= bitPtnStartRandom;
+
+    switch (data->texPtnAnimMode)
     {
-        flag_texPtnAnimRandStart   = 0x00000002;
-        flag_texPtnAnimLifeFit     = 0x00000040;
-        flag_texPtnAnimClamp       = 0x00000100;
-        flag_texPtnAnimLoop        = 0x00000200;
-        flag_texPtnAnimRandom      = 0x00000080;
-        flag_texSurfaceNoCrossFade = 0x00020000;
-        flag_texPtnAnimSurface     = 0x20000000;
+    case EFT_TEX_PTN_ANIM_LIFEFIT: *flag |= bitPtnEnableLifeFit; break;
+    case EFT_TEX_PTN_ANIM_CLAMP:   *flag |= bitPtnEnableClamp;   break;
+    case EFT_TEX_PTN_ANIM_LOOP:    *flag |= bitPtnEnableLoop;    break;
+    case EFT_TEX_PTN_ANIM_RANDOM:  *flag |= bitPtnEnableRandom;  break;
+    case EFT_TEX_PTN_ANIM_SURFACE: *flag |= bitPtnEnableSurface; break;
     }
 
-    if (texAnimParam->texPtnAnimRandStart)
-        *flag |= flag_texPtnAnimRandStart;
+    if (data->isCrossFade)
+        *flag |= bitSurDisableCrossFade;
 
-    switch (texAnimParam->texPtnAnimMode)
-    {
-    case 1: *flag |= flag_texPtnAnimLifeFit; break;
-    case 2: *flag |= flag_texPtnAnimClamp;   break;
-    case 3: *flag |= flag_texPtnAnimLoop;    break;
-    case 4: *flag |= flag_texPtnAnimRandom;  break;
-    case 5: *flag |= flag_texPtnAnimSurface; break;
-    }
+    ubo->ptnFreq      = data->texPatFreq;
+    ubo->ptnTableNum  = data->texPatTblUse;
+    ubo->ptnNum       = data->numTexPat;
 
-    if (texAnimParam->texSurfaceNoCrossFade)
-        *flag = flag_texSurfaceNoCrossFade;
-
-    ubo->pm.y = (f32)texAnimParam->texPtnAnimPeriod;
-    ubo->pm.x = (f32)texAnimParam->texPtnAnimUsedSize;
-    ubo->pm.z = (f32)texAnimParam->texPtnAnimNum;
-
-    for (u32 i = 0; i < 32u; i++)
-        ubo->tbl[i] = texAnimParam->texPtnAnimData[i];
+    for (u32 i = 0; i < EFT_TEXTURE_PATTERN_NUM; i++)
+        ubo->ptnTable[i] = data->texPatTbl[i];
 }
 
-void EmitterInstance::UpdateEmitterStaticUniformBlock(EmitterStaticUniformBlock* uniformBlock, const SimpleEmitterData* data, const ComplexEmitterData* cdata)
+void EmitterInstance::UpdateEmitterStaticUniformBlock(EmitterStaticUniformBlock* emitterStaticUniformBlock, const SimpleEmitterData* emitterData, const ComplexEmitterData* complexEmitterData)
 {
-    DCZeroRange(uniformBlock, sizeof(EmitterStaticUniformBlock));
+    DCZeroRange(emitterStaticUniformBlock, sizeof(EmitterStaticUniformBlock));
+
+    EmitterStaticUniformBlock* ubo = emitterStaticUniformBlock;
+    u32 flag = 0;
+
+    _copyTextureShiftAnimParm(&ubo->texShiftAnim0, &flag, &emitterData->textureData[EFT_TEXTURE_SLOT_0], EFT_TEXTURE_SLOT_0, emitterData->useFixedUVRandomAnimation);
+    _copyTextureShiftAnimParm(&ubo->texShiftAnim1, &flag, &emitterData->textureData[EFT_TEXTURE_SLOT_1], EFT_TEXTURE_SLOT_1, emitterData->useFixedUVRandomAnimation);
+    _copyTextureShiftAnimParm(&ubo->texShiftAnim2, &flag, &emitterData->textureData[EFT_TEXTURE_SLOT_2], EFT_TEXTURE_SLOT_2, emitterData->useFixedUVRandomAnimation);
+
+    _copyTexturePtnAnimParm(&ubo->texPtnAnim0, &flag, &emitterData->textureData[EFT_TEXTURE_SLOT_0], EFT_TEXTURE_SLOT_0);
+    _copyTexturePtnAnimParm(&ubo->texPtnAnim1, &flag, &emitterData->textureData[EFT_TEXTURE_SLOT_1], EFT_TEXTURE_SLOT_1);
+
+    if (emitterData->isRotDirRand[0])
+        flag |= ROTATE_DIR_RANDOM_X;
+
+    if (emitterData->isRotDirRand[1])
+        flag |= ROTATE_DIR_RANDOM_Y;
+
+    if (emitterData->isRotDirRand[2])
+        flag |= ROTATE_DIR_RANDOM_Z;
+
+    if (emitterData->primitiveScaleY2Z)
+        flag |= PRIMITIVE_SCALE_Y_TO_Z;
+
+    ubo->rotBasis.x = emitterData->rotBasis.x;
+    ubo->rotBasis.y = emitterData->rotBasis.y;
+    ubo->rotBasis.z = emitterData->offsetParam;
+    ubo->rotBasis.w = 0.0f;
+
+    ubo->fresnelMinMax.x = emitterData->fresnelAlphaMin;
+    ubo->fresnelMinMax.y = emitterData->fresnelAlphaMax;
+    ubo->fresnelMinMax.z = emitterData->softAlphaOffset;
+    ubo->fresnelMinMax.w = emitterData->decalVolume;
+
+    ubo->nearAlpha.x = emitterData->nearAlphaMin;
+    ubo->nearAlpha.y = emitterData->nearAlphaMax;
+    ubo->nearAlpha.z = emitterData->farAlphaMin;
+    ubo->nearAlpha.w = emitterData->farAlphaMax;
+
+    ubo->rotateVel.x = emitterData->rotVel.x;
+    ubo->rotateVel.y = emitterData->rotVel.y;
+    ubo->rotateVel.z = emitterData->rotVel.z;
+    ubo->rotateVel.w = emitterData->rotRegist;
+
+    ubo->rotateVelRand.x = emitterData->rotVelRand.x;
+    ubo->rotateVelRand.y = emitterData->rotVelRand.y;
+    ubo->rotateVelRand.z = emitterData->rotVelRand.z;
+    ubo->rotateVelRand.w = 0.0f;
+
+    ubo->alphaAnim0.x = emitterData->alpha3v4kAnim[EFT_ALPHA_KIND_0].init;
+    ubo->alphaAnim0.y = emitterData->alpha3v4kAnim[EFT_ALPHA_KIND_0].init + emitterData->alpha3v4kAnim[EFT_ALPHA_KIND_0].diff21;
+    ubo->alphaAnim0.z = emitterData->alpha3v4kAnim[EFT_ALPHA_KIND_0].section1;
+    ubo->alphaAnim0.w = 0.0f;
+    ubo->alphaAnim1.x = emitterData->alpha3v4kAnim[EFT_ALPHA_KIND_0].init + emitterData->alpha3v4kAnim[EFT_ALPHA_KIND_0].diff21 + emitterData->alpha3v4kAnim[EFT_ALPHA_KIND_0].diff32;
+    ubo->alphaAnim1.y = emitterData->alpha3v4kAnim[EFT_ALPHA_KIND_0].section2;
+
+    ubo->alphaAnim1.z = emitterData->alpha3v4kAnim[EFT_ALPHA_KIND_1].init;
+    ubo->alphaAnim1.w = emitterData->alpha3v4kAnim[EFT_ALPHA_KIND_1].init + emitterData->alpha3v4kAnim[EFT_ALPHA_KIND_1].diff21;
+    ubo->alphaAnim2.x = emitterData->alpha3v4kAnim[EFT_ALPHA_KIND_1].section1;
+  //ubo->alphaAnim2.  = 0.0f;
+    ubo->alphaAnim2.y = emitterData->alpha3v4kAnim[EFT_ALPHA_KIND_1].init + emitterData->alpha3v4kAnim[EFT_ALPHA_KIND_1].diff21 + emitterData->alpha3v4kAnim[EFT_ALPHA_KIND_1].diff32;
+    ubo->alphaAnim2.z = emitterData->alpha3v4kAnim[EFT_ALPHA_KIND_1].section2;
+
+    ubo->alphaAnim2.w = (f32)emitterData->colorNumRepeat[EFT_COLOR_KIND_0];
+
+    ubo->scaleAnim0.x = emitterData->baseScale.x;
+    ubo->scaleAnim0.y = emitterData->baseScale.y;
+    ubo->scaleAnim0.z = emitterData->initScale.x;
+    ubo->scaleAnim0.w = emitterData->initScale.y;
+
+    ubo->scaleAnim1.x = (f32)emitterData->scaleSection1 / 100.0f;
+    ubo->scaleAnim1.y = emitterData->initScale.x + emitterData->diffScale21.x;
+    ubo->scaleAnim1.z = emitterData->initScale.y + emitterData->diffScale21.y;
+    ubo->scaleAnim1.w = emitterData->scaleRand.x;
+
+    ubo->scaleAnim2.x = (f32)emitterData->scaleSection2 / 100.0f;
+    ubo->scaleAnim2.y = emitterData->initScale.x + emitterData->diffScale21.x + emitterData->diffScale32.x;
+    ubo->scaleAnim2.z = emitterData->initScale.y + emitterData->diffScale21.y + emitterData->diffScale32.y;
+    ubo->scaleAnim2.w = emitterData->scaleRand.y;
+
+    for (u32 i = 0; i < 8; i++)
+    {
+        ubo->color0[i].x = emitterData->color[EFT_COLOR_KIND_0][i].r;
+        ubo->color0[i].y = emitterData->color[EFT_COLOR_KIND_0][i].g;
+        ubo->color0[i].z = emitterData->color[EFT_COLOR_KIND_0][i].b;
+        ubo->color0[i].w = emitterData->color[EFT_COLOR_KIND_0][i].a;
+        ubo->color1[i].x = emitterData->color[EFT_COLOR_KIND_1][i].r;
+        ubo->color1[i].y = emitterData->color[EFT_COLOR_KIND_1][i].g;
+        ubo->color1[i].z = emitterData->color[EFT_COLOR_KIND_1][i].b;
+        ubo->color1[i].w = emitterData->color[EFT_COLOR_KIND_1][i].a;
+    }
+
+    ubo->color0Anim.x = (f32)emitterData->colorSection1[EFT_COLOR_KIND_0] / 100.0f;
+    ubo->color0Anim.y = (f32)emitterData->colorSection2[EFT_COLOR_KIND_0] / 100.0f;
+    ubo->color0Anim.z = (f32)emitterData->colorSection3[EFT_COLOR_KIND_0] / 100.0f;
+
+    ubo->color0Anim.w = emitterData->colorScale;
+
+    ubo->color1Anim.x = (f32)emitterData->colorSection1[EFT_COLOR_KIND_1] / 100.0f;
+    ubo->color1Anim.y = (f32)emitterData->colorSection2[EFT_COLOR_KIND_1] / 100.0f;
+    ubo->color1Anim.z = (f32)emitterData->colorSection3[EFT_COLOR_KIND_1] / 100.0f;
+
+    ubo->color1Anim.w = (f32)emitterData->colorNumRepeat[EFT_COLOR_KIND_1];
+
+    ubo->vectorParam.x = emitterData->emitAirRegist;
+    ubo->vectorParam.y = emitterData->emitVelDir.x;
+    ubo->vectorParam.z = emitterData->emitVelDir.y;
+    ubo->vectorParam.w = emitterData->emitVelDir.z;
+
+    ubo->gravityParam.x = emitterData->gravity.x;
+    ubo->gravityParam.y = emitterData->gravity.y;
+    ubo->gravityParam.z = emitterData->gravity.z;
+    ubo->gravityParam.w = emitterData->scaleVelAddY;
+
+    if (complexEmitterData && complexEmitterData->fluctuationFlg & EFT_FLUCTUATION_FALG_ENABLE)
+    {
+        const FluctuationData* fres = reinterpret_cast<const FluctuationData*>((u32)complexEmitterData + complexEmitterData->fluctuationDataOffset);
+
+        ubo->fluctuationX.scale         = fres->fluctuationScaleX;
+        ubo->fluctuationX.freq          = EFT_FLUCTUATION_TABLE_NUM / fres->fluctuationFreqX;
+        ubo->fluctuationX.phase         = fres->fluctuationPhaseInitX;
+        ubo->fluctuationX.phaseRandom   = (f32)fres->fluctuationPhaseRndX;
+
+        ubo->fluctuationY.scale         = fres->fluctuationScaleY;
+        ubo->fluctuationY.freq          = EFT_FLUCTUATION_TABLE_NUM / fres->fluctuationFreqY;
+        ubo->fluctuationY.phase         = fres->fluctuationPhaseInitY;
+        ubo->fluctuationY.phaseRandom   = (f32)fres->fluctuationPhaseRndY;
+
+        if (complexEmitterData->fluctuationFlg & EFT_FLUCTUATION_FALG_USE_SIN_WAVE)
+            flag |= FLUCTUATION_X_TYPE_SIN;
+
+        if (complexEmitterData->fluctuationFlg & EFT_FLUCTUATION_FALG_USE_SIN_WAVE)
+            flag |= FLUCTUATION_Y_TYPE_SIN;
+
+        if (complexEmitterData->fluctuationFlg & EFT_FLUCTUATION_FALG_USE_SAW_TOOTH_WAVE)
+            flag |= FLUCTUATION_X_TYPE_SAWTOOTH;
+
+        if (complexEmitterData->fluctuationFlg & EFT_FLUCTUATION_FALG_USE_SAW_TOOTH_WAVE)
+            flag |= FLUCTUATION_Y_TYPE_SAWTOOTH;
+
+        if (complexEmitterData->fluctuationFlg & EFT_FLUCTUATION_FALG_USE_RECT_WAVE)
+            flag |= FLUCTUATION_X_TYPE_RECT;
+
+        if (complexEmitterData->fluctuationFlg & EFT_FLUCTUATION_FALG_USE_RECT_WAVE)
+            flag |= FLUCTUATION_Y_TYPE_RECT;
+    }
+
+    if (complexEmitterData && complexEmitterData->fieldFlg != 0)
+    {
+        const void* fres = reinterpret_cast<const void*>((u32)complexEmitterData + complexEmitterData->fieldDataOffset);
+
+        if (complexEmitterData->fieldFlg & EFT_FIELD_MASK_RANDOM)
+        {
+            const FieldRandomData* dat = reinterpret_cast<const FieldRandomData*>(fres);
+
+            ubo->fieldRandom.x = dat->fieldRandomVelAdd.x;
+            ubo->fieldRandom.y = dat->fieldRandomVelAdd.y;
+            ubo->fieldRandom.z = dat->fieldRandomVelAdd.z;
+            ubo->fieldRandom.w = (f32)dat->fieldRandomBlank;
+
+            fres = dat + 1;
+        }
+
+        if (complexEmitterData->fieldFlg & EFT_FIELD_MASK_MAGNET)
+        {
+            const FieldMagnetData* dat = reinterpret_cast<const FieldMagnetData*>(fres);
+
+            ubo->fieldMagnet.x = dat->fieldMagnetPos.x;
+            ubo->fieldMagnet.y = dat->fieldMagnetPos.y;
+            ubo->fieldMagnet.z = dat->fieldMagnetPos.z;
+            ubo->fieldMagnet.w = dat->fieldMagnetPower;
+
+            if (dat->isFollowEmitter)
+                ubo->fieldCoordEmitter.y  = 1.0f;
+
+            fres = dat + 1;
+        }
+
+        if (complexEmitterData->fieldFlg & EFT_FIELD_MASK_SPIN)
+        {
+            const FieldSpinData* dat = reinterpret_cast<const FieldSpinData*>(fres);
+
+            ubo->fieldSpin.x = NW_MATH_IDX_TO_RAD(dat->fieldSpinRotate);
+            ubo->fieldSpin.y = dat->fieldSpinOuter;
+            ubo->fieldSpin.z = (f32)dat->fieldSpinAxis;
+
+            fres = dat + 1;
+        }
+
+        if (complexEmitterData->fieldFlg & 8)
+        {
+            const FieldCollisionData* dat = static_cast<const FieldCollisionData*>(fres);
+
+            // The ultimate code
+            u32 type = 0;
+            if (dat->fieldCollisionType == 1)
+                type = 2;
+
+            if (dat->fieldCollisionIsWorld)
+                type++;
+
+            if (dat->fieldCollisionType == 2)
+            {
+                type = 4;
+                if (dat->fieldCollisionIsWorld)
+                    type++;
+            }
+
+            // fieldCollisionCnt is unused?
+            ubo->fieldCollision.x = (f32)type;
+            ubo->fieldCollision.y = dat->fieldCollisionCoef;
+            ubo->fieldCollision.z = dat->fieldCollisionRegist;
+            ubo->fieldCollision.w = dat->fieldCollisionCoord;
+
+            fres = dat + 1;
+        }
+
+        if (complexEmitterData->fieldFlg & EFT_FIELD_MASK_CONVERGENCE)
+        {
+            const FieldConvergenceData* dat = static_cast<const FieldConvergenceData*>(fres);
+
+            ubo->fieldConvergence.x = dat->fieldConvergencePos.x;
+            ubo->fieldConvergence.y = dat->fieldConvergencePos.y;
+            ubo->fieldConvergence.z = dat->fieldConvergencePos.z;
+            ubo->fieldConvergence.w = dat->fieldConvergenceRatio;
+
+            fres = dat + 1;
+
+            if (dat->fieldConvergenceType == EFT_FIELD_CONVERGENCE_TYPE_EMITTER_POSITION)
+                ubo->fieldCoordEmitter.x = 1.0f;
+        }
+
+        if (complexEmitterData->fieldFlg & EFT_FIELD_MASK_POSADD)
+        {
+            const FieldPosAddData* dat = static_cast<const FieldPosAddData*>(fres);
+
+            ubo->fieldPosAdd.x = dat->fieldPosAdd.x;
+            ubo->fieldPosAdd.y = dat->fieldPosAdd.y;
+            ubo->fieldPosAdd.z = dat->fieldPosAdd.z;
+            ubo->fieldPosAdd.w = (f32)dat->isFieldPosAddGlobal;
+
+            fres = dat + 1;
+        }
+
+        if (complexEmitterData->fieldFlg & EFT_FIELD_MASK_CURL_NOISE)
+        {
+            const FieldCurlNoiseData* dat = static_cast<const FieldCurlNoiseData*>(fres);
+
+            ubo->fieldCurlNoise0.x = dat->fieldCurlNoiseInfluence.x;
+            ubo->fieldCurlNoise0.y = dat->fieldCurlNoiseInfluence.y;
+            ubo->fieldCurlNoise0.z = dat->fieldCurlNoiseInfluence.z;
+            ubo->fieldCurlNoise0.w = dat->fieldCurlNoiseScale;
+
+            ubo->fieldCurlNoise1.x = dat->fieldCurlNoiseSpeed.x;
+            ubo->fieldCurlNoise1.y = dat->fieldCurlNoiseSpeed.y;
+            ubo->fieldCurlNoise1.z = dat->fieldCurlNoiseSpeed.z;
+            ubo->fieldCurlNoise1.w = dat->fieldCurlNoiseBase;
+        }
+    }
+
+    ubo->shaderParam.x = emitterData->shaderParam0;
+    ubo->shaderParam.y = emitterData->shaderParam1;
+    ubo->shaderParam.z = emitterData->softFadeDistance;
+    ubo->shaderParam.w = emitterData->softVolumeParam;
+
+    ubo->shaderParamAnim0.x = emitterData->shaderParam3v4kAnim.init;
+    ubo->shaderParamAnim0.y = emitterData->shaderParam3v4kAnim.init + emitterData->shaderParam3v4kAnim.diff21;
+    ubo->shaderParamAnim0.z = emitterData->shaderParam3v4kAnim.section1;
+    ubo->shaderParamAnim0.w = (f32)emitterData->shaderUseParamAnim;
+    ubo->shaderParamAnim1.x = emitterData->shaderParam3v4kAnim.init + emitterData->shaderParam3v4kAnim.diff21 + emitterData->shaderParam3v4kAnim.diff32;
+    ubo->shaderParamAnim1.y = emitterData->shaderParam3v4kAnim.section2;
+    ubo->shaderParamAnim1.z = 0.0f;
+    ubo->shaderParamAnim1.w = 0.0f;
+
+    ubo->flag[0] = flag;
+
+    GX2EndianSwap(ubo, sizeof(EmitterStaticUniformBlock));
+    DCFlushRange(ubo, sizeof(EmitterStaticUniformBlock));
+}
+
+void EmitterInstance::UpdateChildStaticUniformBlock(EmitterStaticUniformBlock* childEmitterStaticUniformBlock, const ChildData* childData)
+{
+    DCZeroRange(childEmitterStaticUniformBlock, sizeof(EmitterStaticUniformBlock));
+
+    EmitterStaticUniformBlock* ubo = childEmitterStaticUniformBlock;
+
+    ubo->rotBasis.x = childData->childRotBasis.x;
+    ubo->rotBasis.y = childData->childRotBasis.y;
+    ubo->rotBasis.z = 0.0f;
+    ubo->rotBasis.w = 0.0f;
+
+    ubo->fresnelMinMax.x = childData->childFresnelAlphaMin;
+    ubo->fresnelMinMax.y = childData->childFresnelAlphaMax;
+    ubo->fresnelMinMax.z = childData->childSoftAlphaOffset;
+    ubo->fresnelMinMax.w = childData->childDecalVolume;
+
+    ubo->nearAlpha.x = childData->childNearAlphaMin;
+    ubo->nearAlpha.y = childData->childNearAlphaMax;
+    ubo->nearAlpha.z = childData->childFarAlphaMin;
+    ubo->nearAlpha.w = childData->childFarAlphaMax;
 
     u32 flag = 0;
 
-    _copyTextureShiftAnimParm(&uniformBlock->shtAnim0, &flag, &data->texAnimParam[TextureSlot_0], TextureSlot_0, data->forceRandomType0);
-    _copyTextureShiftAnimParm(&uniformBlock->shtAnim1, &flag, &data->texAnimParam[TextureSlot_1], TextureSlot_1, data->forceRandomType0);
-    _copyTextureShiftAnimParm(&uniformBlock->shtAnim2, &flag, &data->texAnimParam[TextureSlot_2], TextureSlot_2, data->forceRandomType0);
-
-    _copyTexturePtnAnimParm(&uniformBlock->ptnAnm0, &flag, &data->texAnimParam[TextureSlot_0], TextureSlot_0);
-    _copyTexturePtnAnimParm(&uniformBlock->ptnAnm1, &flag, &data->texAnimParam[TextureSlot_1], TextureSlot_1);
-
-    if (data->rotateDirRandomX != 0)
-        flag |= 0x0040000;
-
-    if (data->rotateDirRandomY != 0)
-        flag |= 0x0080000;
-
-    if (data->rotateDirRandomZ != 0)
-        flag |= 0x0100000;
-
-    if (data->primitiveScaleYToZ != 0)
-        flag |= 0x8000000;
-
-    uniformBlock->rotBasis.xy() = data->rotBasis;
-    uniformBlock->rotBasis.z = data->cameraOffset;
-    uniformBlock->rotBasis.w = 0.0f;
-
-    uniformBlock->u_fresnelMinMax.xy() = data->fresnelMinMax;
-    uniformBlock->u_fresnelMinMax.z = data->fragmentSoftEdgeAlphaOffset;
-    uniformBlock->u_fresnelMinMax.w = data->decalVolume;
-
-    uniformBlock->u_nearAlpha.xy() = data->nearAlphaMinMax;
-    uniformBlock->u_nearAlpha.zw() = data->farAlphaMinMax;
-
-    uniformBlock->rotateVel.xyz() = data->angularVelocity;
-    uniformBlock->rotateVel.w = data->rotInertia;
-
-    uniformBlock->rotateVelRandom.xyz() = data->angularVelocityRandom;
-    uniformBlock->rotateVelRandom.w = 0.0f;
-
-    uniformBlock->alphaAnim0.x = data->alphaAnim[0].startValue;
-    uniformBlock->alphaAnim0.y = data->alphaAnim[0].startValue + data->alphaAnim[0].startDiff;
-    uniformBlock->alphaAnim0.z = data->alphaAnim[0].time2;
-    uniformBlock->alphaAnim0.w = 0.0f;
-    uniformBlock->alphaAnim1.x = data->alphaAnim[0].startValue + data->alphaAnim[0].startDiff + data->alphaAnim[0].endDiff;
-    uniformBlock->alphaAnim1.y = data->alphaAnim[0].time3;
-
-    uniformBlock->alphaAnim1.z = data->alphaAnim[1].startValue;
-    uniformBlock->alphaAnim1.w = data->alphaAnim[1].startValue + data->alphaAnim[1].startDiff;
-    uniformBlock->alphaAnim2.x = data->alphaAnim[1].time2;
-  //uniformBlock->alphaAnim2   = 0.0f;
-    uniformBlock->alphaAnim2.y = data->alphaAnim[1].startValue + data->alphaAnim[1].startDiff + data->alphaAnim[1].endDiff;
-    uniformBlock->alphaAnim2.z = data->alphaAnim[1].time3;
-
-    uniformBlock->alphaAnim2.w = (f32)data->colorNumRepetition[0];
-
-    uniformBlock->scaleAnim0.x = data->ptclEmitScale.x;
-    uniformBlock->scaleAnim0.y = data->ptclEmitScale.y;
-    uniformBlock->scaleAnim0.z = data->ptclScaleStart.x;
-    uniformBlock->scaleAnim0.w = data->ptclScaleStart.y;
-
-    uniformBlock->scaleAnim1.x = (f32)data->scaleAnimTime2 / 100.0f;
-    uniformBlock->scaleAnim1.y = data->ptclScaleStart.x + data->ptclScaleStartDiff.x;
-    uniformBlock->scaleAnim1.z = data->ptclScaleStart.y + data->ptclScaleStartDiff.y;
-    uniformBlock->scaleAnim1.w = data->ptclScaleRandom.x;
-
-    uniformBlock->scaleAnim2.x = (f32)data->scaleAnimTime3 / 100.0f;
-    uniformBlock->scaleAnim2.y = data->ptclScaleStart.x + data->ptclScaleStartDiff.x + data->ptclScaleEndDiff.x;
-    uniformBlock->scaleAnim2.z = data->ptclScaleStart.y + data->ptclScaleStartDiff.y + data->ptclScaleEndDiff.y;
-    uniformBlock->scaleAnim2.w = data->ptclScaleRandom.y;
-
-    for (u32 i = 0 ; i < 8u; i++)
-    {
-        uniformBlock->col0[i] = data->ptclColorTbl[0][i].v;
-        uniformBlock->col1[i] = data->ptclColorTbl[1][i].v;
-    }
-
-    uniformBlock->color0Anim.x = (f32)data->colorTime2[0] / 100.0f;
-    uniformBlock->color0Anim.y = (f32)data->colorTime3[0] / 100.0f;
-    uniformBlock->color0Anim.z = (f32)data->colorTime4[0] / 100.0f;
-
-    uniformBlock->color0Anim.w = data->colorScaleFactor;
-
-    uniformBlock->color1Anim.x = (f32)data->colorTime2[1] / 100.0f;
-    uniformBlock->color1Anim.y = (f32)data->colorTime3[1] / 100.0f;
-    uniformBlock->color1Anim.z = (f32)data->colorTime4[1] / 100.0f;
-
-    uniformBlock->color1Anim.w = (f32)data->colorNumRepetition[1];
-
-    uniformBlock->vectorParam.x = data->airResist;
-    uniformBlock->vectorParam.y = data->dir.x;
-    uniformBlock->vectorParam.z = data->dir.y;
-    uniformBlock->vectorParam.w = data->dir.z;
-
-    uniformBlock->gravityParam.xyz() = data->gravity;
-    uniformBlock->gravityParam.w = data->_7F4;
-
-    if (cdata != NULL)
-    {
-        if (cdata->fluctuationFlags & 1)
-        {
-            const FluctuationData* fluctuationData = reinterpret_cast<const FluctuationData*>((u32)cdata + cdata->fluctuationDataOffs);
-
-            uniformBlock->flucX.x = fluctuationData->x.amplitude;
-            uniformBlock->flucX.y = 128.0f / fluctuationData->x.frequency;
-            uniformBlock->flucX.z = fluctuationData->x.phase;
-            uniformBlock->flucX.w = (f32)fluctuationData->x.enableRandom;
-
-            uniformBlock->flucY.x = fluctuationData->y.amplitude;
-            uniformBlock->flucY.y = 128.0f / fluctuationData->y.frequency;
-            uniformBlock->flucY.z = fluctuationData->y.phase;
-            uniformBlock->flucY.w = (f32)fluctuationData->y.enableRandom;
-
-            if (cdata->fluctuationFlags & 0x08)
-                flag |= 0x1200000;
-
-            if (cdata->fluctuationFlags & 0x10)
-                flag |= 0x2400000;
-
-            if (cdata->fluctuationFlags & 0x20)
-                flag |= 0x4800000;
-        }
-
-        if (cdata->fieldFlags != 0)
-        {
-            const void* fieldData = reinterpret_cast<const void*>((u32)cdata + cdata->fieldDataOffs);
-
-            if (cdata->fieldFlags & 1)
-            {
-                const FieldRandomData* randomData = static_cast<const FieldRandomData*>(fieldData);
-
-                uniformBlock->fieldRandomParam.xyz() = randomData->randomVelScale;
-                uniformBlock->fieldRandomParam.w = (f32)randomData->period;
-
-                fieldData = randomData + 1;
-            }
-
-            if (cdata->fieldFlags & 2)
-            {
-                const FieldMagnetData* magnetData = static_cast<const FieldMagnetData*>(fieldData);
-
-                uniformBlock->fieldMagnetParam.xyz() = magnetData->pos;
-                uniformBlock->fieldMagnetParam.w = magnetData->strength;
-
-                if (magnetData->followEmitter != 0)
-                    uniformBlock->fieldCoordEmitter.y = 1.0f;
-
-                fieldData = magnetData + 1;
-            }
-
-            if (cdata->fieldFlags & 4)
-            {
-                const FieldSpinData* spinData = static_cast<const FieldSpinData*>(fieldData);
-
-                uniformBlock->fieldSpinParam.x = nw::math::Idx2Rad(spinData->angle);
-                uniformBlock->fieldSpinParam.y = spinData->diffusionVel;
-                uniformBlock->fieldSpinParam.z = (f32)spinData->axis;
-
-                fieldData = spinData + 1;
-            }
-
-            if (cdata->fieldFlags & 8)
-            {
-                const FieldCollisionData* collisionData = static_cast<const FieldCollisionData*>(fieldData);
-
-                // The ultimate code
-                u32 collisionType = 0;
-                if (collisionData->collisionType == 1)
-                    collisionType = 2;
-
-                if (collisionData->coordSystem != 0)
-                    collisionType++;
-
-                if (collisionData->collisionType == 2)
-                {
-                    collisionType = 4;
-                    if (collisionData->coordSystem != 0)
-                        collisionType++;
-                }
-
-                // bounceCount is unused?
-                uniformBlock->fieldCollisionParam.x = (f32)collisionType;
-                uniformBlock->fieldCollisionParam.y = collisionData->bounceRate;
-                uniformBlock->fieldCollisionParam.z = collisionData->friction;
-                uniformBlock->fieldCollisionParam.w = collisionData->y;
-
-                fieldData = collisionData + 1;
-            }
-
-            if (cdata->fieldFlags & 0x10)
-            {
-                const FieldConvergenceData* convergenceData = static_cast<const FieldConvergenceData*>(fieldData);
-
-                uniformBlock->fieldConvergenceParam.xyz() = convergenceData->pos;
-                uniformBlock->fieldConvergenceParam.w = convergenceData->strength;
-
-                fieldData = convergenceData + 1;
-
-                if (convergenceData->followType == 1)
-                    uniformBlock->fieldCoordEmitter.x = 1.0f;
-            }
-
-            if (cdata->fieldFlags & 0x20)
-            {
-                const FieldPosAddData* posAddData = static_cast<const FieldPosAddData*>(fieldData);
-
-                uniformBlock->fieldPosAddParam.xyz() = posAddData->posAdd;
-                uniformBlock->fieldPosAddParam.w = (f32)posAddData->coordSystem;
-
-                fieldData = posAddData + 1;
-            }
-
-            if (cdata->fieldFlags & 0x40)
-            {
-                const FieldCurlNoiseData* curlNoiseData = static_cast<const FieldCurlNoiseData*>(fieldData);
-
-                uniformBlock->fieldCurlNoise0.xyz() = curlNoiseData->weight;
-                uniformBlock->fieldCurlNoise0.w = curlNoiseData->scale;
-                uniformBlock->fieldCurlNoise1.xyz() = curlNoiseData->speed;
-                uniformBlock->fieldCurlNoise1.w = curlNoiseData->offset;
-
-                fieldData = curlNoiseData + 1;
-            }
-        }
-    }
-
-    uniformBlock->u_shaderParam.xy() = data->shaderParam01;
-    uniformBlock->u_shaderParam.z = data->fragmentSoftEdgeFadeDist;
-    uniformBlock->u_shaderParam.w = data->fragmentSoftEdgeVolume;
-
-    uniformBlock->u_shaderParamAnim0.x = data->shaderParamAnim.startValue;
-    uniformBlock->u_shaderParamAnim0.y = data->shaderParamAnim.startValue + data->shaderParamAnim.startDiff;
-    uniformBlock->u_shaderParamAnim0.z = data->shaderParamAnim.time2;
-    uniformBlock->u_shaderParamAnim0.w = (f32)data->enableShaderParamAnim;
-    uniformBlock->u_shaderParamAnim1.x = data->shaderParamAnim.startValue + data->shaderParamAnim.startDiff + data->shaderParamAnim.endDiff;
-    uniformBlock->u_shaderParamAnim1.y = data->shaderParamAnim.time3;
-    uniformBlock->u_shaderParamAnim1.z = 0.0f;
-    uniformBlock->u_shaderParamAnim1.w = 0.0f;
-
-    uniformBlock->flag[0] = flag;
-
-    GX2EndianSwap(uniformBlock, sizeof(EmitterStaticUniformBlock));
-    DCFlushRange(uniformBlock, sizeof(EmitterStaticUniformBlock));
-}
-
-void EmitterInstance::UpdateChildStaticUniformBlock(EmitterStaticUniformBlock* uniformBlock, const ChildData* data)
-{
-    DCZeroRange(uniformBlock, sizeof(EmitterStaticUniformBlock));
-
-    uniformBlock->rotBasis.xy() = data->rotBasis;
-    uniformBlock->rotBasis.z = 0.0f;
-    uniformBlock->rotBasis.w = 0.0f;
-
-    uniformBlock->u_fresnelMinMax.xy() = data->fresnelMinMax;
-    uniformBlock->u_fresnelMinMax.z = data->fragmentSoftEdgeAlphaOffset;
-    uniformBlock->u_fresnelMinMax.w = data->decalVolume;
-
-    uniformBlock->u_nearAlpha.xy() = data->nearAlphaMinMax;
-    uniformBlock->u_nearAlpha.zw() = data->farAlphaMinMax;
-
-    u32 flag = 0;
-
-    _copyTextureShiftAnimParm(&uniformBlock->shtAnim0, &flag, &data->texAnimParam, TextureSlot_0, 0);
-    uniformBlock->shtAnim0.pm2.xy() = (math::VEC2){ 1.0f, 1.0f };
-
-    _copyTexturePtnAnimParm(&uniformBlock->ptnAnm0, &flag, &data->texAnimParam, TextureSlot_0);
-
-    if (data->primitiveScaleYToZ != 0)
-        flag |= 0x8000000;
-
-    uniformBlock->flag[0] = flag;
-
-    uniformBlock->u_shaderParam.xy() = data->shaderParam01;
-    uniformBlock->u_shaderParam.z = data->fragmentSoftEdgeFadeDist;
-    uniformBlock->u_shaderParam.w = data->fragmentSoftEdgeVolume;
-
-    uniformBlock->u_shaderParamAnim0.x = data->shaderParamAnim.startValue;
-    uniformBlock->u_shaderParamAnim0.y = data->shaderParamAnim.startValue + data->shaderParamAnim.startDiff;
-    uniformBlock->u_shaderParamAnim0.z = data->shaderParamAnim.time2;
-    uniformBlock->u_shaderParamAnim0.w = (f32)data->enableShaderParamAnim;
-    uniformBlock->u_shaderParamAnim1.x = data->shaderParamAnim.startValue + data->shaderParamAnim.startDiff + data->shaderParamAnim.endDiff;
-    uniformBlock->u_shaderParamAnim1.y = data->shaderParamAnim.time3;
-    uniformBlock->u_shaderParamAnim1.z = 0.0f;
-    uniformBlock->u_shaderParamAnim1.w = 0.0f;
-
-    GX2EndianSwap(uniformBlock, sizeof(EmitterStaticUniformBlock));
-    DCFlushRange(uniformBlock, sizeof(EmitterStaticUniformBlock));
+    _copyTextureShiftAnimParm(&ubo->texShiftAnim0, &flag, &childData->textureData, EFT_TEXTURE_SLOT_0, 0);
+    ubo->texShiftAnim0.scaleInit.x = 1.0f;
+    ubo->texShiftAnim0.scaleInit.y = 1.0f;
+
+    _copyTexturePtnAnimParm(&ubo->texPtnAnim0, &flag, &childData->textureData, EFT_TEXTURE_SLOT_0);
+
+    if (childData->primitiveScaleY2Z)
+        flag |= PRIMITIVE_SCALE_Y_TO_Z;
+
+    ubo->flag[0] = flag;
+
+    ubo->shaderParam.x = childData->childShaderParam0;
+    ubo->shaderParam.y = childData->childShaderParam1;
+    ubo->shaderParam.z = childData->childSoftFadeDistance;
+    ubo->shaderParam.w = childData->childSoftVolumeParam;
+
+    ubo->shaderParamAnim0.x = childData->shaderParam3v4kAnim.init;
+    ubo->shaderParamAnim0.y = childData->shaderParam3v4kAnim.init + childData->shaderParam3v4kAnim.diff21;
+    ubo->shaderParamAnim0.z = childData->shaderParam3v4kAnim.section1;
+    ubo->shaderParamAnim0.w = (f32)childData->shaderUseParamAnim;
+    ubo->shaderParamAnim1.x = childData->shaderParam3v4kAnim.init + childData->shaderParam3v4kAnim.diff21 + childData->shaderParam3v4kAnim.diff32;
+    ubo->shaderParamAnim1.y = childData->shaderParam3v4kAnim.section2;
+    ubo->shaderParamAnim1.z = 0.0f;
+    ubo->shaderParamAnim1.w = 0.0f;
+
+    GX2EndianSwap(ubo, sizeof(EmitterStaticUniformBlock));
+    DCFlushRange(ubo, sizeof(EmitterStaticUniformBlock));
 }
 
 void EmitterInstance::UpdateEmitterInfoByEmit()
 {
+    scaleRnd.x = 0.0f;
+    scaleRnd.y = 0.0f;
+    scaleRnd.z = 0.0f;
 
-    scaleRandom.x = 0.0f;
-    scaleRandom.y = 0.0f;
-    scaleRandom.z = 0.0f;
-
-    if (emitterBehaviorFlg & EmitterBehaviorFlag_HasRotateAnim)
+    if (emitterBehaviorFlag & EFT_EMITTER_BEHAVIOR_FLAG_MATRIX_ROTATE_ANIM)
     {
-        rotateRandom.x = 0.0f;
-        rotateRandom.y = 0.0f;
-        rotateRandom.z = 0.0f;
+        rotatRnd.x = 0.0f;
+        rotatRnd.y = 0.0f;
+        rotatRnd.z = 0.0f;
     }
     else
     {
-        rotateRandom.x = random.GetF32Range(-1.0, 1.0f) * data->emitterRotateRandom.x;
-        rotateRandom.y = random.GetF32Range(-1.0, 1.0f) * data->emitterRotateRandom.y;
-        rotateRandom.z = random.GetF32Range(-1.0, 1.0f) * data->emitterRotateRandom.z;
+        rotatRnd.x = /* rnd.GetF32Range(-1.0, 1.0f) */ (rnd.GetF32() * 2.0f - 1.0f) * res->emitterRotateRnd.x;
+        rotatRnd.y = /* rnd.GetF32Range(-1.0, 1.0f) */ (rnd.GetF32() * 2.0f - 1.0f) * res->emitterRotateRnd.y;
+        rotatRnd.z = /* rnd.GetF32Range(-1.0, 1.0f) */ (rnd.GetF32() * 2.0f - 1.0f) * res->emitterRotateRnd.z;
     }
 
-    if (emitterBehaviorFlg & EmitterBehaviorFlag_HasTransAnim)
+    if (emitterBehaviorFlag & EFT_EMITTER_BEHAVIOR_FLAG_MATRIX_TRANS_ANIM)
     {
-        translateRandom.x = 0.0f;
-        translateRandom.y = 0.0f;
-        translateRandom.z = 0.0f;
+        transRnd.x = 0.0f;
+        transRnd.y = 0.0f;
+        transRnd.z = 0.0f;
     }
     else
     {
-        translateRandom.x = random.GetF32Range(-1.0, 1.0f) * data->emitterTranslateRandom.x;
-        translateRandom.y = random.GetF32Range(-1.0, 1.0f) * data->emitterTranslateRandom.y;
-        translateRandom.z = random.GetF32Range(-1.0, 1.0f) * data->emitterTranslateRandom.z;
+        transRnd.x = /* rnd.GetF32Range(-1.0, 1.0f) */ (rnd.GetF32() * 2.0f - 1.0f) * res->emitterTransRnd.x;
+        transRnd.y = /* rnd.GetF32Range(-1.0, 1.0f) */ (rnd.GetF32() * 2.0f - 1.0f) * res->emitterTransRnd.y;
+        transRnd.z = /* rnd.GetF32Range(-1.0, 1.0f) */ (rnd.GetF32() * 2.0f - 1.0f) * res->emitterTransRnd.z;
     }
 
-    math::VEC3 scale, rotate, translate;
-    math::VEC3::Add(&scale, &data->emitterScale, &scaleRandom);
-    math::VEC3::Add(&rotate, &data->emitterRotate, &rotateRandom);
-    math::VEC3::Add(&translate, &data->emitterTranslate, &translateRandom);
+    nw::math::VEC3 scale;
+    nw::math::VEC3 rotat;
+    nw::math::VEC3 trans;
+    nw::math::VEC3Add(&scale, &res->emitterScale,  &scaleRnd);
+    nw::math::VEC3Add(&rotat, &res->emitterRotate, &rotatRnd);
+    nw::math::VEC3Add(&trans, &res->emitterTrans,  &transRnd);
+    nw::math::VEC3 scaleOne;
+    scaleOne.Set(1.0f, 1.0f, 1.0f);
+    nw::math::MTX34MakeSRT(&animValEmitterSRT, scale,    rotat, trans);
+    nw::math::MTX34MakeSRT(&animValEmitterRT,  scaleOne, rotat, trans);
 
-    math::MTX34::MakeSRT(&animMatrixSRT, &scale, &rotate, &translate);
-    math::MTX34::MakeRT(&animMatrixRT, &rotate, &translate);
-
-    math::MTX34::Concat(&matrixRT,  &emitterSet->matrixRT,  &animMatrixRT);
-    math::MTX34::Concat(&matrixSRT, &emitterSet->matrixSRT, &animMatrixSRT);
+    emitterRT .SetMult(emitterSet->GetRTMatrix(),  animValEmitterRT );
+    emitterSRT.SetMult(emitterSet->GetSRTMatrix(), animValEmitterSRT);
 }
 
 void EmitterInstance::UpdateResInfo()
 {
-    const ComplexEmitterData* cdata = GetComplexEmitterData();
+    const ComplexEmitterData* complex = GetComplexEmitterData();
 
-    bool gpuCalc   = shader[ShaderType_Normal]->vertexShaderKey.flags[0] & 0x2000000;
-    bool streamOut = shader[ShaderType_Normal]->vertexShaderKey.flags[0] & 0x8000000;
+    bool isUseGpuParticle = shader[EFT_SHADER_TYPE_NORMAL]->IsGpuAcceleration();
+    bool isUseStreamOut   = shader[EFT_SHADER_TYPE_NORMAL]->IsUseStreamOut();
 
     ptclAttributeBuffer = NULL;
     childPtclAttributeBuffer = NULL;
 
-    if (gpuCalc)
+    if (isUseGpuParticle)
     {
-        s32 numEmit;
-        f32 emissionRate = data->emissionRate;
+        u32 particleNum = 0;
+        f32 emitRate = res->emitRate;
 
-        if (data->emitFunction == 15 && volumePrimitive != NULL && data->primitiveEmitType == 0)
-            emissionRate = (f32)(volumePrimitive->vbPos.bufferSize / sizeof(math::VEC3));
+        if (res->volumeType == EFT_VOLUME_TYPE_PRIMITIVE)
+            if (emitVolumePrimitive && res->volumePrimEmitType == EFT_VOLUME_PRIM_EMIT_TYPE_NORMAL)
+                emitRate = (f32)(emitVolumePrimitive->GetPositionVertexBuffer().GetVertexBufferSize() / (sizeof(f32) * 3));
 
-        if (data->oneTime != 0)
-            numEmit = (s32)((f32)((data->endFrame - data->startFrame) / (data->emitInterval + 1) + 1) * emissionRate);
-
-        else
-            numEmit = (s32)((f32)(data->ptclMaxLifespan / (data->emitInterval + 1)) * emissionRate) + (s32)emissionRate;
-
-        if (numEmit != 0)
+        if (res->isOnetime)
         {
-            if (ptclAttributeBufferGpu != NULL && numPtclAttributeBufferGpuMax < numEmit)
+            s32 time  = res->emitEndFrame - res->emitStartFrame;
+            s32 times = time / (res->emitStep + 1) + 1;
+            particleNum = (s32)(times * emitRate);
+        }
+        else
+        {
+            particleNum =  (s32)(res->ptclLife / (res->emitStep + 1) * emitRate);
+            particleNum += (s32)emitRate;
+        }
+
+        if (particleNum != 0)
+        {
+            if (ptclAttributeBufferGpu)
             {
-                FreeFromDynamicHeap(ptclAttributeBufferGpu, true);
-                ptclAttributeBufferGpu = NULL;
+                if (gpuParticleBufferNum < particleNum)
+                {
+                    FreeFromDynamicHeap(ptclAttributeBufferGpu);
+                    ptclAttributeBufferGpu = static_cast<PtclAttributeBufferGpu*>(AllocFromDynamicHeap(sizeof(PtclAttributeBufferGpu) * particleNum));
+                }
+            }
+            else
+            {
+                ptclAttributeBufferGpu = static_cast<PtclAttributeBufferGpu*>(AllocFromDynamicHeap(sizeof(PtclAttributeBufferGpu) * particleNum));
             }
 
-            if (ptclAttributeBufferGpu == NULL)
-                ptclAttributeBufferGpu = static_cast<PtclAttributeBufferGpu*>(AllocFromDynamicHeap(sizeof(PtclAttributeBufferGpu) * numEmit));
-
-            if (streamOut && numPtclAttributeBufferGpuMax != numEmit)
+            if (isUseStreamOut && gpuParticleBufferNum != particleNum)
             {
-                posStreamOutAttributeBuffer.Finalize();
-                vecStreamOutAttributeBuffer.Finalize();
-                posStreamOutAttributeBuffer.Initialize(sizeof(nw::math::VEC4) * numEmit);
-                vecStreamOutAttributeBuffer.Initialize(sizeof(nw::math::VEC4) * numEmit);
+                positionStreamOutBuffer.Finalize();
+                vectorStreamOutBuffer  .Finalize();
+                positionStreamOutBuffer.Initialize(sizeof(nw::math::VEC4) * particleNum);
+                vectorStreamOutBuffer  .Initialize(sizeof(nw::math::VEC4) * particleNum);
             }
         }
 
-        numPtclAttributeBufferGpuMax = numEmit;
-        currentPtclAttributeBufferGpuIdx = 0;
-        numDrawParticle = 0;
+        gpuParticleBufferNum = particleNum;
+        gpuParticleBufferFillNum = 0;
+        entryNum = 0;
     }
     else
     {
         ptclAttributeBufferGpu = NULL;
-        numPtclAttributeBufferGpuMax = 0;
+        gpuParticleBufferNum = 0;
     }
 
-    if (cdata != NULL && cdata->fieldFlags & 8)
+    if (complex && complex->fieldFlg & EFT_FIELD_MASK_COLLISION)
     {
-        const void* fieldData = reinterpret_cast<const void*>((u32)cdata + cdata->fieldDataOffs);
+        const void* __restrict fres = reinterpret_cast<const void*>((u32)complex + complex->fieldDataOffset);
 
-        if (cdata->fieldFlags & 1)
+        if (complex->fieldFlg & EFT_FIELD_MASK_RANDOM)
         {
-            const FieldRandomData* randomData = static_cast<const FieldRandomData*>(fieldData);
-            fieldData = randomData + 1;
+            const FieldRandomData* dat = static_cast<const FieldRandomData*>(fres);
+            fres = dat + 1;
         }
 
-        if (cdata->fieldFlags & 2)
+        if (complex->fieldFlg & EFT_FIELD_MASK_MAGNET)
         {
-            const FieldMagnetData* magnetData = static_cast<const FieldMagnetData*>(fieldData);
-            fieldData = magnetData + 1;
+            const FieldMagnetData* dat = static_cast<const FieldMagnetData*>(fres);
+            fres = dat + 1;
         }
 
-        if (cdata->fieldFlags & 4)
+        if (complex->fieldFlg & EFT_FIELD_MASK_SPIN)
         {
-            const FieldSpinData* spinData = static_cast<const FieldSpinData*>(fieldData);
-            fieldData = spinData + 1;
+            const FieldSpinData* dat = static_cast<const FieldSpinData*>(fres);
+            fres = dat + 1;
         }
 
-        const FieldCollisionData* collisionData = static_cast<const FieldCollisionData*>(fieldData);
-        fieldCollisionY = collisionData->y;
+        const FieldCollisionData* dat = static_cast<const FieldCollisionData*>(fres);
+        filedCollisionY = dat->fieldCollisionCoord;
     }
     else
     {
-        fieldCollisionY = 0.0f;
+        filedCollisionY = 0.0f;
     }
 
-    ptclFollowType = data->ptclFollowType;
-    particleBehaviorFlg = data->particleBehaviorFlg;
+    followType                                  = res->ptclFollowType;
+    particleBehaviorFlag                        = res->behaviorFlag;
 
-    anim[ 0] = data->emissionRate;
-    anim[ 1] = data->ptclMaxLifespan;
-    anim[15] = data->allDirVel;
-    anim[16] = data->dirVel;
-    anim[14] = data->emitterAlpha;
-    anim[11] = data->emitterColor0.r;
-    anim[12] = data->emitterColor0.g;
-    anim[13] = data->emitterColor0.b;
-    anim[19] = data->emitterColor1.r;
-    anim[20] = data->emitterColor1.g;
-    anim[21] = data->emitterColor1.b;
-    anim[22] = data->emissionShapeScale.x;
-    anim[23] = data->emissionShapeScale.y;
-    anim[24] = data->emissionShapeScale.z;
-    anim[17] = 1.0f;
-    anim[18] = 1.0f;
-    anim[ 2] = data->emitterScale.x + scaleRandom.x;
-    anim[ 3] = data->emitterScale.y + scaleRandom.y;
-    anim[ 4] = data->emitterScale.z + scaleRandom.z;
-    anim[ 5] = data->emitterRotate.x + rotateRandom.x;
-    anim[ 6] = data->emitterRotate.y + rotateRandom.y;
-    anim[ 7] = data->emitterRotate.z + rotateRandom.z;
-    anim[ 8] = data->emitterTranslate.x + translateRandom.x;
-    anim[ 9] = data->emitterTranslate.y + translateRandom.x;
-    anim[10] = data->emitterTranslate.z + translateRandom.x;
-    anim[25] = 1.0f;
-    anim[26] = 1.0f;
+    emitterAnimValue[EFT_ANIM_EM_RATE]          = res->emitRate;
+    emitterAnimValue[EFT_ANIM_LIFE]             = (f32)res->ptclLife;
+    emitterAnimValue[EFT_ANIM_ALL_DIR_VEL]      = res->emitFigureVel;
+    emitterAnimValue[EFT_ANIM_DIR_VEL]          = res->emitVel;
+    emitterAnimValue[EFT_ANIM_ALPHA]            = res->emitterAlpha;
+    emitterAnimValue[EFT_ANIM_COLOR0_R]         = res->emitterColor0.r;
+    emitterAnimValue[EFT_ANIM_COLOR0_G]         = res->emitterColor0.g;
+    emitterAnimValue[EFT_ANIM_COLOR0_B]         = res->emitterColor0.b;
+    emitterAnimValue[EFT_ANIM_COLOR1_R]         = res->emitterColor1.r;
+    emitterAnimValue[EFT_ANIM_COLOR1_G]         = res->emitterColor1.g;
+    emitterAnimValue[EFT_ANIM_COLOR1_B]         = res->emitterColor1.b;
+    emitterAnimValue[EFT_ANIM_EM_FORM_SX]       = res->volumeFormScale.x;
+    emitterAnimValue[EFT_ANIM_EM_FORM_SY]       = res->volumeFormScale.y;
+    emitterAnimValue[EFT_ANIM_EM_FORM_SZ]       = res->volumeFormScale.z;
+    emitterAnimValue[EFT_ANIM_PTCL_SX]          = 1.0f;
+    emitterAnimValue[EFT_ANIM_PTCL_SY]          = 1.0f;
+    emitterAnimValue[EFT_ANIM_EM_SX]            = res->emitterScale.x  + scaleRnd.x;
+    emitterAnimValue[EFT_ANIM_EM_SY]            = res->emitterScale.y  + scaleRnd.y;
+    emitterAnimValue[EFT_ANIM_EM_SZ]            = res->emitterScale.z  + scaleRnd.z;
+    emitterAnimValue[EFT_ANIM_EM_RX]            = res->emitterRotate.x + rotatRnd.x;
+    emitterAnimValue[EFT_ANIM_EM_RY]            = res->emitterRotate.y + rotatRnd.y;
+    emitterAnimValue[EFT_ANIM_EM_RZ]            = res->emitterRotate.z + rotatRnd.z;
+    emitterAnimValue[EFT_ANIM_EM_TX]            = res->emitterTrans.x  + transRnd.x;
+    emitterAnimValue[EFT_ANIM_EM_TY]            = res->emitterTrans.y  + transRnd.y;
+    emitterAnimValue[EFT_ANIM_EM_TZ]            = res->emitterTrans.z  + transRnd.z;
+    emitterAnimValue[EFT_ANIM_GRAVITY]          = 1.0f;
+    emitterAnimValue[EFT_ANIM_GRAVITY_CHILD]    = 1.0f;
 
-    UpdateEmitterStaticUniformBlock(emitterStaticUniformBlock, data, cdata);
+    UpdateEmitterStaticUniformBlock(emitterStaticUniformBlock, res, complex);
 
-    if (HasChild())
+    if (IsHasChildParticle())
     {
         const ChildData* childData = GetChildData();
 
-        particleBehaviorFlg |= ParticleBehaviorFlag_WldPosDf;
-        childParticleBehaviorFlg = childData->particleBehaviorFlg;
+        particleBehaviorFlag |= EFT_PARTICLE_BEHAVIOR_FLAG_WLD_POSDIF;
+        childBehaviorFlag = childData->behaviorFlag;
 
         UpdateChildStaticUniformBlock(childEmitterStaticUniformBlock, childData);
     }
@@ -635,438 +716,596 @@ void EmitterInstance::UpdateResInfo()
     UpdateEmitterInfoByEmit();
 }
 
+bool EmitterInstance::IsRequestFrameBufferTexture() const
+{
+    bool req = false;
+
+    for (u32 i = 0; i < EFT_SHADER_TYPE_MAX; i++)
+        if (shader[i] && shader[i]->GetFrameBufferTextureSamplerLocation().loc != EFT_INVALID_LOCATION)
+            req = true;
+
+    for (u32 i = 0; i < EFT_SHADER_TYPE_MAX; i++)
+        if (childShader[i] && childShader[i]->GetFrameBufferTextureSamplerLocation().loc != EFT_INVALID_LOCATION)
+            req = true;
+
+    return req;
+}
+
 void EmitterCalc::RemoveParticle(PtclInstance* ptcl, CpuCore core)
 {
-    if (ptcl->complexParam != NULL && ptcl->complexParam->stripe != NULL)
+    if (ptcl->complexParam && ptcl->complexParam->stripe)
         mSys->AddStripeRemoveList(ptcl->complexParam->stripe, core);
 
-    EmitterInstance* emitter = ptcl->emitter;
-
-    if (ptcl->type == PtclType_Child)
     {
-        emitter->numChildParticles--;
+        EmitterInstance* emitter = ptcl->emitter;
 
-        if (ptcl->prev != NULL && ptcl->next != NULL)
+        if (ptcl->type == EFT_PTCL_TYPE_CHILD)
         {
-            ptcl->prev->next = ptcl->next;
-            ptcl->next->prev = ptcl->prev;
-        }
-        else if (emitter->childParticleHead == ptcl)
-        {
-            emitter->childParticleHead = ptcl->next;
+            emitter->childPtclNum--;
 
-            if (ptcl->next != NULL)
-                ptcl->next->prev = ptcl->prev;
-
-            else
-                emitter->childParticleTail = NULL;
-        }
-        else if (emitter->childParticleTail == ptcl)
-        {
-            emitter->childParticleTail = ptcl->prev;
-
-            if (ptcl->prev != NULL)
+            if (ptcl->prev && ptcl->next)
+            {
                 ptcl->prev->next = ptcl->next;
-
-            else
-                emitter->childParticleHead = NULL;
-        }
-    }
-    else
-    {
-        emitter->numParticles--;
-
-        if (ptcl->prev != NULL && ptcl->next != NULL)
-        {
-            ptcl->prev->next = ptcl->next;
-            ptcl->next->prev = ptcl->prev;
-        }
-        else if (emitter->particleHead == ptcl)
-        {
-            emitter->particleHead = ptcl->next;
-
-            if (ptcl->next != NULL)
                 ptcl->next->prev = ptcl->prev;
+            }
+            else if (emitter->childHead == ptcl)
+            {
+                emitter->childHead = ptcl->next;
 
-            else
-                emitter->particleTail = NULL;
+                if (ptcl->next)
+                    ptcl->next->prev = ptcl->prev;
+
+                else
+                    emitter->childTail = NULL;
+            }
+            else if (emitter->childTail == ptcl)
+            {
+                emitter->childTail = ptcl->prev;
+
+                if (ptcl->prev)
+                    ptcl->prev->next = ptcl->next;
+
+                else
+                    emitter->childHead = NULL;
+            }
         }
-        else if (emitter->particleTail == ptcl)
+        else
         {
-            emitter->particleTail = ptcl->prev;
+            emitter->ptclNum--;
 
-            if (ptcl->prev != NULL)
+            if (ptcl->prev && ptcl->next)
+            {
                 ptcl->prev->next = ptcl->next;
+                ptcl->next->prev = ptcl->prev;
+            }
+            else if (emitter->ptclHead == ptcl)
+            {
+                emitter->ptclHead = ptcl->next;
 
-            else
-                emitter->particleHead = NULL;
+                if (ptcl->next)
+                    ptcl->next->prev = ptcl->prev;
+
+                else
+                    emitter->ptclTail = NULL;
+            }
+            else if (emitter->ptclTail == ptcl)
+            {
+                emitter->ptclTail = ptcl->prev;
+
+                if (ptcl->prev)
+                    ptcl->prev->next = ptcl->next;
+
+                else
+                    emitter->ptclHead = NULL;
+            }
+        }
+
+        CustomActionParticleRemoveCallback cb = mSys->GetCurrentCustomActionParticleRemoveCallback(ptcl->emitter);
+        if (cb)
+        {
+            ParticleRemoveArg arg;
+            arg.particle = ptcl;
+            cb(arg);
         }
     }
 
-    CustomActionParticleRemoveCallback callback = mSys->GetCurrentCustomActionParticleRemoveCallback(ptcl->emitter);
-    if (callback != NULL)
-    {
-        ParticleRemoveArg arg = { .ptcl = ptcl };
-        callback(arg);
-    }
-
-    ptcl->lifespan = 0;
-    ptcl->data = NULL;
+    ptcl->life = 0;
+    ptcl->res = NULL;
 }
 
 void EmitterCalc::AddPtclToList(EmitterInstance* emitter, PtclInstance* ptcl)
 {
-    if (emitter->particleHead == NULL)
+    if (emitter->res->flg & EFT_EMITTER_FLAG_REVERSE_ORDER_PARTICLE)
     {
-        emitter->particleHead = ptcl;
-        ptcl->next = NULL;
-        ptcl->prev = NULL;
-    }
-    else
-    {
-        emitter->particleHead->prev = ptcl;
-        ptcl->next = emitter->particleHead;
-        emitter->particleHead = ptcl;
-        ptcl->prev = NULL;
-    }
-
-    if (emitter->particleTail == NULL)
-        emitter->particleTail = ptcl;
-
-    emitter->numParticles++;
-}
-
-f32 _initialize3v4kAnim(AlphaAnim* anim, const anim3v4Key* key, s32 lifespan)
-{
-    anim->time2 = (s32)(key->time2 * lifespan);
-    anim->time3 = (s32)(key->time3 * lifespan);
-
-    if (anim->time2 == 0)
-        anim->startDiff = 0.0f;
-
-    else
-        anim->startDiff = key->startDiff / (f32)anim->time2;
-
-    if (key->time3 == 100)
-        anim->endDiff = 0.0f;
-
-    else
-        anim->endDiff = key->endDiff / (f32)(lifespan - anim->time3);
-
-    return key->startValue - anim->startDiff;
-}
-
-void EmitterCalc::EmitCommon(EmitterInstance* emitter, PtclInstance* ptcl)
-{
-    const SimpleEmitterData* data = emitter->data;
-    const ComplexEmitterData* cdata = emitter->GetComplexEmitterData();
-
-    ptcl->data = data;
-    ptcl->cdata = cdata;
-
-    const EmitterSet* emitterSet = emitter->emitterSet;
-
-    ptcl->emitter = emitter;
-    ptcl->emitStartFrame = emitter->counter;
-    ptcl->counter = 0.0f;
-    ptcl->counterS32 = 0;
-    ptcl->randomU32 = emitter->random.GetU32();
-    ptcl->fieldCollisionCounter = 0;
-    ptcl->randomF32 = 1.0f - data->momentumRandom * emitter->random.GetF32Range(-1.0f, 1.0f);
-    ptcl->_unused = 0;
-    ptcl->randomVec4.x = emitter->random.GetF32();
-    ptcl->randomVec4.y = emitter->random.GetF32();
-    ptcl->randomVec4.z = emitter->random.GetF32();
-    ptcl->randomVec4.w = emitter->random.GetF32();
-    ptcl->fluctuationAlpha = 1.0f;
-    ptcl->fluctuationScale = (math::VEC2){ 1.0f, 1.0f };
-    ptcl->complexParam->childEmitCounter = 1000000.0f;
-    ptcl->complexParam->childPreCalcCounter = 0.0f;
-    ptcl->complexParam->childEmitLostTime = 0.0f;
-
-    if (data->ptclMaxLifespan == 0x7FFFFFFF)
-        ptcl->lifespan = 0x7FFFFFFF;
-
-    else
-        ptcl->lifespan = (s32)((emitter->anim[1] - emitter->random.GetS32(data->ptclLifespanRandom)) * emitter->controller->life);
-
-    f32 velocityMagRandom = 1.0f - emitter->random.GetF32() * data->dirVelRandom * emitterSet->dirVelRandom;
-    f32 velocityMag = emitter->anim[16] * emitterSet->dirVel;
-
-    if (emitter->ptclFollowType != PtclFollowType_SRT)
-    {
-        math::MTX34::Copy(&ptcl->matrixRT, &emitter->matrixRT);
-        math::MTX34::Copy(&ptcl->matrixSRT, &emitter->matrixSRT);
-        ptcl->pMatrixRT = &ptcl->matrixRT;
-        ptcl->pMatrixSRT = &ptcl->matrixSRT;
-    }
-    else
-    {
-        ptcl->pMatrixRT = &emitter->matrixRT;
-        ptcl->pMatrixSRT = &emitter->matrixSRT;
-    }
-
-    if (data->ptclPosRandom != 0.0f)
-        ptcl->pos = emitter->random.GetNormalizedVec3() * data->ptclPosRandom + ptcl->pos;
-
-    if (emitterSet->dirSet != 0)
-        ptcl->velocity = (ptcl->velocity + emitterSet->dir * velocityMag) * velocityMagRandom;
-
-    else
-    {
-        f32 dispersionAngle = data->dispersionAngle;
-        if (dispersionAngle == 0.0f)
-            ptcl->velocity = (ptcl->velocity + data->dir * velocityMag) * velocityMagRandom;
-
+        if (emitter->ptclTail == NULL)
+        {
+            emitter->ptclTail       = ptcl;
+            ptcl->prev              = NULL;
+            ptcl->next              = NULL;
+        }
         else
         {
-            dispersionAngle = 1.0f - dispersionAngle / 90.0f;
-
-            f32 sin_val, cos_val, angle = emitter->random.GetF32() * 2.0f * math::F_PI;
-            math::SinCosRad(&sin_val, &cos_val, angle);
-
-            f32 y = emitter->random.GetF32() * (1.0f - dispersionAngle) + dispersionAngle;
-
-            f32 a = 1.0f - y * y;
-            if (a <= 0.0f)
-                a = 0.0f;
-            else
-                a = sqrtf(a);
-
-            math::VEC3 normalizedVel = (math::VEC3){ a * cos_val, y, a * sin_val };
-
-            math::VEC3 base = (math::VEC3){ 0.0f, 1.0f, 0.0f };
-            math::MTX34 mtx;
-            math::MTX34::MakeVectorRotation(&mtx, &base, &data->dir);
-
-            math::MTX34::PSMultVec(&normalizedVel, &mtx, &normalizedVel);
-            ptcl->velocity = (ptcl->velocity + normalizedVel * velocityMag) * velocityMagRandom;
+            emitter->ptclTail->next = ptcl;
+            ptcl->prev              = emitter->ptclTail;
+            emitter->ptclTail       = ptcl;
+            ptcl->next              = NULL;
         }
+
+        if (emitter->ptclHead == NULL)
+            emitter->ptclHead = ptcl;
     }
-
-    math::VEC3 randomVec3 = emitter->random.GetVec3();
-    ptcl->velocity.x += randomVec3.x * data->diffusionVel.x;
-    ptcl->velocity.y += randomVec3.y * data->diffusionVel.y;
-    ptcl->velocity.z += randomVec3.z * data->diffusionVel.z;
-
-    if (data->emitterVelInheritRatio != 0.0f)
-    {
-        math::VEC3 localPosCurr;
-        math::VEC3 localPosPrev;
-
-        {
-            math::VEC3 currPos = {
-                .x = emitter->matrixRT.m[0][3],
-                .y = emitter->matrixRT.m[1][3],
-                .z = emitter->matrixRT.m[2][3],
-            };
-
-            math::MTX34 matrixSRTInv;
-            math::MTX34::Inverse(&matrixSRTInv, (emitter->ptclFollowType == PtclFollowType_SRT) ? &emitter->matrixSRT : &ptcl->matrixSRT);
-            math::MTX34::PSMultVec(&localPosCurr, &matrixSRTInv, &currPos);
-        }
-
-        {
-            math::MTX34 matrixSRTInv;
-            math::MTX34::Inverse(&matrixSRTInv, (emitter->ptclFollowType == PtclFollowType_SRT) ? &emitter->matrixSRT : &ptcl->matrixSRT);
-            math::MTX34::PSMultVec(&localPosPrev, &matrixSRTInv, &emitter->prevPos);
-        }
-
-        math::VEC3 posDiff = (localPosCurr - localPosPrev) * data->emitterVelInheritRatio;
-
-        ptcl->velocity += posDiff;
-        ptcl->pos -= posDiff;
-    }
-
-    math::VEC3 addVelocity;
-    math::VEC3::MultMTX(&addVelocity, &emitterSet->addVelocity, &emitterSet->matrixRT);
-    ptcl->velocity += addVelocity;
-
-    if (ptcl->velocity.x != 0.0f || ptcl->velocity.y != 0.0f || ptcl->velocity.y != 0.0f)
-        ptcl->posDiff = ptcl->velocity;
-
     else
     {
+        if (emitter->ptclHead == NULL)
+        {
+            emitter->ptclHead       = ptcl;
+            ptcl->prev              = NULL;
+            ptcl->next              = NULL;
+        }
+        else
+        {
+            emitter->ptclHead->prev = ptcl;
+            ptcl->next              = emitter->ptclHead;
+            emitter->ptclHead       = ptcl;
+            ptcl->prev              = NULL;
+        }
+
+        if (emitter->ptclTail == NULL)
+            emitter->ptclTail = ptcl;
+    }
+
+    emitter->ptclNum++;
+}
+
+static inline f32 _sqrtSafe(f32 v)
+{
+    if (v <= 0.0f)
+        return 0.0f;
+
+    return nw::math::FSqrt(v);
+}
+
+f32 _initialize3v4kAnim(AlphaAnim* anim, const anim3v4Key* key, s32 maxTime)
+{
+    anim->alphaSec1 = (s32)(key->section1 * maxTime);
+    anim->alphaSec2 = (s32)(key->section2 * maxTime);
+
+    if (anim->alphaSec1 == 0)
+        anim->alphaAddSec1 = 0.0f;
+    else
+        anim->alphaAddSec1 = key->diff21 / (f32)anim->alphaSec1;
+
+    if (key->section2 == 1.0f)
+        anim->alphaAddSec2 = 0.0f;
+    else
+        anim->alphaAddSec2 = key->diff32 / (f32)(maxTime - anim->alphaSec2);
+
+    return key->init - anim->alphaAddSec1;
+}
+
+void EmitterCalc::EmitCommon(EmitterInstance* __restrict e , PtclInstance*__restrict ptcl)
+{
+    const SimpleEmitterData*  __restrict res  = e->GetSimpleEmitterData();
+    const ComplexEmitterData* __restrict cres = e->GetComplexEmitterData();
+
+    ptcl->res  = res;
+    ptcl->cres = cres;
+
+    const EmitterSet* __restrict set = e->emitterSet;
+
+    ptcl->emitter           = e;
+    ptcl->emitTime          = e->cnt;
+    ptcl->cnt               = 0.0f;
+    ptcl->cntS              = 0;
+    ptcl->rnd               = e->rnd.GetU32Direct();
+    ptcl->fieldCollisionCnt = 0;
+    ptcl->dynamicsRnd       = 1.0f + res->dynamicsRandom - res->dynamicsRandom * e->rnd.GetF32() * 2.0f;
+    ptcl->runtimeUserData   = 0;
+
+    ptcl->random[0]         = e->rnd.GetF32();
+    ptcl->random[1]         = e->rnd.GetF32();
+    ptcl->random[2]         = e->rnd.GetF32();
+    ptcl->random[3]         = e->rnd.GetF32();
+
+    ptcl->fluctuationAlpha  = 1.0f;
+    ptcl->fluctuationScaleX = 1.0f;
+    ptcl->fluctuationScaleY = 1.0f;
+
+    ptcl->complexParam->childEmitcnt    = 1000000.0f;
+    ptcl->complexParam->childPreEmitcnt = 0.0f;
+    ptcl->complexParam->childEmitSaving = 0.0f;
+
+    if (res->ptclLife == EFT_INFINIT_LIFE)
+        ptcl->life = EFT_INFINIT_LIFE;
+    else
+        ptcl->life = (s32)((e->emitterAnimValue[EFT_ANIM_LIFE] - e->rnd.GetS32( res->ptclLifeRnd)) * e->controller->mLife);
+
+    register f32 velRand = 1.0f - e->rnd.GetF32() * res->emitInitVelRnd * set->mRandomVel;
+    register f32 dirVel  = e->emitterAnimValue[EFT_ANIM_DIR_VEL] * set->mDirectionalVel;
+
+    if (e->followType != EFT_FOLLOW_TYPE_ALL)
+    {
+        nw::math::MTX34Copy(&ptcl->emitterRT,  e->emitterRT);
+        nw::math::MTX34Copy(&ptcl->emitterSRT, e->emitterSRT);
+
+        ptcl->coordinateEmitterRT  = &ptcl->emitterRT;
+        ptcl->coordinateEmitterSRT = &ptcl->emitterSRT;
+    }
+    else
+    {
+        ptcl->coordinateEmitterRT  = &e->emitterRT;
+        ptcl->coordinateEmitterSRT = &e->emitterSRT;
+    }
+
+    if (res->emitInitPosRand != 0.0f)
+    {
+        nw::math::VEC3 rndVec3 = e->rnd.GetNormalizedVec3();
+        ptcl->pos.x = rndVec3.x * res->emitInitPosRand + ptcl->pos.x;
+        ptcl->pos.y = rndVec3.y * res->emitInitPosRand + ptcl->pos.y;
+        ptcl->pos.z = rndVec3.z * res->emitInitPosRand + ptcl->pos.z;
+    }
+
+    if (set->mIsSetDirectional)
+    {
+        ptcl->vel.x = (ptcl->vel.x + set->mDirectional.x * dirVel) * velRand;
+        ptcl->vel.y = (ptcl->vel.y + set->mDirectional.y * dirVel) * velRand;
+        ptcl->vel.z = (ptcl->vel.z + set->mDirectional.z * dirVel) * velRand;
+    }
+    else
+    {
+        f32 angle = res->emitVelDirAngle;
+        if (angle == 0.0f)
+        {
+            ptcl->vel.x = (ptcl->vel.x + res->emitVelDir.x * dirVel) * velRand;
+            ptcl->vel.y = (ptcl->vel.y + res->emitVelDir.y * dirVel) * velRand;
+            ptcl->vel.z = (ptcl->vel.z + res->emitVelDir.z * dirVel) * velRand;
+        }
+        else
+        {
+            angle = angle / 90.0f;
+            angle = 1.0f - angle;
+
+            f32 rot = e->rnd.GetF32() * 2.0f * nw::math::F_PI;
+            f32 sinV;
+            f32 cosV;
+            nw::math::SinCosRad( &sinV, &cosV, rot );
+
+            f32 y = e->rnd.GetF32() * (1.0f - angle) + angle;
+
+            f32 r = _sqrtSafe(1.0f - y * y);
+
+            nw::math::VEC3 velocity;
+            velocity.x = r * cosV;
+            velocity.z = r * sinV;
+            velocity.y = y;
+
+            nw::math::QUAT q;
+            nw::math::VEC3 dir;
+            dir.Set(res->emitVelDir);
+            nw::math::VEC3 unitY(0.0f, 1.0f, 0.0f);
+            nw::math::QUATMakeVectorRotation(&q, &unitY, &dir);
+            nw::math::MTX34 qmat;
+            nw::math::QUATToMTX34(&qmat, q);
+            nw::math::VEC3 srcVelocity;
+            srcVelocity.Set(velocity.x, velocity.y, velocity.z);
+            nw::math::VEC3Transform(&velocity,& qmat, &srcVelocity);
+
+            ptcl->vel.x = (ptcl->vel.x + velocity.x * dirVel) * velRand;
+            ptcl->vel.y = (ptcl->vel.y + velocity.y * dirVel) * velRand;
+            ptcl->vel.z = (ptcl->vel.z + velocity.z * dirVel) * velRand;
+        }
+    }
+
+    const nw::math::VEC3& rndVec3 = e->rnd.GetVec3();
+    ptcl->vel.x += rndVec3.x * res->emitSpreadVec.x;
+    ptcl->vel.y += rndVec3.y * res->emitSpreadVec.y;
+    ptcl->vel.z += rndVec3.z * res->emitSpreadVec.z;
+
+    if (res->emitEmitterVelInherit != 0.0f)
+    {
+        nw::math::VEC3 localVec;
+        nw::math::VEC3 emitterVec;
+        nw::math::VEC3 emitterDisVec;
+        nw::math::VEC3 emitterDstVec;
+        nw::math::VEC3 emitterDstDisVec;
+
+        emitterVec.x = e->emitterRT._03;
+        emitterVec.y = e->emitterRT._13;
+        emitterVec.z = e->emitterRT._23;
+        e->TransformLocalVec(&emitterDstVec, &emitterVec, ptcl);
+        e->TransformLocalVec(&emitterDstDisVec, &e->emitDistPrevPos, ptcl);
+
+        localVec.x = (emitterDstVec.x - emitterDstDisVec.x) * res->emitEmitterVelInherit;
+        localVec.y = (emitterDstVec.y - emitterDstDisVec.y) * res->emitEmitterVelInherit;
+        localVec.z = (emitterDstVec.z - emitterDstDisVec.z) * res->emitEmitterVelInherit;
+
+        ptcl->vel.x += localVec.x;
+        ptcl->vel.y += localVec.y;
+        ptcl->vel.z += localVec.z;
+
+        ptcl->pos.x -= localVec.x;
+        ptcl->pos.y -= localVec.y;
+        ptcl->pos.z -= localVec.z;
+    }
+
+    ptcl->vel.x += set->mVelAdd.x * set->mRT.m[0][0] + set->mVelAdd.y * set->mRT.m[1][0] + set->mVelAdd.z * set->mRT.m[2][0];
+    ptcl->vel.y += set->mVelAdd.x * set->mRT.m[0][1] + set->mVelAdd.y * set->mRT.m[1][1] + set->mVelAdd.z * set->mRT.m[2][1];
+    ptcl->vel.z += set->mVelAdd.x * set->mRT.m[0][2] + set->mVelAdd.y * set->mRT.m[1][2] + set->mVelAdd.z * set->mRT.m[2][2];
+
+    if (!ptcl->vel.IsZero())
+    {
+        ptcl->posDiff.x = ptcl->vel.x;
+        ptcl->posDiff.y = ptcl->vel.y;
+        ptcl->posDiff.z = ptcl->vel.z;
+    }
+    else
+    {
+        #define EMITTER_UP_MIN_VEL 0.0001f
+
         ptcl->posDiff.x = 0.0f;
-        ptcl->posDiff.y = 0.0001f;
+        ptcl->posDiff.y = EMITTER_UP_MIN_VEL;
         ptcl->posDiff.z = 0.0f;
     }
 
-    s32 lifespan = ptcl->lifespan - 1;
-    math::VEC2 scaleRandom;
-    if (data->ptclScaleRandom.x != data->ptclScaleRandom.y)
+    s32 maxTime    = ptcl->life - 1;
+    f32 initScaleX = 1.0f;
+    f32 initScaleY = 1.0f;
+
+    if (res->scaleRand.x != res->scaleRand.y)
     {
-        scaleRandom.x = (1.0f - data->ptclScaleRandom.x * emitter->random.GetF32()) * emitterSet->ptclEmitScale.x;
-        scaleRandom.y = (1.0f - data->ptclScaleRandom.y * emitter->random.GetF32()) * emitterSet->ptclEmitScale.y;
+        f32 scaleRndX = (1.0f - res->scaleRand.x * e->rnd.GetF32());
+        f32 scaleRndY = (1.0f - res->scaleRand.y * e->rnd.GetF32());
+        initScaleX = scaleRndX * set->mEmissionParticleScale.x;
+        initScaleY = scaleRndY * set->mEmissionParticleScale.y;
     }
     else
     {
-        scaleRandom = (1.0f - data->ptclScaleRandom.x * emitter->random.GetF32()) * emitterSet->ptclEmitScale;
+        f32 scaleRnd  = (1.0f - res->scaleRand.x * e->rnd.GetF32());
+        initScaleX = scaleRnd * set->mEmissionParticleScale.x;
+        initScaleY = scaleRnd * set->mEmissionParticleScale.y;
     }
 
-    scaleRandom.x *= emitter->anim[17];
-    scaleRandom.y *= emitter->anim[18];
 
-    if (emitter->shader[ShaderType_Normal]->vertexShaderKey.flags[0] & 0x2000000)
-        ptcl->scale = scaleRandom;
-
-    else if (lifespan == 0)
+    if (e->shader[EFT_SHADER_TYPE_NORMAL]->IsGpuAcceleration())
     {
-        ptcl->scaleAnim->time2 = -1;
-        ptcl->scaleAnim->time3 = 0x7FFFFFFF;
-        ptcl->scaleAnim->startDiff = math::VEC2::Zero();
-        ptcl->scaleAnim->endDiff = math::VEC2::Zero();
-
-        ptcl->scale.x = data->ptclScaleStart.x * scaleRandom.x * data->ptclEmitScale.x;
-        ptcl->scale.y = data->ptclScaleStart.y * scaleRandom.y * data->ptclEmitScale.y;
+        ptcl->scale.x = e->emitterAnimValue[EFT_ANIM_PTCL_SX] * initScaleX;
+        ptcl->scale.y = e->emitterAnimValue[EFT_ANIM_PTCL_SY] * initScaleY;
     }
     else
     {
-        ptcl->scaleAnim->time2 = 0; // ???
-        ptcl->scaleAnim->time3 = 0; // ^^^
+        if (maxTime == 0)
+        {
+            ptcl->scaleAnim->scaleSec1 = -1;
+            ptcl->scaleAnim->scaleSec2 = 0x7fffffff;
+            ptcl->scaleAnim->scaleAddSec1 = nw::math::VEC2::Zero();
+            ptcl->scaleAnim->scaleAddSec2 = nw::math::VEC2::Zero();
 
-        ptcl->scaleAnim->time2 = (data->scaleAnimTime2 * lifespan) / 100;
-        ptcl->scaleAnim->time3 = (data->scaleAnimTime3 * lifespan) / 100;
-
-        math::VEC2 scaleAnimStartDiff;
-        math::VEC2 scale;
-        math::VEC2 scaleAnimEndDiff;
-
-        if (ptcl->scaleAnim->time2 == 0)
-            scaleAnimStartDiff = (math::VEC2){ 0.0f, 0.0f };
-
+            ptcl->scale.x = res->initScale.x * res->baseScale.x * initScaleX * e->emitterAnimValue[EFT_ANIM_PTCL_SX];
+            ptcl->scale.y = res->initScale.y * res->baseScale.y * initScaleY * e->emitterAnimValue[EFT_ANIM_PTCL_SY];
+        }
         else
-            scaleAnimStartDiff = data->ptclScaleStartDiff * (1.0f / (f32)ptcl->scaleAnim->time2);
+        {
+            register f32 scaleX = 1.0f;
+            register f32 scaleY = 1.0f;
+            register f32 scaleAddSec1X = 0.0f;
+            register f32 scaleAddSec1Y = 0.0f;
+            register f32 scaleAddSec2X = 0.0f;
+            register f32 scaleAddSec2Y = 0.0f;
 
-        if (ptcl->scaleAnim->time3 == lifespan)
-            scaleAnimEndDiff = (math::VEC2){ 0.0f, 0.0f };
+            ptcl->scaleAnim->scaleSec1 = 0;
+            ptcl->scaleAnim->scaleSec2 = 0;
 
-        else
-            scaleAnimEndDiff = data->ptclScaleEndDiff * (1.0f / (f32)(lifespan - ptcl->scaleAnim->time3));
+            ptcl->scaleAnim->scaleSec1 = (res->scaleSection1 * maxTime) / 100;
+            ptcl->scaleAnim->scaleSec2 = (res->scaleSection2 * maxTime) / 100;
 
-        scale = data->ptclScaleStart - scaleAnimStartDiff;
+            if (ptcl->scaleAnim->scaleSec1 == 0)
+            {
+                scaleAddSec1X = 0.0f;
+                scaleAddSec1Y = 0.0f;
+            }
+            else
+            {
+                f32 invScaleSec1 = 1.0f / (f32)ptcl->scaleAnim->scaleSec1;
+                scaleAddSec1X = res->diffScale21.x * invScaleSec1;
+                scaleAddSec1Y = res->diffScale21.y * invScaleSec1;
+            }
 
-        ptcl->scaleAnim->startDiff.x = scaleAnimStartDiff.x * data->ptclEmitScale.x * scaleRandom.x;
-        ptcl->scaleAnim->startDiff.y = scaleAnimStartDiff.y * data->ptclEmitScale.y * scaleRandom.y;
-        ptcl->scaleAnim->endDiff.x = scaleAnimEndDiff.x * data->ptclEmitScale.x * scaleRandom.x;
-        ptcl->scaleAnim->endDiff.y = scaleAnimEndDiff.y * data->ptclEmitScale.y * scaleRandom.y;
+            if (ptcl->scaleAnim->scaleSec2 == maxTime)
+            {
+                scaleAddSec2X = 0.0f;
+                scaleAddSec2Y = 0.0f;
+            }
+            else
+            {
+                f32 invScaleSec2 = 1.0f / (f32)(maxTime - ptcl->scaleAnim->scaleSec2);
+                scaleAddSec2X = res->diffScale32.x * invScaleSec2;
+                scaleAddSec2Y = res->diffScale32.y * invScaleSec2;
+            }
 
-        ptcl->scale.x = scale.x * data->ptclEmitScale.x * scaleRandom.x;
-        ptcl->scale.y = scale.y * data->ptclEmitScale.y * scaleRandom.y;
+            scaleX = res->initScale.x - scaleAddSec1X;
+            scaleY = res->initScale.y - scaleAddSec1Y;
+
+            ptcl->scaleAnim->scaleAddSec1.x = scaleAddSec1X * res->baseScale.x * e->emitterAnimValue[EFT_ANIM_PTCL_SX] * initScaleX;
+            ptcl->scaleAnim->scaleAddSec1.y = scaleAddSec1Y * res->baseScale.y * e->emitterAnimValue[EFT_ANIM_PTCL_SY] * initScaleY;
+            ptcl->scaleAnim->scaleAddSec2.x = scaleAddSec2X * res->baseScale.x * e->emitterAnimValue[EFT_ANIM_PTCL_SX] * initScaleX;
+            ptcl->scaleAnim->scaleAddSec2.y = scaleAddSec2Y * res->baseScale.y * e->emitterAnimValue[EFT_ANIM_PTCL_SY] * initScaleY;
+
+            ptcl->scale.x = scaleX * res->baseScale.x * e->emitterAnimValue[EFT_ANIM_PTCL_SX] * initScaleX;
+            ptcl->scale.y = scaleY * res->baseScale.y * e->emitterAnimValue[EFT_ANIM_PTCL_SY] * initScaleY;
+        }
     }
 
-    ptcl->_13C = 0.0f;
+    ptcl->scaleVelY = 0.0f;
 
-    if (data->ptclAlphaSrc[0] == AlphaSourceType_First || data->ptclAlphaSrc[0] == AlphaSourceType_8key)
-        ptcl->alpha0 = data->alphaAnim[0].startValue + data->alphaAnim[0].startDiff;
 
-    else if (data->ptclAlphaSrc[0] == AlphaSourceType_3v4k)
-        ptcl->alpha0 = _initialize3v4kAnim(ptcl->alphaAnim[0], &data->alphaAnim[0], lifespan);
-
-    if (data->ptclAlphaSrc[1] == AlphaSourceType_First || data->ptclAlphaSrc[1] == AlphaSourceType_8key)
-        ptcl->alpha1 = data->alphaAnim[1].startValue + data->alphaAnim[1].startDiff;
-
-    else if (data->ptclAlphaSrc[1] == AlphaSourceType_3v4k)
-        ptcl->alpha1 = _initialize3v4kAnim(ptcl->alphaAnim[1], &data->alphaAnim[1], lifespan);
-
-    ptcl->rotation.x = data->ptclRotate.x + emitter->random.GetF32() * data->ptclRotateRandom.x + emitterSet->ptclRotate.x;
-    ptcl->rotation.y = data->ptclRotate.y + emitter->random.GetF32() * data->ptclRotateRandom.y + emitterSet->ptclRotate.y;
-    ptcl->rotation.z = data->ptclRotate.z + emitter->random.GetF32() * data->ptclRotateRandom.z + emitterSet->ptclRotate.z;
-
-    ptcl->angularVelocity.x = data->angularVelocity.x + emitter->random.GetF32() * data->angularVelocityRandom.x;
-    ptcl->angularVelocity.y = data->angularVelocity.y + emitter->random.GetF32() * data->angularVelocityRandom.y;
-    ptcl->angularVelocity.z = data->angularVelocity.z + emitter->random.GetF32() * data->angularVelocityRandom.z;
-
-    if (data->rotateDirRandomX != 0 && emitter->random.GetF32() > 0.5f)
+    if (res->alphaCalcType[EFT_ALPHA_KIND_0] == EFT_ALPHA_CALC_TYPE_FIXED ||
+        res->alphaCalcType[EFT_ALPHA_KIND_0] == EFT_ALPHA_CALC_TYPE_8KEY)
     {
-        ptcl->velocity.x = -ptcl->velocity.x;
-        ptcl->angularVelocity.x = -ptcl->angularVelocity.x;
+        ptcl->alpha0 = res->alpha3v4kAnim[EFT_ALPHA_KIND_0].init + res->alpha3v4kAnim[EFT_ALPHA_KIND_0].diff21;
+    }
+    else if (res->alphaCalcType[EFT_ALPHA_KIND_0] == EFT_ALPHA_CALC_TYPE_3V4KEY)
+    {
+        ptcl->alpha0 = _initialize3v4kAnim( ptcl->alphaAnim[EFT_ALPHA_KIND_0], &res->alpha3v4kAnim[EFT_ALPHA_KIND_0], maxTime );
     }
 
-    if (data->rotateDirRandomY != 0 && emitter->random.GetF32() > 0.5f)
+    if (res->alphaCalcType[EFT_ALPHA_KIND_1] == EFT_ALPHA_CALC_TYPE_FIXED ||
+        res->alphaCalcType[EFT_ALPHA_KIND_1] == EFT_ALPHA_CALC_TYPE_8KEY)
     {
-        ptcl->velocity.y = -ptcl->velocity.y;
-        ptcl->angularVelocity.y = -ptcl->angularVelocity.y;
+        ptcl->alpha1 = res->alpha3v4kAnim[EFT_ALPHA_KIND_1].init + res->alpha3v4kAnim[EFT_ALPHA_KIND_1].diff21;
+    }
+    else if (res->alphaCalcType[EFT_ALPHA_KIND_1] == EFT_ALPHA_CALC_TYPE_3V4KEY)
+    {
+        ptcl->alpha1 = _initialize3v4kAnim( ptcl->alphaAnim[EFT_ALPHA_KIND_1], &res->alpha3v4kAnim[EFT_ALPHA_KIND_1], maxTime );
     }
 
-    if (data->rotateDirRandomZ != 0 && emitter->random.GetF32() > 0.5f)
+    ptcl->rot.x = res->initRot.x + e->rnd.GetF32() * res->initRotRand.x + set->mInitialRoate.x;
+    ptcl->rot.y = res->initRot.y + e->rnd.GetF32() * res->initRotRand.y + set->mInitialRoate.y;
+    ptcl->rot.z = res->initRot.z + e->rnd.GetF32() * res->initRotRand.z + set->mInitialRoate.z;
+
+    ptcl->rotVel.x = res->rotVel.x + e->rnd.GetF32() * res->rotVelRand.x;
+    ptcl->rotVel.y = res->rotVel.y + e->rnd.GetF32() * res->rotVelRand.y;
+    ptcl->rotVel.z = res->rotVel.z + e->rnd.GetF32() * res->rotVelRand.z;
+
+    if (res->isRotDirRand[0] && e->rnd.GetF32() > 0.5f)
     {
-        ptcl->velocity.z = -ptcl->velocity.z;
-        ptcl->angularVelocity.z = -ptcl->angularVelocity.z;
+        ptcl->rot.x *= -1.0f;
+        ptcl->rotVel.x *= -1.0f;
+    }
+    if (res->isRotDirRand[1] && e->rnd.GetF32() > 0.5f)
+    {
+        ptcl->rot.y *= -1.0f;
+        ptcl->rotVel.y *= -1.0f;
+    }
+    if (res->isRotDirRand[2] && e->rnd.GetF32() > 0.5f)
+    {
+        ptcl->rot.z *= -1.0f;
+        ptcl->rotVel.z *= -1.0f;
     }
 
-    if (data->ptclColorSrc[0] == ColorSourceType_Random)
+    if (res->colorCalcType[EFT_COLOR_KIND_0] == EFT_COLOR_CALC_TYPE_RANDOM)
     {
-        u32 colorIdx = ptcl->randomVec4.x * (u32)data->colorNumRepetition[0];
-        ptcl->color[0].rgb() = data->ptclColorTbl[0][colorIdx].rgb();
+        u32 num = (u32)res->colorNumRepeat[EFT_COLOR_KIND_0];
+        u32 id = (u32)(ptcl->random[0] * num);
+        ptcl->color[EFT_COLOR_KIND_0].r = res->color[EFT_COLOR_KIND_0][id].r;
+        ptcl->color[EFT_COLOR_KIND_0].g = res->color[EFT_COLOR_KIND_0][id].g;
+        ptcl->color[EFT_COLOR_KIND_0].b = res->color[EFT_COLOR_KIND_0][id].b;
     }
     else
     {
-        u32 colorIdx = 0;
-        ptcl->color[0].rgb() = data->ptclColorTbl[0][colorIdx].rgb();
+        ptcl->color[EFT_COLOR_KIND_0].r = res->color[EFT_COLOR_KIND_0][0].r;
+        ptcl->color[EFT_COLOR_KIND_0].g = res->color[EFT_COLOR_KIND_0][0].g;
+        ptcl->color[EFT_COLOR_KIND_0].b = res->color[EFT_COLOR_KIND_0][0].b;
     }
 
-    if (data->ptclColorSrc[1] == ColorSourceType_Random)
+    if (res->colorCalcType[EFT_COLOR_KIND_1] == EFT_COLOR_CALC_TYPE_RANDOM)
     {
-        u32 colorIdx = ptcl->randomVec4.x * (u32)data->colorNumRepetition[1];
-        ptcl->color[1].rgb() = data->ptclColorTbl[1][colorIdx].rgb();
+        u32 num = (u32)res->colorNumRepeat[EFT_COLOR_KIND_1];
+        u32 id = (u32)( ptcl->random[0] * num );
+        ptcl->color[EFT_COLOR_KIND_1].r = res->color[EFT_COLOR_KIND_1][id].r;
+        ptcl->color[EFT_COLOR_KIND_1].g = res->color[EFT_COLOR_KIND_1][id].g;
+        ptcl->color[EFT_COLOR_KIND_1].b = res->color[EFT_COLOR_KIND_1][id].b;
     }
     else
     {
-        u32 colorIdx = 0;
-        ptcl->color[1].rgb() = data->ptclColorTbl[1][colorIdx].rgb();
+        ptcl->color[EFT_COLOR_KIND_1].r = res->color[EFT_COLOR_KIND_1][0].r;
+        ptcl->color[EFT_COLOR_KIND_1].g = res->color[EFT_COLOR_KIND_1][0].g;
+        ptcl->color[EFT_COLOR_KIND_1].b = res->color[EFT_COLOR_KIND_1][0].b;
     }
 
-    ptcl->color[1].a = 1.0f;
+    ptcl->color[EFT_COLOR_KIND_1].a = 1.0f;
 
-    AddPtclToList(emitter, ptcl);
+    AddPtclToList(e, ptcl);
 
-    CustomActionParticleEmitCallback callback = mSys->GetCurrentCustomActionParticleEmitCallback(emitter);
-    if (callback != NULL)
+    CustomActionParticleEmitCallback particleEmitCB = mSys->GetCurrentCustomActionParticleEmitCallback(e);
+    if (particleEmitCB)
     {
-        ParticleEmitArg arg = { .ptcl = ptcl };
-        if (!callback(arg))
-            return RemoveParticle(ptcl, CpuCore_1);
+        ParticleEmitArg arg;
+        arg.particle = ptcl;
+
+        if (!particleEmitCB(arg))
+        {
+            RemoveParticle(ptcl, EFT_CPU_CORE_1);
+            return;
+        }
     }
 }
 
-u32 _getUnifiedAnimID(u32 animValIdx)
+u32 _getUnifiedAnimID(u32 id)
 {
-    if (0x26 <= animValIdx && animValIdx <= 0x2B) // Ptcl Color0/1 RGB -> Ptcl Color1 R
-        return 0x29;
+    switch(id)
+    {
+    case EFT_ANIM_8KEY_PARTICLE_COLOR0_R:
+    case EFT_ANIM_8KEY_PARTICLE_COLOR0_G:
+    case EFT_ANIM_8KEY_PARTICLE_COLOR0_B:
+    case EFT_ANIM_8KEY_PARTICLE_COLOR1_R:
+    case EFT_ANIM_8KEY_PARTICLE_COLOR1_G:
+    case EFT_ANIM_8KEY_PARTICLE_COLOR1_B:
+        return EFT_ANIM_8KEY_PARTICLE_COLOR1_R;
 
-    if (0x2E <= animValIdx && animValIdx <= 0x2F) // Ptcl Scale XY -> Ptcl Scale X
-        return 0x2E;
+    case EFT_ANIM_8KEY_PARTICLE_SCALE_X:
+    case EFT_ANIM_8KEY_PARTICLE_SCALE_Y:
+        return EFT_ANIM_8KEY_PARTICLE_SCALE_X;
+    }
 
-    return animValIdx;
+    return id;
 }
 
-f32 _calcParticleAnimTime(EmitterInstance* emitter, PtclInstance* ptcl, u32 animValIdx)
+f32 _calcParticleAnimTime(EmitterInstance* __restrict e, PtclInstance* __restrict ptcl, u32 id)
 {
-    KeyFrameAnim* anim = emitter->ptclAnimArray[animValIdx - (27 + 1)];
-    f32 time = (anim->loop != 0) ? ptcl->counterS32 % (anim->loopLength + 1) * 100.0f / anim->loopLength + (ptcl->counter - ptcl->counterS32)
-                                 : 100.0f * ptcl->counter / ptcl->lifespan;
+    KeyFrameAnim* anim = e->particleAnimKey[EFT_ANIM_8KEY_OFFSET(id)];
+    f32 time;
 
-    if (anim->randomStart != 0)
+    if (anim->isLoop)
     {
-        time += ptcl->randomU32 * _getUnifiedAnimID(animValIdx) * (1.0f / 4294967296.0f) * 100.0f;
-        if (time > 100.0f)
-            time -= 100.0f;
+        time = ptcl->cntS % (anim->loopFrame + 1) * 100.0f / anim->loopFrame + (ptcl->cnt - ptcl->cntS);
+
+        if (anim->isStartRandom)
+        {
+            time += ptcl->rnd * _getUnifiedAnimID(id) * EFT_RANDOM_MAX_INVERSE_F32 * 100.0f;
+            if (time > 100.0f)
+                time -= 100.0f;
+        }
+    }
+    else
+    {
+        time = 100.0f * ptcl->cnt / ptcl->life;
+
+        if (anim->isStartRandom)
+        {
+            time += ptcl->rnd * _getUnifiedAnimID(id) * EFT_RANDOM_MAX_INVERSE_F32 * 100.0f;
+            if (time > 100.0f)
+                time -= 100.0f;
+        }
     }
 
     return time;
 }
 
-f32 _calcParticleAnimTime(KeyFrameAnim* anim, PtclInstance* ptcl, u32 animValIdx)
+f32 _calcParticleAnimTime(KeyFrameAnim* anim, PtclInstance* __restrict ptcl, u32 id)
 {
-    f32 time = (anim->loop != 0) ? ptcl->counterS32 % (anim->loopLength + 1) * 100.0f / anim->loopLength + (ptcl->counter - ptcl->counterS32)
-                                 : 100.0f * ptcl->counter / ptcl->lifespan;
+    f32 time;
 
-    if (anim->randomStart != 0)
+    if (anim->isLoop)
     {
-        time += ptcl->randomU32 * _getUnifiedAnimID(animValIdx) * (1.0f / 4294967296.0f) * 100.0f;
-        if (time > 100.0f)
-            time -= 100.0f;
+        time = ptcl->cntS % (anim->loopFrame + 1) * 100.0f / anim->loopFrame + (ptcl->cnt - ptcl->cntS);
+
+        if (anim->isStartRandom)
+        {
+            time += ptcl->rnd * _getUnifiedAnimID(id) * EFT_RANDOM_MAX_INVERSE_F32 * 100.0f;
+            if (time > 100.0f)
+                time -= 100.0f;
+        }
+    }
+    else
+    {
+        time = 100.0f * ptcl->cnt / ptcl->life;
+
+        if (anim->isStartRandom)
+        {
+            time += ptcl->rnd * _getUnifiedAnimID(id) * EFT_RANDOM_MAX_INVERSE_F32 * 100.0f;
+            if (time > 100.0f)
+                time -= 100.0f;
+        }
     }
 
     return time;

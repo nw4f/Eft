@@ -1,6 +1,5 @@
 #include <nw/eft/eft_EmitterComplex.h>
 #include <nw/eft/eft_EmitterSet.h>
-#include <nw/eft/eft_Renderer.h>
 #include <nw/eft/eft_Shader.h>
 #include <nw/eft/eft_System.h>
 #include <nw/eft/eft_UniformBlock.h>
@@ -12,210 +11,214 @@ void EmitterComplexCalc::CalcEmitter(EmitterInstance* emitter)
     EmitterSimpleCalc::CalcEmitter(emitter);
 }
 
-void EmitterComplexCalc::CalcStripe(EmitterInstance* emitter, PtclInstance* ptcl, const StripeData* stripeData, const ComplexEmitterData* data, CpuCore core, bool noMakePtclAttributeBuffer)
+void EmitterComplexCalc::CalcStripe(EmitterInstance* emitter, PtclInstance* ptcl, const StripeData* stripeData, const ComplexEmitterData* cres, CpuCore core, bool skipMakeAttribute)
 {
-    s32 counter = ptcl->counterS32 - 1;
-    System* system = emitter->emitterSet->system;
+    System* eftSystem = emitter->emitterSet->mSystem;
+
+    register s32 cnt = ptcl->cntS - 1;
 
     PtclStripe* stripe = ptcl->complexParam->stripe;
-    if (stripe == NULL)
-        return;
-
-    stripe->texAnimParam[0].scroll.x += data->texAnimParam[0].texIncScroll.x * emitter->emissionSpeed;
-    stripe->texAnimParam[0].scroll.y += data->texAnimParam[0].texIncScroll.y * emitter->emissionSpeed;
-    stripe->texAnimParam[0].scale.x  += data->texAnimParam[0].texIncScale.x  * emitter->emissionSpeed;
-    stripe->texAnimParam[0].scale.y  += data->texAnimParam[0].texIncScale.y  * emitter->emissionSpeed;
-    stripe->texAnimParam[0].rotate   += data->texAnimParam[0].texIncRotate   * emitter->emissionSpeed;
-
-    stripe->texAnimParam[1].scroll.x += data->texAnimParam[1].texIncScroll.x * emitter->emissionSpeed;
-    stripe->texAnimParam[1].scroll.y += data->texAnimParam[1].texIncScroll.y * emitter->emissionSpeed;
-    stripe->texAnimParam[1].scale.x  += data->texAnimParam[1].texIncScale.x  * emitter->emissionSpeed;
-    stripe->texAnimParam[1].scale.y  += data->texAnimParam[1].texIncScale.y  * emitter->emissionSpeed;
-    stripe->texAnimParam[1].rotate   += data->texAnimParam[1].texIncRotate   * emitter->emissionSpeed;
-
-    PtclStripeSliceHistory* currentSlice = &stripe->queue[stripe->queueRear];
-
-    if (!(stripe->flags & 1) || stripe->queueRear < stripeData->numSliceHistory - 1)
+    if (stripe)
     {
-        if ((s32)(floorf(ptcl->counter + emitter->emissionSpeed) - floorf(ptcl->counter)) == 0)
-            return;
+        stripe->uvParam[EFT_TEXTURE_SLOT_0].scroll.x += cres->textureData[EFT_TEXTURE_SLOT_0].uvScroll.x * emitter->frameRate;
+        stripe->uvParam[EFT_TEXTURE_SLOT_0].scroll.y += cres->textureData[EFT_TEXTURE_SLOT_0].uvScroll.y * emitter->frameRate;
+        stripe->uvParam[EFT_TEXTURE_SLOT_0].scale.x  += cres->textureData[EFT_TEXTURE_SLOT_0].uvScale.x  * emitter->frameRate;
+        stripe->uvParam[EFT_TEXTURE_SLOT_0].scale.y  += cres->textureData[EFT_TEXTURE_SLOT_0].uvScale.y  * emitter->frameRate;
+        stripe->uvParam[EFT_TEXTURE_SLOT_0].rotateZ  += cres->textureData[EFT_TEXTURE_SLOT_0].uvRot      * emitter->frameRate;
 
-        if (data->stripeFlags & 1)
+        stripe->uvParam[EFT_TEXTURE_SLOT_1].scroll.x += cres->textureData[EFT_TEXTURE_SLOT_1].uvScroll.x * emitter->frameRate;
+        stripe->uvParam[EFT_TEXTURE_SLOT_1].scroll.y += cres->textureData[EFT_TEXTURE_SLOT_1].uvScroll.y * emitter->frameRate;
+        stripe->uvParam[EFT_TEXTURE_SLOT_1].scale.x  += cres->textureData[EFT_TEXTURE_SLOT_1].uvScale.x  * emitter->frameRate;
+        stripe->uvParam[EFT_TEXTURE_SLOT_1].scale.y  += cres->textureData[EFT_TEXTURE_SLOT_1].uvScale.y  * emitter->frameRate;
+        stripe->uvParam[EFT_TEXTURE_SLOT_1].rotateZ  += cres->textureData[EFT_TEXTURE_SLOT_1].uvRot      * emitter->frameRate;
+
+        PtclStripeHistory* histNow = &stripe->hist[stripe->histQEnd];
+
+        if (!(stripe->flag & 1) || stripe->histQEnd < stripeData->stripeNumHistory - 1)
         {
-            currentSlice->pos = ptcl->pos;
-            math::MTX34::Copy(&currentSlice->emitterMatrixSRT, &math::MTX34::Identity());
-        }
-        else
-        {
-            f32 sliceInterpolation = stripeData->sliceInterpolation;
-            if (counter > 2 && stripeData->numSliceHistory > 3 && sliceInterpolation < 1.0f && stripe->queueRear != stripe->queueFront)
+            f32 next = ptcl->cnt + emitter->frameRate;
+
+            s32 count = (s32)(nw::math::FFloor(next) - nw::math::FFloor(ptcl->cnt));
+            if (count == 0)
+                return;
+
+            if (cres->stripeFlg & EFT_STRIPE_FLAG_EMITTER_COORD)
             {
-                s32 prevIdx = stripe->queueRear - 1;
-                if (prevIdx < 0)
-                    prevIdx = stripeData->numSliceHistory - 1;
-
-                s32 prev2Idx = prevIdx - 1;
-                if (prev2Idx < 0)
-                    prev2Idx = stripeData->numSliceHistory - 1;
-
-                math::VEC3 diff0;
-                math::VEC3::Subtract(&diff0, &ptcl->worldPos, &stripe->pos0);
-                math::VEC3::Scale(&diff0, &diff0, sliceInterpolation);
-                math::VEC3::Add(&stripe->pos0, &stripe->pos0, &diff0);
-
-                math::VEC3 diff1;
-                math::VEC3::Subtract(&diff1, &stripe->pos0, &stripe->pos1);
-                math::VEC3::Scale(&diff1, &diff1, sliceInterpolation);
-                math::VEC3::Add(&stripe->pos1, &stripe->pos1, &diff1);
-
-                stripe->queue[prev2Idx].pos = stripe->pos1;
-
-                math::VEC3 diff2;
-                math::VEC3::Subtract(&diff2, &ptcl->worldPos, &stripe->pos1);
-                math::VEC3::Scale(&diff2, &diff2, 0.7f);
-                math::VEC3::Add(&stripe->queue[prevIdx].pos, &stripe->pos1, &diff2);
-
-                currentSlice->pos = ptcl->worldPos;
+                histNow->pos = ptcl->pos;
+                histNow->emitterSRT.SetIdentity();
             }
             else
             {
-                stripe->pos0 = (stripe->pos1 = (currentSlice->pos = ptcl->worldPos));
+                f32 hisRatio = stripeData->stripeHistoryInterpolate;
+                if (cnt > 2 && stripeData->stripeNumHistory > 3 && hisRatio < 1.0f && stripe->histQEnd != stripe->histQStart)
+                {
+                    s32 prevIx  = stripe->histQEnd - 1; if (prevIx  < 0) prevIx  = stripeData->stripeNumHistory - 1;
+                    s32 prevIx2 = prevIx           - 1; if (prevIx2 < 0) prevIx2 = stripeData->stripeNumHistory - 1;
+                    PtclStripeHistory* histPrev  = &stripe->hist[prevIx];
+                    PtclStripeHistory* histPrev2 = &stripe->hist[prevIx2];
+
+                    stripe->p0 += (ptcl->worldPos - stripe->p0) * hisRatio;
+                    stripe->p1 += (stripe->p0     - stripe->p1) * hisRatio;
+
+                    histPrev2->pos = stripe->p1;
+                    histPrev->pos  = stripe->p1 + (ptcl->worldPos - stripe->p1) * 0.7f;
+                    histNow->pos = ptcl->worldPos;
+                }
+                else
+                {
+                    histNow->pos = ptcl->worldPos;
+                    stripe->p0 = (stripe->p1 = histNow->pos);
+                }
+
+                histNow->emitterSRT = emitter->emitterSRT;
             }
 
-            currentSlice->emitterMatrixSRT = emitter->matrixSRT;
+            histNow->scale = ptcl->scale.x * emitter->emitterSet->mParticlScaleForCalc.x;
+
+            if (stripe->histQEnd != stripe->histQStart)
+            {
+                s32 prevIx = stripe->histQEnd - 1; if (prevIx < 0) prevIx = stripeData->stripeNumHistory - 1;
+                PtclStripeHistory* histPrev = &stripe->hist[prevIx];
+
+                if (cnt < 2)
+                {
+                    stripe->interpolateNextDir = histNow->pos - histPrev->pos;
+                    if (stripe->interpolateNextDir.Length() > 0.0f)
+                        stripe->interpolateNextDir.Normalize();
+                }
+                else
+                {
+                    nw::math::VEC3 dir = histNow->pos - histPrev->pos;
+                    if (dir.Length() > 0.0f)
+                        dir.Normalize();
+
+                    stripe->interpolateNextDir += (dir - stripe->interpolateNextDir) * stripeData->stripeDirInterpolate;
+                    if (stripe->interpolateNextDir.Length() > 0.0f)
+                        stripe->interpolateNextDir.Normalize();
+                }
+
+                histNow->dir = stripe->interpolateNextDir;
+
+                if (stripeData->stripeType == EFT_STRIPE_TYPE_EMITTER_UP_DOWN)
+                {
+                    histNow->outer.x = histNow->emitterSRT.m[0][1];
+                    histNow->outer.y = histNow->emitterSRT.m[1][1];
+                    histNow->outer.z = histNow->emitterSRT.m[2][1];
+                }
+                else
+                {
+                    nw::math::VEC3 basis(histNow->emitterSRT.m[0][1],
+                                         histNow->emitterSRT.m[1][1],
+                                         histNow->emitterSRT.m[2][1]);
+
+                    nw::math::VEC3 outer;
+                    outer.SetCross(basis, stripe->interpolateNextDir);
+                    if (outer.Length() > 0.0f)
+                        outer.Normalize();
+
+                    histNow->outer = outer;
+                }
+            }
+
+            stripe->histQEnd++;
+            if (stripe->histQEnd >= stripeData->stripeNumHistory)
+                stripe->histQEnd = 0;
+
+            if (stripe->histQEnd == stripe->histQStart)
+            {
+                stripe->histQStart++;
+                if (stripe->histQStart >= stripeData->stripeNumHistory)
+                    stripe->histQStart = 0;
+            }
+
+            stripe->numHistory++;
+            if (stripe->numHistory >= stripeData->stripeNumHistory)
+                stripe->numHistory = stripeData->stripeNumHistory;
+
+            stripe->cnt++;
         }
 
-        currentSlice->scale = ptcl->scale.x * emitter->emitterSet->ptclEffectiveScale.x;
-
-        if (stripe->queueRear != stripe->queueFront)
-        {
-            s32 prevIdx = stripe->queueRear - 1;
-            if (prevIdx < 0)
-                prevIdx = stripeData->numSliceHistory - 1;
-
-            PtclStripeSliceHistory* prevSlice = &stripe->queue[prevIdx];
-
-            if (counter < 2)
-            {
-                math::VEC3::Subtract(&stripe->currentSliceDir, &currentSlice->pos, &prevSlice->pos);
-                if (stripe->currentSliceDir.Magnitude() > 0.0f)
-                    stripe->currentSliceDir.Normalize();
-            }
-            else
-            {
-                math::VEC3 posDiff;
-                math::VEC3::Subtract(&posDiff, &currentSlice->pos, &prevSlice->pos);
-                if (posDiff.Magnitude() > 0.0f)
-                    posDiff.Normalize();
-
-                math::VEC3 diff;
-                math::VEC3::Subtract(&diff, &posDiff, &stripe->currentSliceDir);
-                math::VEC3::Scale(&diff, &diff, stripeData->dirInterpolation);
-                math::VEC3::Add(&stripe->currentSliceDir, &stripe->currentSliceDir, &diff);
-                if (stripe->currentSliceDir.Magnitude() > 0.0f)
-                    stripe->currentSliceDir.Normalize();
-            }
-
-            currentSlice->dir = stripe->currentSliceDir;
-
-            if (stripeData->type == 2)
-            {
-                currentSlice->outer.x = currentSlice->emitterMatrixSRT.m[0][1];
-                currentSlice->outer.y = currentSlice->emitterMatrixSRT.m[1][1];
-                currentSlice->outer.z = currentSlice->emitterMatrixSRT.m[2][1];
-            }
-            else
-            {
-                math::VEC3 outer = (math::VEC3){ currentSlice->emitterMatrixSRT.m[0][1],
-                                                 currentSlice->emitterMatrixSRT.m[1][1],
-                                                 currentSlice->emitterMatrixSRT.m[2][1] };
-                math::VEC3::CrossProduct(&outer, &outer, &stripe->currentSliceDir);
-                if (outer.Magnitude() > 0.0f)
-                    outer.Normalize();
-
-                currentSlice->outer = outer;
-            }
-        }
-
-        if (++stripe->queueRear >= stripeData->numSliceHistory)
-            stripe->queueRear = 0;
-
-        if (stripe->queueRear == stripe->queueFront
-            && ++stripe->queueFront >= stripeData->numSliceHistory)
-            stripe->queueFront = 0;
-
-        if (++stripe->queueCount >= stripeData->numSliceHistory)
-            stripe->queueCount = stripeData->numSliceHistory;
+        if (!skipMakeAttribute)
+            eftSystem->GetRenderer(core)->MakeStripeAttributeBlock(emitter, ptcl);
     }
-
-    stripe->counter++;
-
-    if (!noMakePtclAttributeBuffer)
-        system->renderers[core]->MakeStripeAttributeBlock(emitter, ptcl);
 }
 
 void EmitterComplexCalc::EmitChildParticle(EmitterInstance* emitter, PtclInstance* ptcl, CpuCore core, const ChildData* childData)
 {
-    s32 counter = ptcl->counterS32;
-    if (counter < ((ptcl->lifespan - 1) * childData->startFramePercent / 100))
-        return;
+    s32 emitTime = (ptcl->life - 1) * childData->childEmitTiming / 100;
 
-    if (ptcl->complexParam->childEmitCounter >= childData->emissionInterval || childData->emissionInterval == 0 && childData->ptclMaxLifespan == 1)
+    register s32 cnt = ptcl->cntS;
+
+    if (cnt >= emitTime)
     {
-        if (ptcl->complexParam->childPreCalcCounter > 0.0f)
+        if (ptcl->complexParam->childEmitcnt >= childData->childEmitStep || childData->childEmitStep == 0 && childData->childLife == 1)
         {
-            f32 time = emitter->counter - ptcl->complexParam->childPreCalcCounter + ptcl->complexParam->childEmitLostTime;
-            if (childData->emissionInterval != 0)
-                time /= childData->emissionInterval;
+            s32 loop = 1;
 
-            if (ptcl->complexParam->childEmitLostTime >= childData->emissionInterval)
-                ptcl->complexParam->childEmitLostTime -= childData->emissionInterval;
+            if (ptcl->complexParam->childPreEmitcnt > 0.0f)
+            {
+                if (childData->childEmitStep != 0)
+                {
+                    loop = (s32)((emitter->cnt - ptcl->complexParam->childPreEmitcnt + ptcl->complexParam->childEmitSaving) / childData->childEmitStep);
 
-            ptcl->complexParam->childEmitLostTime += emitter->counter - ptcl->complexParam->childPreCalcCounter - (s32)time;
+                    if (ptcl->complexParam->childEmitSaving >= childData->childEmitStep)
+                        ptcl->complexParam->childEmitSaving -= childData->childEmitStep;
+
+                    ptcl->complexParam->childEmitSaving += emitter->cnt - ptcl->complexParam->childPreEmitcnt - loop;
+                }
+                else
+                {
+                    loop = (s32)(emitter->cnt - ptcl->complexParam->childPreEmitcnt + ptcl->complexParam->childEmitSaving);
+
+                    if (ptcl->complexParam->childEmitSaving >= childData->childEmitStep)
+                        ptcl->complexParam->childEmitSaving -= childData->childEmitStep;
+
+                    ptcl->complexParam->childEmitSaving += emitter->cnt - ptcl->complexParam->childPreEmitcnt - loop;
+                }
+            }
+
+            mSys->AddPtclAdditionList(ptcl, core);
+
+            ptcl->complexParam->childEmitcnt = 0.0f;
+            ptcl->complexParam->childPreEmitcnt = emitter->cnt;
         }
-
-        mSys->AddPtclAdditionList(ptcl, core);
-
-        ptcl->complexParam->childEmitCounter = 0.0f;
-        ptcl->complexParam->childPreCalcCounter = emitter->counter;
-    }
-    else
-    {
-        ptcl->complexParam->childEmitCounter += emitter->emissionSpeed;
+        else
+        {
+            ptcl->complexParam->childEmitcnt += emitter->frameRate;
+        }
     }
 }
 
-u32 EmitterComplexCalc::CalcParticle(EmitterInstance* emitter, CpuCore core, bool noCalcBehavior, bool noMakePtclAttributeBuffer)
+u32 EmitterComplexCalc::CalcParticle(EmitterInstance* emitter, CpuCore core, bool skipBehavior, bool skipMakeAttribute)
 {
-    emitter->numDrawParticle = 0;
-    if (emitter->numParticles == 0)
+    emitter->entryNum = 0;
+    if (emitter->ptclNum == 0)
         return 0;
 
-    System* system = emitter->emitterSet->system;
-    VertexTransformMode vertexTransformMode = emitter->data->vertexTransformMode;
-    PtclAttributeBuffer* ptclAttributeBuffer = NULL;
+    System*       eftSystem     = emitter->emitterSet->mSystem;
+    BillboardType billboardType = emitter->GetBillboardType();
+    PtclAttributeBuffer* ptclAttrBuffer = NULL;
 
-    if (!noMakePtclAttributeBuffer
-        && vertexTransformMode != VertexTransformMode_Stripe
-        && vertexTransformMode != VertexTransformMode_Complex_Stripe)
+    if (!skipMakeAttribute &&
+        billboardType != EFT_BILLBOARD_TYPE_STRIPE &&
+        billboardType != EFT_BILLBOARD_TYPE_COMPLEX_STRIPE)
     {
-        Renderer** const renderers = system->renderers;
-
-        emitter->ptclAttributeBuffer = static_cast<PtclAttributeBuffer*>(renderers[core]->AllocFromDoubleBuffer(sizeof(PtclAttributeBuffer) * emitter->numParticles));
+        emitter->ptclAttributeBuffer = static_cast<PtclAttributeBuffer*>(
+            eftSystem->GetRenderer(core)->AllocFromDoubleBuffer(sizeof(PtclAttributeBuffer) * emitter->ptclNum));
         if (emitter->ptclAttributeBuffer == NULL)
         {
             emitter->emitterDynamicUniformBlock = NULL;
             return 0;
         }
 
-        emitter->emitterDynamicUniformBlock = MakeEmitterUniformBlock(emitter, core, NULL, false);
+        emitter->emitterDynamicUniformBlock = MakeEmitterUniformBlock(emitter, core);
         if (emitter->emitterDynamicUniformBlock == NULL)
         {
             emitter->ptclAttributeBuffer = NULL;
             return 0;
         }
 
-        ptclAttributeBuffer = emitter->ptclAttributeBuffer;
+        ptclAttrBuffer = emitter->ptclAttributeBuffer;
     }
     else
     {
@@ -223,157 +226,159 @@ u32 EmitterComplexCalc::CalcParticle(EmitterInstance* emitter, CpuCore core, boo
         emitter->emitterDynamicUniformBlock = NULL;
     }
 
-    const ComplexEmitterData* data = emitter->GetComplexEmitterData();
+    const ComplexEmitterData* cres = emitter->GetComplexEmitterData();
 
-    CustomActionParticleCalcCallback callback1 = mSys->GetCurrentCustomActionParticleCalcCallback(emitter);
-    CustomActionParticleMakeAttributeCallback callback2 = mSys->GetCurrentCustomActionParticleMakeAttributeCallback(emitter);
+    CustomActionParticleCalcCallback particleCB = mSys->GetCurrentCustomActionParticleCalcCallback(emitter);
+    CustomActionParticleMakeAttributeCallback particleMakeAttrCB = mSys->GetCurrentCustomActionParticleMakeAttributeCallback(emitter);
 
-    PtclInstance* ptcl = emitter->particleHead;
-    const ChildData* childData = emitter->GetChildData();
-    const StripeData* stripeData = NULL;
-    u32 shaderAvailableAttribFlg = emitter->shader[ShaderType_Normal]->shaderAvailableAttribFlg;
+    PtclInstance* ptcl = emitter->ptclHead;
+
+    const ChildData*  childData         = emitter->GetChildData();
+    const StripeData* stripeData        = NULL;
+    u32               shaderAttrFlag    = emitter->shader[EFT_SHADER_TYPE_NORMAL]->GetShaderAttributeFlag();
+    PtclStripe*       stripe            = NULL;
 
     bool isStripe = false;
-    if (vertexTransformMode == VertexTransformMode_Stripe
-        || vertexTransformMode == VertexTransformMode_Complex_Stripe)
+    if (billboardType == EFT_BILLBOARD_TYPE_STRIPE ||
+        billboardType == EFT_BILLBOARD_TYPE_COMPLEX_STRIPE)
     {
         isStripe = true;
         stripeData = emitter->GetStripeData();
     }
 
-    bool simpleStripe = vertexTransformMode == VertexTransformMode_Stripe;
-    bool complexStripe = vertexTransformMode == VertexTransformMode_Complex_Stripe;
+    bool isDefaultStripe = false;
+    if (billboardType == EFT_BILLBOARD_TYPE_STRIPE)
+        isDefaultStripe = true;
 
-    f32 numBehaviorIterF32 = emitter->counter - emitter->counter2;
-    u32 numBehaviorIter = (u32)numBehaviorIterF32;
-    f32 numBehaviorIterDelta = numBehaviorIterF32 - numBehaviorIter;
-    bool behaviorRepeat = emitter->emissionSpeed > 1.0f;
+    bool isConnectionStripe = false;
+    if (billboardType == EFT_BILLBOARD_TYPE_COMPLEX_STRIPE)
+        isConnectionStripe = true;
 
-    PtclInstance* next;
+    f32 behaviorLoopF = emitter->cnt - emitter->preCnt;
+    u32 behaviorLoopU = (u32)behaviorLoopF;
+    f32 behaviorLoopD = behaviorLoopF - behaviorLoopU;
+    bool behaviorLoop = false;
+    if (emitter->frameRate > 1.0f)
+        behaviorLoop  = true;
 
-    for (; ptcl != NULL; ptcl = next)
+    PtclInstance* next = NULL;
+
+    while (ptcl)
     {
         next = ptcl->next;
-        PtclStripe* stripe = ptcl->complexParam->stripe;
 
-        if (!noCalcBehavior)
+        stripe = ptcl->complexParam->stripe;
+
+        if (!skipBehavior)
         {
-            if (isStripe && stripe != NULL)
+            if (isStripe && stripe)
             {
-                ptcl->counterS32 = (s32)ptcl->counter;
-                if (ptcl->counterS32 >= ptcl->lifespan || ptcl->lifespan == 1 && ptcl->counter != 0.0f)
+                ptcl->cntS = (s32)ptcl->cnt;
+                if (ptcl->cntS >= ptcl->life || (ptcl->life == 1 && ptcl->cnt != 0.0f))
                 {
-                    const StripeData* stripeData = reinterpret_cast<const StripeData*>((u32)data + data->stripeDataOffs);
-
-                    if (stripe->queueFront != stripe->queueRear)
+                    if (stripe->histQStart != stripe->histQEnd)
                     {
-                        if (++stripe->queueFront >= stripeData->numSliceHistory)
-                            stripe->queueFront = 0;
+                        stripe->histQStart++;
+                        if (stripe->histQStart >= stripeData->stripeNumHistory)
+                            stripe->histQStart = 0;
 
-                        stripe->queueCount--;
+                        stripe->numHistory--;
 
-                        stripe->texAnimParam[0].scroll.x += data->texAnimParam[0].texIncScroll.x * emitter->emissionSpeed;
-                        stripe->texAnimParam[0].scroll.y += data->texAnimParam[0].texIncScroll.y * emitter->emissionSpeed;
-                        stripe->texAnimParam[0].scale.x  += data->texAnimParam[0].texIncScale.x  * emitter->emissionSpeed;
-                        stripe->texAnimParam[0].scale.y  += data->texAnimParam[0].texIncScale.y  * emitter->emissionSpeed;
-                        stripe->texAnimParam[0].rotate   += data->texAnimParam[0].texIncRotate   * emitter->emissionSpeed;
+                        stripe->uvParam[EFT_TEXTURE_SLOT_0].scroll.x += cres->textureData[EFT_TEXTURE_SLOT_0].uvScroll.x * emitter->frameRate;
+                        stripe->uvParam[EFT_TEXTURE_SLOT_0].scroll.y += cres->textureData[EFT_TEXTURE_SLOT_0].uvScroll.y * emitter->frameRate;
+                        stripe->uvParam[EFT_TEXTURE_SLOT_0].scale.x  += cres->textureData[EFT_TEXTURE_SLOT_0].uvScale.x  * emitter->frameRate;
+                        stripe->uvParam[EFT_TEXTURE_SLOT_0].scale.y  += cres->textureData[EFT_TEXTURE_SLOT_0].uvScale.y  * emitter->frameRate;
+                        stripe->uvParam[EFT_TEXTURE_SLOT_0].rotateZ  += cres->textureData[EFT_TEXTURE_SLOT_0].uvRot      * emitter->frameRate;
 
-                        stripe->texAnimParam[1].scroll.x += data->texAnimParam[1].texIncScroll.x * emitter->emissionSpeed;
-                        stripe->texAnimParam[1].scroll.y += data->texAnimParam[1].texIncScroll.y * emitter->emissionSpeed;
-                        stripe->texAnimParam[1].scale.x  += data->texAnimParam[1].texIncScale.x  * emitter->emissionSpeed;
-                        stripe->texAnimParam[1].scale.y  += data->texAnimParam[1].texIncScale.y  * emitter->emissionSpeed;
-                        stripe->texAnimParam[1].rotate   += data->texAnimParam[1].texIncRotate   * emitter->emissionSpeed;
+                        stripe->uvParam[EFT_TEXTURE_SLOT_1].scroll.x += cres->textureData[EFT_TEXTURE_SLOT_1].uvScroll.x * emitter->frameRate;
+                        stripe->uvParam[EFT_TEXTURE_SLOT_1].scroll.y += cres->textureData[EFT_TEXTURE_SLOT_1].uvScroll.y * emitter->frameRate;
+                        stripe->uvParam[EFT_TEXTURE_SLOT_1].scale.x  += cres->textureData[EFT_TEXTURE_SLOT_1].uvScale.x  * emitter->frameRate;
+                        stripe->uvParam[EFT_TEXTURE_SLOT_1].scale.y  += cres->textureData[EFT_TEXTURE_SLOT_1].uvScale.y  * emitter->frameRate;
+                        stripe->uvParam[EFT_TEXTURE_SLOT_1].rotateZ  += cres->textureData[EFT_TEXTURE_SLOT_1].uvRot      * emitter->frameRate;
 
-                        emitter->numDrawParticle++;
+                        emitter->entryNum++;
 
-                        stripe->counter++;
-                        if (!noMakePtclAttributeBuffer)
-                            system->renderers[core]->MakeStripeAttributeBlock(emitter, ptcl);
+                        stripe->cnt++;
+
+                        if (!skipMakeAttribute)
+                            eftSystem->GetRenderer(core)->MakeStripeAttributeBlock(emitter, ptcl);
                     }
                     else
                     {
                         RemoveParticle(ptcl, core);
                     }
 
-                    stripe->counter++;
-                    if (!noMakePtclAttributeBuffer)
-                        system->renderers[core]->MakeStripeAttributeBlock(emitter, ptcl);
+                    stripe->cnt++;
 
+                    if (!skipMakeAttribute)
+                        eftSystem->GetRenderer(core)->MakeStripeAttributeBlock(emitter, ptcl);
+
+                    ptcl = next;
                     continue;
                 }
             }
             else
             {
-                ptcl->counterS32 = (s32)ptcl->counter;
-                if (ptcl->counterS32 >= ptcl->lifespan || ptcl->lifespan == 1 && ptcl->counter > 1.0f)
+                if (CalcParticleKillCondition(ptcl, core))
                 {
-                    RemoveParticle(ptcl, core);
+                    ptcl = next;
                     continue;
                 }
             }
 
-            if (behaviorRepeat)
+            if (behaviorLoop)
             {
-                for (u32 i = 0; i < numBehaviorIter; i++)
+                for (u32 i = 0; i < behaviorLoopU; i++)
                     CalcComplexParticleBehavior(emitter, ptcl, 1.0f);
 
-                if (numBehaviorIterDelta != 0.0f)
-                    CalcComplexParticleBehavior(emitter, ptcl, numBehaviorIterDelta);
+                if (behaviorLoopD != 0.0f)
+                    CalcComplexParticleBehavior(emitter, ptcl, behaviorLoopD);
             }
             else
             {
-                CalcComplexParticleBehavior(emitter, ptcl, emitter->emissionSpeed);
+                CalcComplexParticleBehavior(emitter, ptcl, emitter->frameRate);
             }
 
-            if (isStripe && stripe != NULL && emitter->emissionSpeed != 0.0f)
-                CalcStripe(emitter, ptcl, stripeData, data, core, noMakePtclAttributeBuffer);
+            if (isStripe && stripe && emitter->frameRate != 0.0f)
+                CalcStripe(emitter, ptcl, stripeData, cres, core, skipMakeAttribute);
 
 
-            if (childData != NULL && emitter->emissionSpeed != 0.0f)
+            if (childData && emitter->frameRate != 0.0f)
                 EmitChildParticle(emitter, ptcl, core, childData);
 
-            if (callback1 != NULL)
+            if (particleCB)
             {
-                ParticleCalcArg arg = {
-                    .emitter = emitter,
-                    .ptcl = ptcl,
-                    .core = core,
-                    .noCalcBehavior = noCalcBehavior,
-                };
-                callback1(arg);
+                CalcParticleCalcCallback(particleCB, emitter, ptcl, core, skipBehavior);
 
-                if (ptcl->data == NULL)
+                if (ptcl->res == NULL)
+                {
+                    ptcl = next;
                     continue;
+                }
             }
         }
 
-        if (!isStripe && !noMakePtclAttributeBuffer)
+        if (!isStripe && !skipMakeAttribute)
         {
-            ptcl->ptclAttributeBuffer = ptclAttributeBuffer;
-            MakeParticleAttributeBuffer(ptclAttributeBuffer++, ptcl, shaderAvailableAttribFlg);
-            emitter->numDrawParticle++;
+            CalcParticleMakeAttr(emitter, ptcl, ptclAttrBuffer, shaderAttrFlag);
+            ptclAttrBuffer++;
 
-            if (callback2 != NULL)
-            {
-                ParticleMakeAttrArg arg = {
-                    .emitter = emitter,
-                    .ptcl = ptcl,
-                    .core = core,
-                    .noCalcBehavior = noCalcBehavior,
-                };
-                callback2(arg);
-            }
+            if (particleMakeAttrCB != NULL)
+                CalcParticleMakeAttrCallback(particleMakeAttrCB, emitter, ptcl, core, skipBehavior);
         }
 
-        if (simpleStripe && !noMakePtclAttributeBuffer)
-            system->renderers[core]->MakeStripeAttributeBlock(emitter, ptcl);
+        if (isDefaultStripe && !skipMakeAttribute)
+            eftSystem->GetRenderer(core)->MakeStripeAttributeBlock(emitter, ptcl);
+
+        ptcl = next;
     }
 
-    if (complexStripe)
-        system->renderers[core]->MakeConnectionStripeAttributeBlock(emitter);
+    if (isConnectionStripe)
+        eftSystem->GetRenderer(core)->MakeConnectionStripeAttributeBlock(emitter);
 
-    emitter->emitterBehaviorFlg |= EmitterBehaviorFlag_IsCalculated;
-    return emitter->numParticles;
+    emitter->emitterBehaviorFlag |= EFT_EMITTER_BEHAVIOR_FLAG_IS_CALCULATED;
+
+    return emitter->ptclNum;
 }
 
 } } // namespace nw::eft

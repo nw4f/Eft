@@ -6,436 +6,505 @@
 
 namespace nw { namespace eft {
 
-const void* EmitterCalc::_ptclField_Random(EmitterInstance* emitter, PtclInstance* ptcl, const void* fieldData, f32 emissionSpeed)
+static const f32 EPSILON = 0.0001f;
+
+const void* EmitterCalc::_ptclField_Random(EmitterInstance* __restrict e, PtclInstance* __restrict ptcl, const void* fieldData, f32 frameRate)
 {
-    const FieldRandomData* randomData = static_cast<const FieldRandomData*>(fieldData);
+    const FieldRandomData* dat = static_cast<const FieldRandomData*>(fieldData);
+    nw::math::VEC3 fieldRandomVelAdd;
 
-    if (ptcl->counterS32 % randomData->period == 0)
+    if (ptcl->cntS % dat->fieldRandomBlank == 0)
     {
-        math::VEC3 randomVec3 = emitter->random.GetVec3();
-        math::VEC3 randomVelScale;
+        const nw::math::VEC3& rndVec3 = e->rnd.GetVec3();
 
-        if (emitter->ptclAnimArray[28 - (27 + 1)] != NULL)
+        if (_isExistParticleAnim8Key(e, EFT_ANIM_8KEY_FIELD_RND_X))
         {
-            KeyFrameAnim* velScaleXAnim = emitter->ptclAnimArray[28 - (27 + 1)];
-            KeyFrameAnim* velScaleYAnim = emitter->ptclAnimArray[29 - (27 + 1)];
-            KeyFrameAnim* velScaleZAnim = emitter->ptclAnimArray[30 - (27 + 1)];
+            KeyFrameAnim* animX = e->particleAnimKey[EFT_ANIM_8KEY_OFFSET(EFT_ANIM_8KEY_FIELD_RND_X)];
+            KeyFrameAnim* animY = e->particleAnimKey[EFT_ANIM_8KEY_OFFSET(EFT_ANIM_8KEY_FIELD_RND_Y)];
+            KeyFrameAnim* animZ = e->particleAnimKey[EFT_ANIM_8KEY_OFFSET(EFT_ANIM_8KEY_FIELD_RND_Z)];
 
-            f32 time = _calcParticleAnimTime(emitter, ptcl, 28);
-            u32 index = CalcAnimKeyFrameIndex(velScaleXAnim, time);
+            f32 time = _calcParticleAnimTime(e, ptcl, EFT_ANIM_8KEY_FIELD_RND_X);
+            u32 index = CalcAnimKeyFrameIndex(animX, time);
 
-            randomVelScale.x = CalcAnimKeyFrameSimple(velScaleXAnim, time, index);
-            randomVelScale.y = CalcAnimKeyFrameSimple(velScaleYAnim, time, index);
-            randomVelScale.y = CalcAnimKeyFrameSimple(velScaleZAnim, time, index);
+            fieldRandomVelAdd.x = CalcAnimKeyFrameSimple(animX, time, index);
+            fieldRandomVelAdd.y = CalcAnimKeyFrameSimple(animY, time, index);
+            fieldRandomVelAdd.z = CalcAnimKeyFrameSimple(animZ, time, index);
         }
         else
         {
-            randomVelScale = randomData->randomVelScale;
+            fieldRandomVelAdd.x = dat->fieldRandomVelAdd.x;
+            fieldRandomVelAdd.y = dat->fieldRandomVelAdd.y;
+            fieldRandomVelAdd.z = dat->fieldRandomVelAdd.z;
         }
 
-        ptcl->velocity.x += randomVec3.x * randomVelScale.x;
-        ptcl->velocity.y += randomVec3.y * randomVelScale.y;
-        ptcl->velocity.z += randomVec3.z * randomVelScale.z;
+        ptcl->vel.x += rndVec3.x * fieldRandomVelAdd.x;
+        ptcl->vel.y += rndVec3.y * fieldRandomVelAdd.y;
+        ptcl->vel.z += rndVec3.z * fieldRandomVelAdd.z;
     }
 
-    return randomData + 1;
+    return dat + 1;
 }
 
-const void* EmitterCalc::_ptclField_Magnet(EmitterInstance* emitter, PtclInstance* ptcl, const void* fieldData, f32 emissionSpeed)
+const void* EmitterCalc::_ptclField_Magnet(EmitterInstance* __restrict e, PtclInstance* __restrict ptcl, const void* fieldData, f32 frameRate)
 {
-    const FieldMagnetData* magnetData = static_cast<const FieldMagnetData*>(fieldData);
-    f32 strength;
+    const FieldMagnetData* dat = static_cast<const FieldMagnetData*>(fieldData);
+    f32 fieldMagnetPower;
 
-    if (emitter->ptclAnimArray[31 - (27 + 1)] != NULL)
+    if (_isExistParticleAnim8Key(e, EFT_ANIM_8KEY_FIELD_MAGNET))
     {
-        KeyFrameAnim* magnetAnim = emitter->ptclAnimArray[31 - (27 + 1)];
+        KeyFrameAnim* anim = e->particleAnimKey[EFT_ANIM_8KEY_OFFSET(EFT_ANIM_8KEY_FIELD_MAGNET)];
 
-        f32 time = _calcParticleAnimTime(magnetAnim, ptcl, 31);
-        u32 index = CalcAnimKeyFrameIndex(magnetAnim, time);
+        f32 time = _calcParticleAnimTime(anim, ptcl, EFT_ANIM_8KEY_FIELD_MAGNET);
+        u32 index = CalcAnimKeyFrameIndex(anim, time);
 
-        strength = CalcAnimKeyFrameSimple(magnetAnim, time, index);
+        fieldMagnetPower = CalcAnimKeyFrameSimple(anim, time, index);
     }
     else
     {
-        strength = magnetData->strength;
+        fieldMagnetPower = dat->fieldMagnetPower;
     }
 
-    if (magnetData->followEmitter != 0)
+    if (dat->isFollowEmitter)
     {
-        math::VEC3 localPosCurr;
+        nw::math::VEC3 local;
+        nw::math::VEC3 src;
+        src.x = e->emitterRT._03;
+        src.y = e->emitterRT._13;
+        src.z = e->emitterRT._23;
+        e->TransformLocalVec(&local, &src, ptcl);
 
-        {
-            math::VEC3 currPos = {
-                .x = emitter->matrixRT.m[0][3],
-                .y = emitter->matrixRT.m[1][3],
-                .z = emitter->matrixRT.m[2][3],
-            };
-
-            math::MTX34 matrixSRTInv;
-            math::MTX34::Inverse(&matrixSRTInv, (emitter->ptclFollowType == PtclFollowType_SRT) ? &emitter->matrixSRT : &ptcl->matrixSRT);
-            math::MTX34::PSMultVec(&localPosCurr, &matrixSRTInv, &currPos);
-        }
-
-        if (magnetData->flags & 1) ptcl->velocity.x += (localPosCurr.x + magnetData->pos.x - ptcl->pos.x - ptcl->velocity.x) * strength;
-        if (magnetData->flags & 2) ptcl->velocity.y += (localPosCurr.x + magnetData->pos.y - ptcl->pos.y - ptcl->velocity.y) * strength;
-        if (magnetData->flags & 4) ptcl->velocity.z += (localPosCurr.x + magnetData->pos.z - ptcl->pos.z - ptcl->velocity.z) * strength;
-
-        return magnetData + 1;
+        if (dat->fieldMagnetFlg & EFT_MAGNET_FLAG_X) ptcl->vel.x += ( local.x + dat->fieldMagnetPos.x - ptcl->pos.x - ptcl->vel.x) * fieldMagnetPower;
+        if (dat->fieldMagnetFlg & EFT_MAGNET_FLAG_Y) ptcl->vel.y += ( local.y + dat->fieldMagnetPos.y - ptcl->pos.y - ptcl->vel.y) * fieldMagnetPower;
+        if (dat->fieldMagnetFlg & EFT_MAGNET_FLAG_Z) ptcl->vel.z += ( local.z + dat->fieldMagnetPos.z - ptcl->pos.z - ptcl->vel.z) * fieldMagnetPower;
+    }
+    else
+    {
+        if (dat->fieldMagnetFlg & EFT_MAGNET_FLAG_X) ptcl->vel.x += ( dat->fieldMagnetPos.x - ptcl->pos.x - ptcl->vel.x) * fieldMagnetPower;
+        if (dat->fieldMagnetFlg & EFT_MAGNET_FLAG_Y) ptcl->vel.y += ( dat->fieldMagnetPos.y - ptcl->pos.y - ptcl->vel.y) * fieldMagnetPower;
+        if (dat->fieldMagnetFlg & EFT_MAGNET_FLAG_Z) ptcl->vel.z += ( dat->fieldMagnetPos.z - ptcl->pos.z - ptcl->vel.z) * fieldMagnetPower;
     }
 
-    if (magnetData->flags & 1) ptcl->velocity.x += (magnetData->pos.x - ptcl->pos.x - ptcl->velocity.x) * strength;
-    if (magnetData->flags & 2) ptcl->velocity.y += (magnetData->pos.y - ptcl->pos.y - ptcl->velocity.y) * strength;
-    if (magnetData->flags & 4) ptcl->velocity.z += (magnetData->pos.z - ptcl->pos.z - ptcl->velocity.z) * strength;
-
-    return magnetData + 1;
+    return dat + 1;
 }
 
-const void* EmitterCalc::_ptclField_Spin(EmitterInstance* emitter, PtclInstance* ptcl, const void* fieldData, f32 emissionSpeed)
+const void* EmitterCalc::_ptclField_Spin(EmitterInstance* __restrict e, PtclInstance* __restrict ptcl, const void* fieldData, f32 frameRate)
 {
-    const FieldSpinData* spinData = static_cast<const FieldSpinData*>(fieldData);
+    const FieldSpinData* dat = static_cast<const FieldSpinData*>(fieldData);
 
-    f32 sin_val, cos_val;
-    u32 angle;
-    f32 diffusionVel;
+    register float sinV, cosV;
 
-    if (emitter->ptclAnimArray[32 - (27 + 1)] != NULL)
+    u32 fieldSpinRotate;
+    f32 fieldSpinOuter;
+
+    if (_isExistParticleAnim8Key(e, EFT_ANIM_8KEY_FIELD_SPIN_ROT))
     {
-        KeyFrameAnim* spinAngleAnim = emitter->ptclAnimArray[32 - (27 + 1)];
+        KeyFrameAnim* anim = e->particleAnimKey[EFT_ANIM_8KEY_OFFSET(EFT_ANIM_8KEY_FIELD_SPIN_ROT)];
 
-        f32 time = _calcParticleAnimTime(spinAngleAnim, ptcl, 32);
-        u32 index = CalcAnimKeyFrameIndex(spinAngleAnim, time);
+        f32 time = _calcParticleAnimTime(anim, ptcl, EFT_ANIM_8KEY_FIELD_SPIN_ROT);
+        u32 index = CalcAnimKeyFrameIndex(anim, time);
 
-        angle = CalcAnimKeyFrameSimpleS32(spinAngleAnim, time, index);
+        fieldSpinRotate = CalcAnimKeyFrameSimpleS32(anim, time, index);
     }
     else
     {
-        angle = spinData->angle;
+        fieldSpinRotate = dat->fieldSpinRotate;
     }
 
-    if (emitter->ptclAnimArray[33 - (27 + 1)] != NULL)
+    if (_isExistParticleAnim8Key(e, EFT_ANIM_8KEY_FIELD_SPIN_OUTER))
     {
-        KeyFrameAnim* spinDiffusionVelAnim = emitter->ptclAnimArray[33 - (27 + 1)];
+        KeyFrameAnim* anim = e->particleAnimKey[EFT_ANIM_8KEY_OFFSET(EFT_ANIM_8KEY_FIELD_SPIN_OUTER)];
 
-        f32 time = _calcParticleAnimTime(spinDiffusionVelAnim, ptcl, 33);
-        u32 index = CalcAnimKeyFrameIndex(spinDiffusionVelAnim, time);
+        f32 time = _calcParticleAnimTime(anim, ptcl, EFT_ANIM_8KEY_FIELD_SPIN_OUTER);
+        u32 index = CalcAnimKeyFrameIndex(anim, time);
 
-        diffusionVel = CalcAnimKeyFrameSimple(spinDiffusionVelAnim, time, index);
+        fieldSpinOuter = CalcAnimKeyFrameSimple(anim, time, index);
     }
     else
     {
-        diffusionVel = spinData->diffusionVel;
+        fieldSpinOuter = dat->fieldSpinOuter;
     }
 
-    f32 degree = angle * (1.0f / 4294967296.0f) * 360.0f;
-    if (degree > 180.0f)
-        degree -= 360.0f;
-    degree *= ptcl->randomF32 * emissionSpeed;
-    if (degree < 0)
-        degree += 360.0f;
+    {
+        const u64 INDEX_MAX = 0x100000000;
+        f32 degree = (fieldSpinRotate / (f32)INDEX_MAX) * 360.0f;
+        if (degree > 180.0f)
+            degree -= 360.0f;
 
-    angle = (u32)(angle / 360.0f * 4294967296.0f);
-    math::SinCosIdx(&sin_val, &cos_val, angle);
+        degree *= ptcl->dynamicsRnd * frameRate;
+        if (degree < 0)
+            degree += 360.0f;
 
-    switch (spinData->axis)
+        u32 idx = (u32)((degree / 360.0f) * INDEX_MAX);
+        nw::math::SinCosIdx(&sinV, &cosV, idx);
+    }
+
+    switch (dat->fieldSpinAxis)
     {
     case 0:
-        {
-            f32 y, z;
-            ptcl->pos.y = (y = ptcl->pos.y *  cos_val + ptcl->pos.z * sin_val);
-            ptcl->pos.z = (z = ptcl->pos.y * -sin_val + ptcl->pos.z * cos_val);
+    {
+        f32 v0 = ptcl->pos.y *  cosV  + ptcl->pos.z * sinV;
+        f32 v1 = ptcl->pos.y * -sinV  + ptcl->pos.z * cosV;
+        ptcl->pos.y = v0;
+        ptcl->pos.z = v1;
 
-            if (diffusionVel == 0.0f)
-                break;
-
-            f32 magSq = y*y + z*z;
-            if (magSq <= 0.0f)
-                break;
-
-            f32 a = 1.0f / sqrtf(magSq) * diffusionVel * ptcl->randomF32 * emissionSpeed;
-            ptcl->pos.y += y * a;
-            ptcl->pos.z += z * a;
+        if (fieldSpinOuter == 0.0f)
             break;
-        }
+
+        f32 length2 = v0 * v0 + v1 * v1;
+        if (length2 <= 0.0f)
+            break;
+
+        f32 r = 1.0f / nw::math::FSqrt(length2) * fieldSpinOuter * ptcl->dynamicsRnd * frameRate;
+        ptcl->pos.y += v0 * r;
+        ptcl->pos.z += v1 * r;
+    }
+    break;
+
     case 1:
-        {
-            f32 z, x;
-            ptcl->pos.z = (z = ptcl->pos.z *  cos_val + ptcl->pos.x * sin_val);
-            ptcl->pos.x = (x = ptcl->pos.z * -sin_val + ptcl->pos.x * cos_val);
+    {
+        f32 v0 = ptcl->pos.z *  cosV  + ptcl->pos.x * sinV;
+        f32 v1 = ptcl->pos.z * -sinV  + ptcl->pos.x * cosV;
+        ptcl->pos.z = v0;
+        ptcl->pos.x = v1;
 
-            if (diffusionVel == 0.0f)
-                break;
-
-            f32 magSq = z*z + x*x;
-            if (magSq <= 0.0f)
-                break;
-
-            f32 a = 1.0f / sqrtf(magSq) * diffusionVel * ptcl->randomF32 * emissionSpeed;
-            ptcl->pos.z += z * a;
-            ptcl->pos.x += x * a;
+        if (fieldSpinOuter == 0.0f)
             break;
-        }
+
+        f32 length2 = v0 * v0 + v1 * v1;
+        if (length2 <= 0.0f)
+            break;
+
+        f32 r = 1.0f / nw::math::FSqrt(length2) * fieldSpinOuter * ptcl->dynamicsRnd * frameRate;
+        ptcl->pos.z += v0 * r;
+        ptcl->pos.x += v1 * r;
+    }
+    break;
+
     case 2:
-        {
-            f32 x, y;
-            ptcl->pos.x = (x = ptcl->pos.x *  cos_val + ptcl->pos.y * sin_val);
-            ptcl->pos.y = (y = ptcl->pos.x * -sin_val + ptcl->pos.y * cos_val);
+    {
+        f32 v0 = ptcl->pos.x *  cosV  + ptcl->pos.y * sinV;
+        f32 v1 = ptcl->pos.x * -sinV  + ptcl->pos.y * cosV;
+        ptcl->pos.x = v0;
+        ptcl->pos.y = v1;
 
-            if (diffusionVel == 0.0f)
-                break;
+        if (fieldSpinOuter == 0.0f)
+            break;
 
-            f32 magSq = x*x + y*y;
-            if (magSq <= 0.0f)
-                break;
+        f32 length2 = v0 * v0 + v1 * v1;
+        if (length2 <= 0.0f)
+            break;
 
-            f32 a = 1.0f / sqrtf(magSq) * diffusionVel * ptcl->randomF32 * emissionSpeed;
-            ptcl->pos.x += x * a;
-            ptcl->pos.y += y * a;
-        }
+        f32 r = 1.0f / nw::math::FSqrt(length2) * fieldSpinOuter * ptcl->dynamicsRnd * frameRate;
+        ptcl->pos.x += v0 * r;
+        ptcl->pos.y += v1 * r;
+    }
+    break;
     }
 
-    return spinData + 1;
+    return dat + 1;
 }
 
-const void* EmitterCalc::_ptclField_Collision(EmitterInstance* emitter, PtclInstance* ptcl, const void* fieldData, f32 emissionSpeed)
+const void* EmitterCalc::_ptclField_Collision(EmitterInstance* __restrict e, PtclInstance* __restrict ptcl, const void* fieldData, f32 frameRate)
 {
-    const FieldCollisionData* collisionData = static_cast<const FieldCollisionData*>(fieldData);
+    const FieldCollisionData* dat = static_cast<const FieldCollisionData*>(fieldData);
 
-    if (collisionData->bounceCount != -1 && collisionData->bounceCount <= ptcl->fieldCollisionCounter)
-        return collisionData + 1;
+    if (dat->fieldCollisionCnt != -1 && dat->fieldCollisionCnt <= ptcl->fieldCollisionCnt)
+        return dat + 1;
 
-    f32 y = emitter->fieldCollisionY;
+    f32 y = e->filedCollisionY;
 
-    if (collisionData->sharedPlane != 0)
+    if (dat->fieldCollisionIsCommonCoord)
     {
-        if (emitter->emitterSet->system->isSharedPlaneEnable == 0)
-            return collisionData + 1;
+        if (!e->emitterSet->GetSystem()->IsFieldCollisionCommonPlaneEnable())
+            return dat + 1;
 
-        System* system = emitter->emitterSet->system;
+        f32 minX, maxX;
+        f32 minZ, maxZ;
 
-        f32 minX = system->sharedPlaneX.x;
-        f32 maxX = system->sharedPlaneX.y;
-        y        = system->sharedPlaneY;
-        f32 minZ = system->sharedPlaneZ.x;
-        f32 maxZ = system->sharedPlaneZ.y;
+        e->emitterSet->GetSystem()->GetFieldCollisionCommonPlane(&minX, &maxX, &y, &minZ, &maxZ);
 
-        if (collisionData->coordSystem != 0)
+        if (dat->fieldCollisionIsWorld)
         {
-            const math::MTX34* matrixSRT;
-            if (emitter->ptclFollowType == PtclFollowType_SRT)
-                matrixSRT = &emitter->matrixSRT;
+            register nw::math::VEC3 worldPos;
+
+            nw::math::MTX34* matEmitter;
+            if (e->followType == EFT_FOLLOW_TYPE_ALL)
+                matEmitter = &e->emitterSRT;
             else
-                matrixSRT = &ptcl->matrixSRT;
+                matEmitter = &ptcl->emitterSRT;
 
-            math::VEC3 worldPos;
-            math::MTX34::PSMultVec(&worldPos, matrixSRT, &ptcl->pos);
+            VEC3Transform(&worldPos, matEmitter, &ptcl->pos);
 
-            switch (collisionData->collisionType)
+            switch (dat->fieldCollisionType)
             {
-            case 0:
-                if (worldPos.y < y && minX < worldPos.x && worldPos.x < maxX
-                                   && minZ < worldPos.z && worldPos.z < maxZ)
+            case EFT_FIELD_COLLISION_REACTION_CESSER:
+                if (worldPos.y < y && minX < worldPos.x && worldPos.x < maxX &&
+                                      minZ < worldPos.z && worldPos.z < maxZ )
                 {
                     worldPos.y = y;
-                    ptcl->counter = (f32)ptcl->lifespan;
-                    ptcl->counterS32 = ptcl->lifespan;
+                    ptcl->cnt = (f32)ptcl->life;
+                    ptcl->cntS = ptcl->life;
                 }
                 break;
-            case 1:
-                if (worldPos.y < y && minX < worldPos.x && worldPos.x < maxX
-                                   && minZ < worldPos.z && worldPos.z < maxZ)
+
+            case EFT_FIELD_COLLISION_REACTION_REFLECTION:
+                if (worldPos.y < y && minX < worldPos.x && worldPos.x < maxX &&
+                                      minZ < worldPos.z && worldPos.z < maxZ)
                 {
-                    worldPos.y = y + 0.0001f;
+                    worldPos.y = y + EPSILON;
 
-                    math::VEC3 worldVelocity;
-                    math::MTX34::MultVecSR(&worldVelocity, matrixSRT, &ptcl->velocity);
+                    register nw::math::VEC3 worldVel;
+                    {
+                        f32 tx = ptcl->vel.x;
+                        f32 ty = ptcl->vel.y;
+                        f32 tz = ptcl->vel.z;
+                        nw::math::MTX34& m = *matEmitter;
+                        worldVel.x = m.m[0][0] * tx + m.m[0][1] * ty + m.m[0][2] * tz;
+                        worldVel.y = m.m[1][0] * tx + m.m[1][1] * ty + m.m[1][2] * tz;
+                        worldVel.z = m.m[2][0] * tx + m.m[2][1] * ty + m.m[2][2] * tz;
+                    }
 
-                    worldVelocity.y *= -collisionData->bounceRate;
+                    worldVel.y *= -dat->fieldCollisionCoef;
 
-                    math::MTX34 matrixSRTInv;
-                    math::MTX34::Inverse(&matrixSRTInv, matrixSRT);
+                    nw::math::MTX34 matEmitterInv;
+                    matEmitterInv.SetInverse(*matEmitter);
 
-                    math::MTX34::PSMultVec(&ptcl->pos, &matrixSRTInv, &worldPos);
-                    math::MTX34::MultVecSR(&ptcl->velocity, &matrixSRTInv, &worldVelocity);
+                    ptcl->pos.SetTransform(matEmitterInv, worldPos);
+                    {
+                        f32 tx = worldVel.x;
+                        f32 ty = worldVel.y;
+                        f32 tz = worldVel.z;
+                        nw::math::MTX34& m = matEmitterInv;
+                        ptcl->vel.x = m.m[0][0] * tx + m.m[0][1] * ty + m.m[0][2] * tz;
+                        ptcl->vel.y = m.m[1][0] * tx + m.m[1][1] * ty + m.m[1][2] * tz;
+                        ptcl->vel.z = m.m[2][0] * tx + m.m[2][1] * ty + m.m[2][2] * tz;
 
-                    ptcl->velocity *= collisionData->friction;
-                    ptcl->fieldCollisionCounter++;
+                        ptcl->vel.x *= dat->fieldCollisionRegist;
+                        ptcl->vel.y *= dat->fieldCollisionRegist;
+                        ptcl->vel.z *= dat->fieldCollisionRegist;
+                    }
+
+                    ptcl->fieldCollisionCnt++;
                 }
+                break;
             }
         }
         else
         {
-            switch (collisionData->collisionType)
+            switch (dat->fieldCollisionType)
             {
-            case 0:
-                if (ptcl->pos.y < y && minX < ptcl->pos.x && ptcl->pos.x < maxX
-                                    && minZ < ptcl->pos.z && ptcl->pos.z < maxZ)
+            case EFT_FIELD_COLLISION_REACTION_CESSER:
+                if (ptcl->pos.y < y && minX < ptcl->pos.x && ptcl->pos.x < maxX &&
+                                       minZ < ptcl->pos.z && ptcl->pos.z < maxZ)
                 {
                     ptcl->pos.y = y;
-                    ptcl->counter = (f32)ptcl->lifespan;
-                    ptcl->counterS32 = ptcl->lifespan;
+                    ptcl->cnt = (f32)ptcl->life;
+                    ptcl->cntS = ptcl->life;
                 }
                 break;
-            case 1:
-                if (ptcl->pos.y < y && minX < ptcl->pos.x && ptcl->pos.x < maxX
-                                    && minZ < ptcl->pos.z && ptcl->pos.z < maxZ)
+
+            case EFT_FIELD_COLLISION_REACTION_REFLECTION:
+                if (ptcl->pos.y < y && minX < ptcl->pos.x && ptcl->pos.x < maxX &&
+                                       minZ < ptcl->pos.z && ptcl->pos.z < maxZ)
                 {
                     ptcl->pos.y = y;
-                    ptcl->velocity.y *= -collisionData->bounceRate;
+                    ptcl->vel.y *= -dat->fieldCollisionCoef;
 
-                    ptcl->velocity *= collisionData->friction;
-                    ptcl->fieldCollisionCounter++;
+                    ptcl->vel.x *= dat->fieldCollisionRegist;
+                    ptcl->vel.y *= dat->fieldCollisionRegist;
+                    ptcl->vel.z *= dat->fieldCollisionRegist;
+
+                    ptcl->fieldCollisionCnt++;
                 }
+                break;
             }
         }
     }
-    else if (collisionData->coordSystem != 0)
+    else
     {
-        const math::MTX34* matrixSRT;
-        if (emitter->ptclFollowType == PtclFollowType_SRT)
-            matrixSRT = &emitter->matrixSRT;
+        if (dat->fieldCollisionIsWorld)
+        {
+            register nw::math::VEC3 worldPos;
+
+            nw::math::MTX34* matEmitter;
+            if (e->followType == EFT_FOLLOW_TYPE_ALL)
+                matEmitter = &e->emitterSRT;
+            else
+                matEmitter = &ptcl->emitterSRT;
+
+            VEC3Transform(&worldPos, matEmitter, &ptcl->pos);
+
+            switch (dat->fieldCollisionType)
+            {
+            case EFT_FIELD_COLLISION_REACTION_CESSER:
+                if (worldPos.y < y)
+                {
+                    worldPos.y = y;
+                    ptcl->cnt = (f32)ptcl->life;
+                    ptcl->cntS = ptcl->life;
+                }
+                break;
+
+            case EFT_FIELD_COLLISION_REACTION_REFLECTION:
+                if (worldPos.y < y)
+                {
+                    worldPos.y = y + EPSILON;
+
+                    register nw::math::VEC3 worldVel;
+                    {
+                        f32 tx = ptcl->vel.x;
+                        f32 ty = ptcl->vel.y;
+                        f32 tz = ptcl->vel.z;
+                        nw::math::MTX34& m = *matEmitter;
+                        worldVel.x = m.m[0][0] * tx + m.m[0][1] * ty + m.m[0][2] * tz;
+                        worldVel.y = m.m[1][0] * tx + m.m[1][1] * ty + m.m[1][2] * tz;
+                        worldVel.z = m.m[2][0] * tx + m.m[2][1] * ty + m.m[2][2] * tz;
+                    }
+
+                    worldVel.y *= -dat->fieldCollisionCoef;
+
+                    nw::math::MTX34 matEmitterInv;
+                    matEmitterInv.SetInverse(*matEmitter);
+
+                    ptcl->pos.SetTransform(matEmitterInv, worldPos);
+                    {
+                        f32 tx = worldVel.x;
+                        f32 ty = worldVel.y;
+                        f32 tz = worldVel.z;
+                        nw::math::MTX34& m = matEmitterInv;
+                        ptcl->vel.x = m.m[0][0] * tx + m.m[0][1] * ty + m.m[0][2] * tz;
+                        ptcl->vel.y = m.m[1][0] * tx + m.m[1][1] * ty + m.m[1][2] * tz;
+                        ptcl->vel.z = m.m[2][0] * tx + m.m[2][1] * ty + m.m[2][2] * tz;
+
+                        ptcl->vel.x *= dat->fieldCollisionRegist;
+                        ptcl->vel.y *= dat->fieldCollisionRegist;
+                        ptcl->vel.z *= dat->fieldCollisionRegist;
+                    }
+
+                    ptcl->fieldCollisionCnt++;
+                }
+                break;
+            }
+        }
         else
-            matrixSRT = &ptcl->matrixSRT;
-
-        math::VEC3 worldPos;
-        math::MTX34::PSMultVec(&worldPos, matrixSRT, &ptcl->pos);
-
-        switch (collisionData->collisionType)
         {
-        case 0:
-            if (worldPos.y < y)
+            switch (dat->fieldCollisionType)
             {
-                worldPos.y = y;
-                ptcl->counter = (f32)ptcl->lifespan;
-                ptcl->counterS32 = ptcl->lifespan;
-            }
-            break;
-        case 1:
-            if (worldPos.y < y)
-            {
-                worldPos.y = y + 0.0001f;
+            case EFT_FIELD_COLLISION_REACTION_CESSER:
+                if (ptcl->pos.y < y)
+                {
+                    ptcl->pos.y = y;
+                    ptcl->cnt = (f32)ptcl->life;
+                    ptcl->cntS = ptcl->life;
+                }
+                break;
 
-                math::VEC3 worldVelocity;
-                math::MTX34::MultVecSR(&worldVelocity, matrixSRT, &ptcl->velocity);
+            case EFT_FIELD_COLLISION_REACTION_REFLECTION:
+                if (ptcl->pos.y < y)
+                {
+                    ptcl->pos.y = y;
+                    ptcl->vel.y *= -dat->fieldCollisionCoef;
 
-                worldVelocity.y *= -collisionData->bounceRate;
+                    ptcl->vel.x *= dat->fieldCollisionRegist;
+                    ptcl->vel.y *= dat->fieldCollisionRegist;
+                    ptcl->vel.z *= dat->fieldCollisionRegist;
 
-                math::MTX34 matrixSRTInv;
-                math::MTX34::Inverse(&matrixSRTInv, matrixSRT);
-
-                math::MTX34::PSMultVec(&ptcl->pos, &matrixSRTInv, &worldPos);
-                math::MTX34::MultVecSR(&ptcl->velocity, &matrixSRTInv, &worldVelocity);
-
-                ptcl->velocity *= collisionData->friction;
-                ptcl->fieldCollisionCounter++;
-            }
-        }
-    }
-    else
-    {
-        switch (collisionData->collisionType)
-        {
-        case 0:
-            if (ptcl->pos.y < y)
-            {
-                ptcl->pos.y = y;
-                ptcl->counter = (f32)ptcl->lifespan;
-                ptcl->counterS32 = ptcl->lifespan;
-            }
-            break;
-        case 1:
-            if (ptcl->pos.y < y)
-            {
-                ptcl->pos.y = y;
-                ptcl->velocity.y *= -collisionData->bounceRate;
-
-                ptcl->velocity *= collisionData->friction;
-                ptcl->fieldCollisionCounter++;
+                    ptcl->fieldCollisionCnt++;
+                }
+                break;
             }
         }
     }
 
-    return collisionData + 1;
+    return dat + 1;
 }
 
-const void* EmitterCalc::_ptclField_Convergence(EmitterInstance* emitter, PtclInstance* ptcl, const void* fieldData, f32 emissionSpeed)
+const void* EmitterCalc::_ptclField_Convergence(EmitterInstance* __restrict e, PtclInstance* __restrict ptcl, const void* fieldData, f32 frameRate)
 {
-    const FieldConvergenceData* convergenceData = static_cast<const FieldConvergenceData*>(fieldData);
-    f32 strength;
+    const FieldConvergenceData* dat = static_cast<const FieldConvergenceData*>(fieldData);
+    f32 fieldConvergenceRatio;
 
-    if (emitter->ptclAnimArray[34 - (27 + 1)] != NULL)
+    if (_isExistParticleAnim8Key(e, EFT_ANIM_8KEY_FIELD_CONVERGENCE))
     {
-        KeyFrameAnim* convergenceAnim = emitter->ptclAnimArray[34 - (27 + 1)];
+        KeyFrameAnim* anim = e->particleAnimKey[EFT_ANIM_8KEY_OFFSET(EFT_ANIM_8KEY_FIELD_CONVERGENCE)];
 
-        f32 time = _calcParticleAnimTime(convergenceAnim, ptcl, 34);
-        u32 index = CalcAnimKeyFrameIndex(convergenceAnim, time);
+        f32 time = _calcParticleAnimTime(anim, ptcl, EFT_ANIM_8KEY_FIELD_CONVERGENCE);
+        u32 index = CalcAnimKeyFrameIndex(anim, time);
 
-        strength = CalcAnimKeyFrameSimple(convergenceAnim, time, index);
+        fieldConvergenceRatio = CalcAnimKeyFrameSimple(anim, time, index);
     }
     else
     {
-        strength = convergenceData->strength;
+        fieldConvergenceRatio = dat->fieldConvergenceRatio;
     }
 
-    if (convergenceData->followType != 0)
+    if (dat->fieldConvergenceType == EFT_FIELD_CONVERGENCE_TYPE_ASSIGNED_POSITION)
     {
-        math::VEC3 localPosCurr;
+        ptcl->pos.x += (dat->fieldConvergencePos.x - ptcl->pos.x) * fieldConvergenceRatio * ptcl->dynamicsRnd * frameRate;
+        ptcl->pos.y += (dat->fieldConvergencePos.y - ptcl->pos.y) * fieldConvergenceRatio * ptcl->dynamicsRnd * frameRate;
+        ptcl->pos.z += (dat->fieldConvergencePos.z - ptcl->pos.z) * fieldConvergenceRatio * ptcl->dynamicsRnd * frameRate;
+    }
+    else
+    {
+        nw::math::VEC3 local;
+        nw::math::VEC3 src;
+        src.x = e->emitterRT._03;
+        src.y = e->emitterRT._13;
+        src.z = e->emitterRT._23;
+        e->TransformLocalVec(&local, &src, ptcl);
 
-        {
-            math::VEC3 currPos = {
-                .x = emitter->matrixRT.m[0][3],
-                .y = emitter->matrixRT.m[1][3],
-                .z = emitter->matrixRT.m[2][3],
-            };
-
-            math::MTX34 matrixSRTInv;
-            math::MTX34::Inverse(&matrixSRTInv, (emitter->ptclFollowType == PtclFollowType_SRT) ? &emitter->matrixSRT : &ptcl->matrixSRT);
-            math::MTX34::PSMultVec(&localPosCurr, &matrixSRTInv, &currPos);
-        }
-
-        ptcl->pos += (localPosCurr + convergenceData->pos - ptcl->pos) * strength * ptcl->randomF32 * emissionSpeed;
-
-        return convergenceData + 1;
+        ptcl->pos.x += (local.x + dat->fieldConvergencePos.x - ptcl->pos.x) * fieldConvergenceRatio * ptcl->dynamicsRnd * frameRate;
+        ptcl->pos.y += (local.y + dat->fieldConvergencePos.y - ptcl->pos.y) * fieldConvergenceRatio * ptcl->dynamicsRnd * frameRate;
+        ptcl->pos.z += (local.z + dat->fieldConvergencePos.z - ptcl->pos.z) * fieldConvergenceRatio * ptcl->dynamicsRnd * frameRate;
     }
 
-    ptcl->pos += (convergenceData->pos - ptcl->pos) * strength * ptcl->randomF32 * emissionSpeed;
-
-    return convergenceData + 1;
+    return dat + 1;
 }
 
-const void* EmitterCalc::_ptclField_PosAdd(EmitterInstance* emitter, PtclInstance* ptcl, const void* fieldData, f32 emissionSpeed)
+const void* EmitterCalc::_ptclField_PosAdd(EmitterInstance* __restrict e, PtclInstance* __restrict ptcl, const void* fieldData, f32 frameRate)
 {
-    const FieldPosAddData* posAddData = static_cast<const FieldPosAddData*>(fieldData);
-    math::VEC3 posAdd;
+    const FieldPosAddData* dat = static_cast<const FieldPosAddData*>(fieldData);
+    nw::math::VEC3 fieldPosAdd;
 
-    if (emitter->ptclAnimArray[35 - (27 + 1)] != NULL)
+    if (_isExistParticleAnim8Key(e, EFT_ANIM_8KEY_FIELD_POS_ADD_X))
     {
-        KeyFrameAnim* posAddXAnim = emitter->ptclAnimArray[35 - (27 + 1)];
-        KeyFrameAnim* posAddYAnim = emitter->ptclAnimArray[36 - (27 + 1)];
-        KeyFrameAnim* posAddZAnim = emitter->ptclAnimArray[37 - (27 + 1)];
+        KeyFrameAnim* animX = e->particleAnimKey[EFT_ANIM_8KEY_OFFSET(EFT_ANIM_8KEY_FIELD_POS_ADD_X)];
+        KeyFrameAnim* animY = e->particleAnimKey[EFT_ANIM_8KEY_OFFSET(EFT_ANIM_8KEY_FIELD_POS_ADD_Y)];
+        KeyFrameAnim* animZ = e->particleAnimKey[EFT_ANIM_8KEY_OFFSET(EFT_ANIM_8KEY_FIELD_POS_ADD_Z)];
 
-        f32 time = _calcParticleAnimTime(posAddXAnim, ptcl, 35);
-        u32 index = CalcAnimKeyFrameIndex(posAddXAnim, time);
+        f32 time = _calcParticleAnimTime(e, ptcl, EFT_ANIM_8KEY_FIELD_POS_ADD_X);
+        u32 index = CalcAnimKeyFrameIndex(animX, time);
 
-        posAdd.x = CalcAnimKeyFrameSimple(posAddXAnim, time, index);
-        posAdd.y = CalcAnimKeyFrameSimple(posAddYAnim, time, index);
-        posAdd.z = CalcAnimKeyFrameSimple(posAddZAnim, time, index);
+        fieldPosAdd.x = CalcAnimKeyFrameSimple(animX, time, index);
+        fieldPosAdd.y = CalcAnimKeyFrameSimple(animY, time, index);
+        fieldPosAdd.z = CalcAnimKeyFrameSimple(animZ, time, index);
     }
     else
     {
-        posAdd = posAddData->posAdd;
+        fieldPosAdd.x = dat->fieldPosAdd.x;
+        fieldPosAdd.y = dat->fieldPosAdd.y;
+        fieldPosAdd.z = dat->fieldPosAdd.z;
     }
 
-    if (posAddData->coordSystem != 0)
+    if (!dat->isFieldPosAddGlobal)
     {
-        posAdd = posAdd * ptcl->randomF32 * emissionSpeed;
-        ptcl->pos += *math::VEC3::MultMTX(&posAdd, &posAdd, ptcl->pMatrixRT);
+        ptcl->pos.x += fieldPosAdd.x * ptcl->dynamicsRnd * frameRate;
+        ptcl->pos.y += fieldPosAdd.y * ptcl->dynamicsRnd * frameRate;
+        ptcl->pos.z += fieldPosAdd.z * ptcl->dynamicsRnd * frameRate;
+    }
+    else
+    {
+        nw::math::MTX34* mrt  = ptcl->coordinateEmitterRT;
+        register f32 posAddX = fieldPosAdd.x * ptcl->dynamicsRnd * frameRate;
+        register f32 posAddY = fieldPosAdd.y * ptcl->dynamicsRnd * frameRate;
+        register f32 posAddZ = fieldPosAdd.z * ptcl->dynamicsRnd * frameRate;
 
-        return posAddData + 1;
+        ptcl->pos.x += posAddX * mrt->m[0][0] + posAddY * mrt->m[1][0] + posAddZ * mrt->m[2][0];
+        ptcl->pos.y += posAddX * mrt->m[0][1] + posAddY * mrt->m[1][1] + posAddZ * mrt->m[2][1];
+        ptcl->pos.z += posAddX * mrt->m[0][2] + posAddY * mrt->m[1][2] + posAddZ * mrt->m[2][2];
     }
 
-    ptcl->pos += posAdd * ptcl->randomF32 * emissionSpeed;
-
-    return posAddData + 1;
+    return dat + 1;
 }
 
 } } // namespace nw::eft

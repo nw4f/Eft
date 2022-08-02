@@ -3,14 +3,14 @@
 
 namespace nw { namespace eft {
 
-void Renderer::BindParticleAttributeBlock(PtclAttributeBuffer* ptclAttributeBuffer, ParticleShader* shader, u32 firstVertex, u32 numInstances)
+void Renderer::BindParticleAttributeBlock(PtclAttributeBuffer* ptclAttributeBuffer, ParticleShader* shader, u32 startNum, u32 entryNum)
 {
-    VertexBuffer::BindExtBuffer(5, sizeof(PtclAttributeBuffer) * numInstances, 0, sizeof(PtclAttributeBuffer), &ptclAttributeBuffer[firstVertex]);
+    VertexBuffer::BindExtBuffer(5, sizeof(PtclAttributeBuffer) * entryNum, 0, sizeof(PtclAttributeBuffer), &ptclAttributeBuffer[startNum]);
 }
 
-void Renderer::BindGpuParticleAttributeBlock(PtclAttributeBufferGpu* ptclAttributeBufferGpu, ParticleShader* shader, u32 firstVertex, u32 numInstances)
+void Renderer::BindGpuParticleAttributeBlock(PtclAttributeBufferGpu* ptclAttributeBuffer, ParticleShader* shader, u32 startNum, u32 entryNum)
 {
-    VertexBuffer::BindExtBuffer(5, sizeof(PtclAttributeBufferGpu) * numInstances, 0, sizeof(PtclAttributeBufferGpu), &ptclAttributeBufferGpu[firstVertex]);
+    VertexBuffer::BindExtBuffer(5, sizeof(PtclAttributeBufferGpu) * entryNum, 0, sizeof(PtclAttributeBufferGpu), &ptclAttributeBuffer[startNum]);
 }
 
 } } // namespace nw::eft

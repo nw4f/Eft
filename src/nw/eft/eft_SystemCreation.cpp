@@ -10,187 +10,274 @@
 
 namespace nw { namespace eft {
 
-void System::InitializeEmitter(EmitterInstance* emitter, const SimpleEmitterData* data, EmitterStaticUniformBlock* esub, EmitterStaticUniformBlock* cesub, u32 resourceID, s32 emitterSetID, u32 seed, bool keepCreateID)
+void System::InitializeEmitter(EmitterInstance* emitter,
+                               const SimpleEmitterData* res,
+                               EmitterStaticUniformBlock* emitterStaticUbo,
+                               EmitterStaticUniformBlock* childStaticUbo,
+                               u32 resourceID,
+                               s32 emitterSetID,
+                               u32 setRndSeed,
+                               bool nonUpdateCreateID)
 {
-    Random* gRandom = PtclRandom::GetGlobalRandom();
+    Random* globalRnd = PtclRandom::GetGlobalRandom();
 
-    const u32 data_seed = data->seed;
-    if (data_seed == 0xFFFFFFFF)
-        emitter->random.Init(seed);
-    else if (data_seed == 0)
-        emitter->random.Init(gRandom->GetU32());
+    switch (res->randomSeed)
+    {
+    case 0:
+        emitter->rnd.SetSeed(globalRnd->GetU32());
+        break;
+    case 0xFFFFFFFF:
+        emitter->rnd.SetSeed(setRndSeed);
+        break;
+    default:
+        emitter->rnd.SetSeed(res->randomSeed);
+        break;
+    }
+
+    if (!nonUpdateCreateID)
+        emitter->emitterSetCreateID = mEmitterSetCreateID;
+
+    emitter->emitterStaticUniformBlock      = emitterStaticUbo;
+    emitter->childEmitterStaticUniformBlock = childStaticUbo;
+
+    emitter->Init(res);
+
+    if (res->volumeType == EFT_VOLUME_TYPE_PRIMITIVE)
+        emitter->emitVolumePrimitive = mResource[resourceID]->GetPrimitive(emitterSetID, res->emitVolumeFigure.index);
+
     else
-        emitter->random.Init(data_seed);
-
-    if (!keepCreateID)
-        emitter->emitterSetCreateID = currentEmitterSetCreateID;
-
-    emitter->emitterStaticUniformBlock = esub;
-    emitter->childEmitterStaticUniformBlock = cesub;
-
-    emitter->Init(data);
-
-    if (data->emitFunction == 15)
-        emitter->volumePrimitive = resources[resourceID]->GetPrimitive(emitterSetID, data->volumePrimitive.idx);
-
-    else
-        emitter->volumePrimitive = NULL;
+        emitter->emitVolumePrimitive = NULL;
 
     const ChildData* childData = emitter->GetChildData();
 
+    emitter->shader[EFT_SHADER_TYPE_NORMAL] = mResource[resourceID]->GetShader(emitterSetID, emitter->res->shaderIndex);
+
+    emitter->shader[EFT_SHADER_TYPE_USER_DEF1] = NULL;
+    if (emitter->res->userShaderIndex1 != 0)
+        emitter->shader[EFT_SHADER_TYPE_USER_DEF1] = mResource[resourceID]->GetShader(emitterSetID, emitter->res->userShaderIndex1);
+
+    emitter->shader[EFT_SHADER_TYPE_USER_DEF2] = NULL;
+    if (emitter->res->userShaderIndex2 != 0)
+        emitter->shader[EFT_SHADER_TYPE_USER_DEF2] = mResource[resourceID]->GetShader(emitterSetID, emitter->res->userShaderIndex2);
+
+    if (childData)
     {
-        emitter->shader[ShaderType_Normal] = resources[resourceID]->GetShader(emitterSetID, emitter->data->shaderIdx);
+        emitter->childShader[EFT_SHADER_TYPE_NORMAL] = mResource[resourceID]->GetShader(emitterSetID, childData->childShaderIndex);
 
-        emitter->shader[ShaderType_UserMacro1] = NULL;
-        if (emitter->data->userShaderIdx1 != 0)
-            emitter->shader[ShaderType_UserMacro1] = resources[resourceID]->GetShader(emitterSetID, emitter->data->userShaderIdx1);
+        emitter->childShader[EFT_SHADER_TYPE_USER_DEF1] = NULL;
+        if (childData->childUserShaderIndex1 != 0)
+            emitter->childShader[EFT_SHADER_TYPE_USER_DEF1] = mResource[resourceID]->GetShader(emitterSetID, childData->childUserShaderIndex1);
 
-        emitter->shader[ShaderType_UserMacro2] = NULL;
-        if (emitter->data->userShaderIdx2 != 0)
-            emitter->shader[ShaderType_UserMacro2] = resources[resourceID]->GetShader(emitterSetID, emitter->data->userShaderIdx2);
+        emitter->childShader[EFT_SHADER_TYPE_USER_DEF2] = NULL;
+        if (childData->childUserShaderIndex2 != 0)
+            emitter->childShader[EFT_SHADER_TYPE_USER_DEF2] = mResource[resourceID]->GetShader(emitterSetID, childData->childUserShaderIndex2);
     }
 
-    if (childData != NULL)
-    {
-        emitter->childShader[ShaderType_Normal] = resources[resourceID]->GetShader(emitterSetID, childData->shaderIdx);
-
-        emitter->childShader[ShaderType_UserMacro1] = NULL;
-        if (childData->userShaderIdx1 != 0)
-            emitter->childShader[ShaderType_UserMacro1] = resources[resourceID]->GetShader(emitterSetID, childData->userShaderIdx1);
-
-        emitter->childShader[ShaderType_UserMacro2] = NULL;
-        if (childData->userShaderIdx2 != 0)
-            emitter->childShader[ShaderType_UserMacro2] = resources[resourceID]->GetShader(emitterSetID, childData->userShaderIdx2);
-    }
-
-    if (emitter->shader[ShaderType_Normal]->vertexShaderKey.flags[0] & 0x2000000)
-        emitter->calc = emitterCalc[EmitterType_SimpleGpu];
+    if (emitter->shader[EFT_SHADER_TYPE_NORMAL]->GetVertexShaderKey().IsUseGpuAcceleration())
+        emitter->calc = mEmitterCalc[EFT_EMITTER_TYPE_SIMPLE_GPU];
 
     else
-        emitter->calc = emitterCalc[emitter->data->type];
+        emitter->calc = mEmitterCalc[emitter->res->type];
 
     emitter->primitive = NULL;
-    if (emitter->data->meshType == MeshType_Primitive)
-        emitter->primitive = resources[resourceID]->GetPrimitive(emitterSetID, emitter->data->primitive.idx);
+    if (emitter->res->meshType == EFT_MESH_TYPE_PRIMITIVE)
+        emitter->primitive = mResource[resourceID]->GetPrimitive(emitterSetID, emitter->res->primitiveFigure.index);
 
     emitter->childPrimitive = NULL;
-    if (childData != NULL)
+    if (childData)
     {
-        if(childData->meshType == MeshType_Primitive)
-            emitter->childPrimitive = resources[resourceID]->GetPrimitive(emitterSetID, childData->primitive.idx);
+        if(childData->childMeshType == EFT_MESH_TYPE_PRIMITIVE)
+            emitter->childPrimitive = mResource[resourceID]->GetPrimitive(emitterSetID, childData->childPrimitiveFigure.index);
     }
 
     emitter->UpdateResInfo();
-    emitter->userData = 0;
 
-    CustomShaderCallBackID callbackID = static_cast<CustomShaderCallBackID>(data->shaderUserSetting);
-    if (GetCustomShaderEmitterInitializeCallback(callbackID) != NULL)
+    emitter->userCustomPtr = NULL;
+
+    CustomShaderCallBackID shaderCallback = static_cast<CustomShaderCallBackID>(res->userShaderSetting);
+    if (GetCustomShaderEmitterInitializeCallback(shaderCallback))
     {
-        ShaderEmitterInitializeArg arg = { .emitter = emitter };
-        GetCustomShaderEmitterInitializeCallback(callbackID)(arg);
+        ShaderEmitterInitializeArg arg;
+        arg.emitter = emitter;
+        GetCustomShaderEmitterInitializeCallback(shaderCallback)(arg);
     }
 }
 
-bool System::CreateEmitterSetID(Handle* handle, const math::MTX34& matrixRT, s32 emitterSetID, u32 resourceID, u8 groupID, u32 emitterEnableMask)
+bool System::CreateEmitterSetID(Handle* handle, const math::MTX34& mtx, s32 emitterSetID, u32 resourceID, u8 groupID, u32 emitterMask)
 {
-    if (resourceID >= numResourceMax || resources[resourceID] == NULL || resources[resourceID]->resource->numEmitterSet <= emitterSetID)
+    if (resourceID >= mNumResource || mResource[resourceID] == NULL || mResource[resourceID]->GetNumEmitterSet() <= emitterSetID)
         return false;
 
-    Random* gRandom = PtclRandom::GetGlobalRandom();
+    Random* globalRnd = PtclRandom::GetGlobalRandom();
 
-    s32 numEmitter = resources[resourceID]->emitterSets[emitterSetID].numEmitter;
-    if (numEmitter > numUnusedEmitters)
+    s32 numEmitter = mResource[resourceID]->GetNumEmitter(emitterSetID);
+    if (numEmitter > mNumFreeEmitter)
     {
         WARNING("Emitter is Empty.\n");
         return false;
     }
 
-    EmitterSet* emitterSet = AllocEmitterSet(handle);
-    if (emitterSet == NULL)
+    EmitterSet* set = AllocEmitterSet(handle);
+    if (set == NULL)
         return false;
 
-    emitterSet->matrixSRT = matrixRT;
-    emitterSet->matrixRT  = matrixRT;
-
-    emitterSet->_unusedFlags = 0;
-    emitterSet->allDirVel = 1.0f;
-    emitterSet->dirVel = 1.0f;
-    emitterSet->dirVelRandom = 1.0f;
-    emitterSet->startFrame = 0;
-    emitterSet->numEmissionPoints = 0;
-    emitterSet->doFade = 0;
-    emitterSet->dirSet = 0;
-    emitterSet->noCalc = 0;
-    emitterSet->noDraw = 0;
-    emitterSet->infiniteLifespan = 0;
-    emitterSet->renderPriority = 0x80;
-
-    emitterSet->scaleForMatrix     = (math::VEC3){ 1.0f, 1.0f, 1.0f };
-    emitterSet->ptclScale          = (math::VEC2){ 1.0f, 1.0f };
-    emitterSet->ptclEmitScale      = (math::VEC2){ 1.0f, 1.0f };
-    emitterSet->ptclEffectiveScale = (math::VEC2){ 1.0f, 1.0f };
-    emitterSet->emitterVolumeScale = (math::VEC3){ 1.0f, 1.0f, 1.0f };
-    emitterSet->color.v            = (math::VEC4){ 1.0f, 1.0f, 1.0f, 1.0f };
-    emitterSet->addVelocity        = (math::VEC3){ 0.0f, 0.0f, 0.0f };
-    emitterSet->ptclRotate         = (math::VEC3){ 0.0f, 0.0f, 0.0f };
-
-    for (u32 i = 0; i < 16u; i++)
-        emitterSet->emitters[i] = NULL;
-
-    emitterSet->createID = currentEmitterSetCreateID;
-    emitterSet->resourceID = resourceID;
-    emitterSet->emitterSetID = emitterSetID;
-    emitterSet->next = NULL;
-    emitterSet->prev = NULL;
-    emitterSet->groupID = groupID;
-    emitterSet->userData = 0;
-
-    AddEmitterSetToDrawList(emitterSet, groupID);
-
-    u32 seed = gRandom->GetU32();
-
-    handle->createID = currentEmitterSetCreateID;
-
-    for (s32 i = numEmitter - 1; i >= 0; i--)
     {
-        if (!(emitterEnableMask & 1 << i))
+        set->Reset(mtx);
+        set->mEmitterCreateID   = mEmitterSetCreateID;
+        set->mResourceID        = resourceID;
+        set->mEmitterSetID      = emitterSetID;
+        set->mNext              = NULL;
+        set->mPrev              = NULL;
+        set->mGroupID           = groupID;
+        set->mRuntimeUserData   = 0;
+
+        AddEmitterSetToDrawList(set, groupID);
+    }
+
+    u32 rndSeed = globalRnd->GetU32();
+
+    handle->mCreateID = mEmitterSetCreateID;
+
+    for (s32 emitterID = numEmitter - 1; emitterID >= 0; emitterID--)
+    {
+        if (!(emitterMask & 1 << emitterID))
             continue;
 
         EmitterInstance* emitter = AllocEmitter(groupID);
         if (emitter == NULL)
             break;
 
-        const SimpleEmitterData* data = static_cast<const SimpleEmitterData*>(resources[resourceID]->emitterSets[emitterSetID].emitterRef[i].data);
-        EmitterStaticUniformBlock* emitterStaticUniformBlock                = resources[resourceID]->emitterSets[emitterSetID].emitterRef[i].emitterStaticUniformBlock;
-        EmitterStaticUniformBlock* childEmitterStaticUniformBlock           = resources[resourceID]->emitterSets[emitterSetID].emitterRef[i].childEmitterStaticUniformBlock;
+        const SimpleEmitterData*   res  = static_cast<const SimpleEmitterData*>(mResource[resourceID]->GetEmitterData(emitterSetID, emitterID));
+        EmitterStaticUniformBlock* eubo = mResource[resourceID]->GetEmitterStaticUBO(emitterSetID, emitterID);
+        EmitterStaticUniformBlock* cubo = mResource[resourceID]->GetChildEmitterStaticUBO(emitterSetID, emitterID);
 
-        emitterSet->emitters[emitterSet->numEmitter++] = emitter;
-        emitter->emitterSet = emitterSet;
-
-        emitter->controller = &emitterSet->controllers[i];
-        emitter->controller->emitter = emitter;
-        emitter->controller->emissionRatioChanged = false;
-        emitter->controller->emissionRatio = 1.0f;
-        emitter->controller->emissionInterval = 1.0f;
-        emitter->controller->life = 1.0f;
-        emitter->controller->renderVisibilityFlags = 0x3F;
+        set->mInstance[set->mNumEmitter++] = emitter;
+        emitter->emitterSet = set;
 
         emitter->groupID = groupID;
 
-        emitterSet->_unusedFlags |= 1 << data->_bitForUnusedFlag;
+        emitter->controller = &set->mController[emitterID];
+        emitter->controller->mEmitter = emitter;
+        emitter->controller->Reset();
 
-        InitializeEmitter(emitter, data, emitterStaticUniformBlock, childEmitterStaticUniformBlock, resourceID, emitterSetID, seed, false);
+        set->mDrawPathFlag |= 1 << res->drawPath;
 
-        if (emitter->data->ptclMaxLifespan == 0x7FFFFFFF)
-            emitterSet->infiniteLifespan = 1;
+        InitializeEmitter(emitter, res, eubo, cubo, resourceID, emitterSetID, rndSeed);
+
+        if (emitter->res->ptclLife == EFT_INFINIT_LIFE)
+            set->mIsHaveInfinityEmitter = true;
     }
 
-    emitterSet->numEmitterAtCreate = emitterSet->numEmitter;
+    set->mNumEmitterFirst = set->mNumEmitter;
 
-    numCalcEmitterSet++;
-    currentEmitterSetCreateID++;
+    mNumEmitterSetCalc++;
+    mEmitterSetCreateID++;
 
     return true;
+}
+
+void System::ReCreateEmitter(void** resList, s32 numResList, u32 resId, s32 setId, bool killOnly)
+{
+    for (s32 i = 0; i < mNumEmitterSet; i++)
+    {
+        EmitterSet* set = &mEmitterSet[i];
+
+        bool isReCreate = false;
+        u8   groupId    = 0;
+
+        for (s32 j = 0; j < set->mNumEmitterFirst; j++)
+        {
+            EmitterInstance* emitter = set->mInstance[j];
+
+            if (emitter->calc != NULL && emitter->emitterSetCreateID == set->GetCreateID())
+            {
+                for (s32 k = 0; k < numResList; k++)
+                {
+                    if (emitter->res == resList[k])
+                    {
+                        isReCreate = true;
+                        groupId    = emitter->groupID;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (isReCreate)
+        {
+            if (killOnly)
+                set->Kill();
+            else
+                ReCreateEmitter(set, resId, setId, groupId);
+        }
+    }
+}
+
+void System::ReCreateEmitter(EmitterSet* set, u32 resourceID, s32 emitterSetID, u8 groupID)
+{
+    Random* globalRnd = PtclRandom::GetGlobalRandom();
+    u32 rndSeed = globalRnd->GetU32();
+
+    for (s32 i = set->mNumEmitterFirst; i < EFT_EMITTER_INSET_NUM; i++)
+        set->mController[i] = set->mController[0];
+
+    EmitterSet saveSet = *set;
+
+    for (s32 i = 0; i < set->mNumEmitterFirst; i++)
+        if (set->mInstance[i]->emitterSetCreateID == set->GetCreateID() && set->mInstance[i]->calc)
+            KillEmitter(set->mInstance[i]);
+
+    *set = saveSet;
+    set->mNumEmitter = 0;
+    set->mIsHaveInfinityEmitter = false;
+
+    s32 numEmitter = mResource[resourceID]->GetNumEmitter(emitterSetID);
+
+    if (numEmitter > mNumFreeEmitter)
+    {
+        WARNING("EmitterInstance is Empty.\n");
+        return;
+    }
+
+    for (s32 emitterID = numEmitter - 1; emitterID >= 0; emitterID--)
+    {
+        EmitterInstance* emitter = AllocEmitter(groupID);
+        if (emitter == NULL)
+            break;
+
+        const SimpleEmitterData*   res  = static_cast<const SimpleEmitterData*>(mResource[resourceID]->GetEmitterData(emitterSetID, emitterID));
+        EmitterStaticUniformBlock* eubo = mResource[resourceID]->GetEmitterStaticUBO(emitterSetID, emitterID);
+        EmitterStaticUniformBlock* cubo = mResource[resourceID]->GetChildEmitterStaticUBO(emitterSetID, emitterID);
+
+        set->mInstance[set->mNumEmitter++] = emitter;
+
+        emitter->emitterSet = set;
+        emitter->controller = &set->mController[emitterID];
+        emitter->controller->mEmitter = emitter;
+        emitter->controller->Reset();
+        emitter->groupID    = groupID;
+
+        set->mDrawPathFlag |= 1 << res->drawPath;
+
+        emitter->emitterSetCreateID = set->mEmitterCreateID;;
+
+        InitializeEmitter(emitter, res, eubo, cubo, resourceID, emitterSetID, rndSeed, true);
+
+        if (emitter->res->ptclLife == EFT_INFINIT_LIFE)
+            set->mIsHaveInfinityEmitter = true;
+    }
+
+    set->mNumEmitterFirst = set->mNumEmitter;
+
+    mNumEmitterSetCalc++;
+}
+
+void System::ReCreateEmitterSet(EmitterSet* set, u32 resId, s32 setId, u8 groupID)
+{
+    ReCreateEmitter(set, resId, setId, groupID);
+
+    set->mResourceID    = resId;
+    set->mEmitterSetID  = setId;
 }
 
 } } // namespace nw::eft

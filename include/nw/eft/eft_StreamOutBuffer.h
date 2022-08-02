@@ -1,30 +1,37 @@
 #ifndef EFT_STREAM_OUT_BUFFER_H_
 #define EFT_STREAM_OUT_BUFFER_H_
 
-#include <nw/math/math_Vector4.h>
-
-#define INCLUDE_CAFE
 #include <nw/typeDef.h>
 
 namespace nw { namespace eft {
 
 struct StreamOutAttributeBuffer
 {
-    void Invalidate();
+public:
+    enum
+    {
+        EFT_STREAM_OUT_ATTRB_0   = 0,
+        EFT_STREAM_OUT_ATTRB_1   = 1,
+        EFT_STREAM_OUT_ATTRB_MAX = 2,
+    };
+
     void Initialize(u32 size);
     void Finalize();
-    bool Bind(u32 buffer, u32 target, bool swap, bool apply);
-    void UnBind(u32 target);
+    void Invalidate();
+    bool Bind(u32 input, u32 index, bool flip, bool output);
+    void UnBind(u32 index);
 
-    math::VEC4* data[2];
-    GX2StreamOutBuffer buffer[2];
-    GX2StreamOutContext context[2];
-    u32 dataSize;
-    u8 currentBufferIdx;
+    u32 GetBufferSize() const { return bufferSize; }
+
+private:
+    nw::math::VEC4*             pBuffer[EFT_STREAM_OUT_ATTRB_MAX];
+    GX2StreamOutBuffer			streamOutBuf[EFT_STREAM_OUT_ATTRB_MAX];
+    GX2StreamOutContext			streamOutContext[EFT_STREAM_OUT_ATTRB_MAX];
+    u32                         bufferSize;
+    bool                        outputBuffer;
 };
-static_assert(sizeof(StreamOutAttributeBuffer) == 0x58, "StreamOutAttributeBuffer size mismatch");
+static_assert(sizeof(StreamOutAttributeBuffer) == 0x58, "nw::eft::StreamOutAttributeBuffer size mismatch");
 
 } } // namespace nw::eft
 
 #endif // EFT_STREAM_OUT_BUFFER_H_
-

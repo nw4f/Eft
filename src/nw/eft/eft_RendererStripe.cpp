@@ -10,488 +10,570 @@
 
 namespace nw { namespace eft {
 
-u32 Renderer::MakeStripeAttributeBlockCore(PtclStripe* stripe, StripeVertexBuffer* stripeVertexBuffer, s32 firstVertex, const StripeData* stripeData)
+s32 Renderer::MakeStripeAttributeBlockCore(PtclStripe* stripe, StripeVertexBuffer* stripeVertex, s32 wroteVertexNum, const StripeData* stripeData)
 {
-    stripe->drawFirstVertex = 0;
-    stripe->numDraw = 0;
+    stripe->starDrawVertex = 0;
+    stripe->numDrawVertex = 0;
 
-    s32 histQueueCount = stripe->queueCount;
-    s32 sliceHistInterval = stripeData->sliceHistInterval;
+    s32 numVertex = stripe->numHistory;
 
-    s32 numSliceHistory = std::min( sliceHistInterval,
-                                    histQueueCount );
-    if (numSliceHistory < 3)
+    s32 numLoop = stripeData->stripeHistoryStep;
+    if (numLoop >= numVertex)
+        numLoop = numVertex;
+
+    if (numLoop < 3)
         return 0;
 
-    u32 numDrawStripe = 0;
+    s32 numDrawVertex = 0;
 
-    f32 invRatio    = 1.0f / (f32)(numSliceHistory - 2);
-    f32 invTexRatio;
-
-    if (stripeData->textureType == 1 && stripe->counter < sliceHistInterval)
-        invTexRatio = 1.0f / (f32)(sliceHistInterval - 2);
-    else
-        invTexRatio = invRatio;
-
-    f32 alphaRange = stripeData->alphaEnd - stripeData->alphaStart;
-    stripe->drawFirstVertex = firstVertex;
-
-    for (s32 i = 0; i < numSliceHistory - 1; i++)
+    f32 frateScale    = 1.0f / (f32)(numLoop - 2);
+    f32 frateScaleUv;
+    if (stripeData->stripeTexCoordOpt == EFT_STRIPE_TEXCOORD_OPTION_TYPE_DIVISION &&
+        stripe->cnt < stripeData->stripeHistoryStep)
     {
-        u32 idx = firstVertex + numDrawStripe;
-        StripeVertexBuffer* buffer0 = &stripeVertexBuffer[idx + 0];
-        StripeVertexBuffer* buffer1 = &stripeVertexBuffer[idx + 1];
-
-        f32 ratio    = (f32)i * invRatio;
-        f32 texRatio = (f32)i * invTexRatio;
-
-        f32 v0 = ratio * (f32)(histQueueCount - 2) + 0.5f;
-        s32 v1 = (s32)v0;
-
-        s32 sliceHistIdx = stripe->queueRear - v1 - 1;
-        if (sliceHistIdx < 0)
-            sliceHistIdx += stripeData->numSliceHistory;
-
-        f32 alpha0 = (stripeData->alphaStart + alphaRange * ratio) * stripe->particle->alpha0 * stripe->particle->emitter->emitterSet->color.a * stripe->particle->emitter->fadeAlpha;
-        f32 alpha1 = (stripeData->alphaStart + alphaRange * ratio) * stripe->particle->alpha1 * stripe->particle->emitter->emitterSet->color.a * stripe->particle->emitter->fadeAlpha;
-
-        buffer0->pos.xyz() = stripe->queue[sliceHistIdx].pos;
-        buffer0->pos.w     = alpha0 * stripe->particle->emitter->anim[14];
-        buffer1->pos.xyz() = buffer0->pos.xyz();
-        buffer1->pos.w     = buffer0->pos.w;
-
-        buffer0->dir.xyz() = stripe->queue[sliceHistIdx].dir;
-        buffer0->dir.w     = alpha1 * stripe->particle->emitter->anim[14];
-        buffer1->dir.xyz() = buffer0->dir.xyz();
-        buffer1->dir.w     = buffer0->dir.w;
-
-        buffer0->outer.xyz() = stripe->queue[sliceHistIdx].outer;
-        buffer1->outer.xyz() = buffer0->outer.xyz();
-
-        buffer0->outer.w =  stripe->queue[sliceHistIdx].scale;
-        buffer1->outer.w = -stripe->queue[sliceHistIdx].scale;
-
-        buffer1->texCoord.x = stripe->texAnimParam[0].offset.x;
-        buffer1->texCoord.y = stripe->texAnimParam[0].offset.y + texRatio * stripe->data->texAnimParam[0].uvScaleInit.y;
-        buffer1->texCoord.z = stripe->texAnimParam[1].offset.x;
-        buffer1->texCoord.w = stripe->texAnimParam[1].offset.y + texRatio * stripe->data->texAnimParam[1].uvScaleInit.y;
-
-        buffer0->texCoord.x = stripe->texAnimParam[0].offset.x +            stripe->data->texAnimParam[0].uvScaleInit.x;
-        buffer0->texCoord.y = buffer1->texCoord.y;
-        buffer0->texCoord.z = stripe->texAnimParam[1].offset.x +            stripe->data->texAnimParam[1].uvScaleInit.x;
-        buffer0->texCoord.w = buffer1->texCoord.w;
-
-        numDrawStripe += 2;
+        frateScaleUv = 1.0f / (f32)(stripeData->stripeHistoryStep - 2);
+    }
+    else
+    {
+        frateScaleUv = frateScale;
     }
 
-    stripe->numDraw = numDrawStripe;
+    f32 arate = stripeData->stripeEndAlpha - stripeData->stripeStartAlpha;
 
-    return numDrawStripe;
+    stripe->starDrawVertex = wroteVertexNum;
+
+    StripeVertexBuffer* left  = NULL;
+    StripeVertexBuffer* right = NULL;
+
+    for (s32 i = 0; i < numLoop - 1; i++)
+    {
+        u32 index = wroteVertexNum + numDrawVertex;
+        left  = &stripeVertex[index    ];
+        right = &stripeVertex[index + 1];
+
+        f32 frate    = (f32)i * frateScale;
+        f32 frateUv = (f32)i * frateScaleUv;
+
+        f32 t = frate * (numVertex - 2);
+        s32 iT = (s32)(t + 0.5f);
+
+        s32 current = stripe->histQEnd - 1 - iT;
+        if (current < 0)
+            current = stripeData->stripeNumHistory + current;
+
+        f32 alpha0 = (stripeData->stripeStartAlpha + arate * frate) * stripe->ptcl->alpha0 * stripe->ptcl->emitter->emitterSet->mColor.a * stripe->ptcl->emitter->fadeAlpha;
+        f32 alpha1 = (stripeData->stripeStartAlpha + arate * frate) * stripe->ptcl->alpha1 * stripe->ptcl->emitter->emitterSet->mColor.a * stripe->ptcl->emitter->fadeAlpha;
+
+        left->pos.x     = stripe->hist[current].pos.x;
+        left->pos.y     = stripe->hist[current].pos.y;
+        left->pos.z     = stripe->hist[current].pos.z;
+        left->pos.w     = alpha0 * stripe->ptcl->emitter->emitterAnimValue[EFT_ANIM_ALPHA];
+        right->pos.x    = left->pos.x;
+        right->pos.y    = left->pos.y;
+        right->pos.z    = left->pos.z;
+        right->pos.w    = left->pos.w;
+
+        left->dir.x     = stripe->hist[current].dir.x;
+        left->dir.y     = stripe->hist[current].dir.y;
+        left->dir.z     = stripe->hist[current].dir.z;
+        left->dir.w     = alpha1 * stripe->ptcl->emitter->emitterAnimValue[EFT_ANIM_ALPHA];
+        right->dir.x    = left->dir.x;
+        right->dir.y    = left->dir.y;
+        right->dir.z    = left->dir.z;
+        right->dir.w    = left->dir.w;
+
+        left->outer.x   = stripe->hist[current].outer.x;
+        left->outer.y   = stripe->hist[current].outer.y;
+        left->outer.z   = stripe->hist[current].outer.z;
+        right->outer.x  = left->outer.x;
+        right->outer.y  = left->outer.y;
+        right->outer.z  = left->outer.z;
+
+        left->outer.w   =  stripe->hist[current].scale;
+        right->outer.w  = -stripe->hist[current].scale;
+
+        right->tex.x    = stripe->uvParam[EFT_TEXTURE_SLOT_0].offset.x;
+        right->tex.y    = frateUv * stripe->res->textureData[EFT_TEXTURE_SLOT_0].texVScale + stripe->uvParam[EFT_TEXTURE_SLOT_0].offset.y;
+        right->tex.z    = stripe->uvParam[EFT_TEXTURE_SLOT_1].offset.x;
+        right->tex.w    = frateUv * stripe->res->textureData[EFT_TEXTURE_SLOT_1].texVScale + stripe->uvParam[EFT_TEXTURE_SLOT_1].offset.y;
+
+        left->tex.x     = stripe->res->textureData[EFT_TEXTURE_SLOT_0].texUScale + stripe->uvParam[EFT_TEXTURE_SLOT_0].offset.x;
+        left->tex.y     = right->tex.y;
+        left->tex.z     = stripe->res->textureData[EFT_TEXTURE_SLOT_1].texUScale + stripe->uvParam[EFT_TEXTURE_SLOT_1].offset.x;
+        left->tex.w     = right->tex.w;
+
+        numDrawVertex += 2;
+    }
+
+    stripe->numDrawVertex = numDrawVertex;
+
+    return numDrawVertex;
 }
 
-void Renderer::GetPositionOnCubic(math::VEC3* result, const math::VEC3& startPos, const math::VEC3& startVel, const math::VEC3& endPos, const math::VEC3& endVel, f32 time)
+void Renderer::GetPositionOnCubic(nw::math::VEC3* retPos, const nw::math::VEC3& startPos, const nw::math::VEC3& startVel, const nw::math::VEC3& endPos, const nw::math::VEC3& endVel, float time)
 {
     // http://old.zaynar.co.uk/cppdoc/latest/projects/maths/NUSpline.cpp.html
 
-    static const math::MTX44 hermite(
+    const static nw::math::MTX44 hermite(
          2.0f, -3.0f, 0.0f, 1.0f,
         -2.0f,  3.0f, 0.0f, 0.0f,
          1.0f, -2.0f, 1.0f, 0.0f,
          1.0f, -1.0f, 0.0f, 0.0f
     );
 
-    math::MTX44 mtx(
+    nw::math::MTX44 m(
         startPos.x, endPos.x, startVel.x, endVel.x,
         startPos.y, endPos.y, startVel.y, endVel.y,
         startPos.z, endPos.z, startVel.z, endVel.z,
-        0.0f, 0.0f, 0.0f, 1.0f
+        0.0f,       0.0f,     0.0f,       0.0f
     );
 
-    math::MTX44::Concat(&mtx, &mtx, &hermite);
+    MTX44Mult(&m, &m, &hermite);
 
-    math::VEC3 timeVector = (math::VEC3){ time * time * time, time * time, time };
-    math::MTX34::MultVec(result, (const math::MTX34*)&mtx, &timeVector);
+    nw::math::VEC3 timeVector(time * time * time, time * time, time);
+    retPos->x = m.m[0][0] * timeVector.x + m.m[0][1] * timeVector.y + m.m[0][2] * timeVector.z + m.m[0][3];
+    retPos->y = m.m[1][0] * timeVector.x + m.m[1][1] * timeVector.y + m.m[1][2] * timeVector.z + m.m[1][3];
+    retPos->z = m.m[2][0] * timeVector.x + m.m[2][1] * timeVector.y + m.m[2][2] * timeVector.z + m.m[2][3];
 }
 
-u32 Renderer::MakeStripeAttributeBlockCoreDivide(PtclStripe* stripe, StripeVertexBuffer* stripeVertexBuffer, s32 firstVertex, const StripeData* stripeData)
+s32 Renderer::MakeStripeAttributeBlockCoreDivide(PtclStripe* stripe, StripeVertexBuffer* stripeVertex, s32 wroteVertexNum, const StripeData* stripeData)
 {
-    s32 numDivisions = stripeData->numDivisions;
+    stripe->starDrawVertex = 0;
+    stripe->numDrawVertex = 0;
 
-    stripe->drawFirstVertex = 0;
-    stripe->numDraw = 0;
-
-    s32 histQueueCount = stripe->queueCount; if (histQueueCount < 3) return 0;
-    s32 sliceHistInterval = stripeData->sliceHistInterval;
-
-    s32 numSliceHistory = std::min( sliceHistInterval +  (sliceHistInterval - 1) * numDivisions,
-                                    histQueueCount    += (histQueueCount    - 1) * numDivisions );
-    if (numSliceHistory < 3)
+    s32 numVertex = stripe->numHistory;
+    if (numVertex < 3)
         return 0;
 
-    u32 numDrawStripe = 0;
+    numVertex += (stripe->numHistory - 1) * stripeData->stripeDivideNum;
 
-    f32 invRatio    = 1.0f / (f32)(numSliceHistory - 2);
-    f32 invDivRatio = 1.0f / (f32)(numDivisions    + 1);
-    f32 invTexRatio;
+    s32 numLoop = stripeData->stripeHistoryStep;
+    numLoop += (stripeData->stripeHistoryStep - 1) * stripeData->stripeDivideNum;
 
-    if (stripeData->textureType == 1 && stripe->counter < sliceHistInterval)
-        invTexRatio = 1.0f / (f32)((sliceHistInterval - 2) + (sliceHistInterval - 1) * numDivisions);
-    else
-        invTexRatio = invRatio;
+    if (numLoop >= numVertex)
+        numLoop = numVertex;
 
-    f32 alphaRange = stripeData->alphaEnd - stripeData->alphaStart;
-    stripe->drawFirstVertex = firstVertex;
+    if (numLoop < 3)
+        return 0;
 
-    for (s32 i = 0; i < numSliceHistory - 1; i++)
+    s32 numDrawVertex = 0;
+
+    f32 frateScale    = 1.0f / (f32)(numLoop - 2);
+    f32 frateScaleDiv = 1.0f / (f32)(stripeData->stripeDivideNum + 1);
+    f32 frateScaleUv;
+    if (stripeData->stripeTexCoordOpt == EFT_STRIPE_TEXCOORD_OPTION_TYPE_DIVISION &&
+        stripe->cnt < stripeData->stripeHistoryStep)
     {
-        u32 idx = firstVertex + numDrawStripe;
-        StripeVertexBuffer* buffer0 = &stripeVertexBuffer[idx + 0];
-        StripeVertexBuffer* buffer1 = &stripeVertexBuffer[idx + 1];
-
-        f32 ratio    = (f32)i * invRatio;
-        f32 texRatio = (f32)i * invTexRatio;
-        f32 divRatio = ratio  * invDivRatio;
-
-        f32 v0 = divRatio * (f32)(histQueueCount - 2);
-        s32 v1 = (s32)v0;
-
-        s32 sliceHistIdx = stripe->queueRear - v1 - 1;
-        s32 nextSliceHistIdx = sliceHistIdx - 1;
-
-        if (sliceHistIdx < 0)
-            sliceHistIdx += stripeData->numSliceHistory;
-
-        if (nextSliceHistIdx < 0)
-            nextSliceHistIdx += stripeData->numSliceHistory;
-
-        s32 prevSliceHistIdx = sliceHistIdx + 1;
-        if (prevSliceHistIdx >= stripeData->numSliceHistory)
-            prevSliceHistIdx -= stripeData->numSliceHistory;
-
-        s32 nextSliceHist2Idx = nextSliceHistIdx - 1;
-        if (nextSliceHist2Idx < 0)
-            nextSliceHist2Idx += stripeData->numSliceHistory;
-
-        f32 delta = v0 - (f32)v1;
-
-        u32 idx0 = prevSliceHistIdx;
-        u32 idx1 = sliceHistIdx;
-        u32 idx2 = nextSliceHistIdx;
-        u32 idx3 = nextSliceHist2Idx;
-
-        if (v1 == 0)
-        {
-            idx0 = sliceHistIdx;
-            idx1 = nextSliceHistIdx;
-        }
-
-        if (v1 >= stripe->queueCount - 2)
-        {
-            idx2 = sliceHistIdx;
-            idx3 = nextSliceHistIdx;
-        }
-
-        math::VEC3 diff0 = stripe->queue[idx0].pos - stripe->queue[idx1].pos;
-        math::VEC3 diff1 = stripe->queue[idx2].pos - stripe->queue[idx1].pos;
-        math::VEC3 diff2 = stripe->queue[idx1].pos - stripe->queue[idx2].pos;
-        math::VEC3 diff3 = stripe->queue[idx3].pos - stripe->queue[idx2].pos;
-
-        math::VEC3 startVel = (diff1 - diff0) * 0.5f;
-        math::VEC3 endVel = (diff3 - diff2) * 0.5f;
-
-        math::VEC3 pos;
-        GetPositionOnCubic(&pos, stripe->queue[sliceHistIdx].pos, startVel, stripe->queue[nextSliceHistIdx].pos, endVel, delta);
-
-        f32 alpha0 = (stripeData->alphaStart + alphaRange * ratio) * stripe->particle->alpha0 * stripe->particle->emitter->emitterSet->color.a * stripe->particle->emitter->fadeAlpha;
-        f32 alpha1 = (stripeData->alphaStart + alphaRange * ratio) * stripe->particle->alpha1 * stripe->particle->emitter->emitterSet->color.a * stripe->particle->emitter->fadeAlpha;
-
-        buffer0->pos.xyz() = pos;
-        buffer0->pos.w     = alpha0 * stripe->particle->emitter->anim[14];
-        buffer1->pos.xyz() = pos;
-        buffer1->pos.w     = buffer0->pos.w;
-
-        f32 invDelta = 1.0f - delta;
-
-        buffer0->outer.xyz() =  stripe->queue[sliceHistIdx].outer * invDelta + stripe->queue[nextSliceHistIdx].outer * delta;
-        buffer0->outer.w     =  stripe->queue[sliceHistIdx].scale;
-        buffer1->outer.xyz() =  buffer0->outer.xyz();
-        buffer1->outer.w     = -stripe->queue[sliceHistIdx].scale;
-
-        buffer0->dir.xyz() = stripe->queue[sliceHistIdx].dir * invDelta + stripe->queue[nextSliceHistIdx].dir * delta;
-        buffer0->dir.w     = alpha1 * stripe->particle->emitter->anim[14];
-        buffer1->dir.xyz() = buffer0->dir.xyz();
-        buffer1->dir.w     = buffer0->dir.w;
-
-        buffer1->texCoord.x = stripe->texAnimParam[0].offset.x;
-        buffer0->texCoord.y = stripe->texAnimParam[0].offset.y + texRatio * stripe->data->texAnimParam[0].uvScaleInit.y;
-        buffer0->texCoord.x = stripe->texAnimParam[0].offset.x +            stripe->data->texAnimParam[0].uvScaleInit.x;
-        buffer1->texCoord.y = buffer0->texCoord.y;
-
-        buffer1->texCoord.z = stripe->texAnimParam[1].offset.x;
-        buffer0->texCoord.w = stripe->texAnimParam[1].offset.y + texRatio * stripe->data->texAnimParam[1].uvScaleInit.y;
-        buffer0->texCoord.z = stripe->texAnimParam[1].offset.x +            stripe->data->texAnimParam[1].uvScaleInit.x;
-        buffer1->texCoord.w = buffer0->texCoord.w;
-
-        numDrawStripe += 2;
+        s32 historyStep = (stripeData->stripeHistoryStep - 2) + (stripeData->stripeHistoryStep - 1) * stripeData->stripeDivideNum;
+        frateScaleUv = 1.0f / (f32)(historyStep);
+    }
+    else
+    {
+        frateScaleUv = frateScale;
     }
 
-    stripe->numDraw = numDrawStripe;
+    f32 arate = stripeData->stripeEndAlpha - stripeData->stripeStartAlpha;
 
-    return numDrawStripe;
+    nw::math::VEC4* pos0   = NULL;
+    nw::math::VEC4* pos1   = NULL;
+    nw::math::VEC4* outer0 = NULL;
+    nw::math::VEC4* outer1 = NULL;
+    nw::math::VEC4* tex0   = NULL;
+    nw::math::VEC4* tex1   = NULL;
+    nw::math::VEC4* dir0   = NULL;
+    nw::math::VEC4* dir1   = NULL;
+
+    nw::math::VEC3 curVec;
+    nw::math::VEC3 startVel, endVel;
+    nw::math::VEC3 v0, v1, v2, v3;
+
+    stripe->starDrawVertex = wroteVertexNum;
+
+    for (s32 i = 0; i < numLoop - 1; i++)
+    {
+        u32 index = wroteVertexNum + numDrawVertex;
+
+        pos0   = &stripeVertex[index    ].pos;
+        pos1   = &stripeVertex[index + 1].pos;
+        outer0 = &stripeVertex[index    ].outer;
+        outer1 = &stripeVertex[index + 1].outer;
+        tex0   = &stripeVertex[index    ].tex;
+        tex1   = &stripeVertex[index + 1].tex;
+        dir0   = &stripeVertex[index    ].dir;
+        dir1   = &stripeVertex[index + 1].dir;
+
+        f32 frate = (f32)i * frateScale;
+        f32 frateUv = (f32)i * frateScaleUv;
+
+        f32 t = frate * frateScaleDiv * (f32)(numVertex - 2);
+        s32 iT = (s32)t;
+
+        s32 current = stripe->histQEnd - 1 - iT;
+        s32 next = current - 1;
+
+        if (current < 0)
+            current = stripeData->stripeNumHistory + current;
+
+        if (next < 0)
+            next = stripeData->stripeNumHistory + next;
+
+        s32 prev = current + 1;
+        if (prev >= stripeData->stripeNumHistory)
+            prev = prev - stripeData->stripeNumHistory;
+
+        s32 next2 = next - 1;
+        if (next2 < 0)
+            next2 = stripeData->stripeNumHistory + next2;
+
+        f32 posRate = t - (s32)t;
+
+        {
+            u32 p0 = prev;
+            u32 p1 = current;
+            u32 p2 = next;
+            u32 p3 = next2;
+
+            if (iT == 0)
+            {
+                p0 = current;
+                p1 = next;
+            }
+
+            if (iT >= stripe->numHistory - 2)
+            {
+                p2 = current;
+                p3 = next;
+            }
+
+            v0.x = stripe->hist[p0].pos.x - stripe->hist[p1].pos.x;
+            v0.y = stripe->hist[p0].pos.y - stripe->hist[p1].pos.y;
+            v0.z = stripe->hist[p0].pos.z - stripe->hist[p1].pos.z;
+
+            v1.x = stripe->hist[p2].pos.x - stripe->hist[p1].pos.x;
+            v1.y = stripe->hist[p2].pos.y - stripe->hist[p1].pos.y;
+            v1.z = stripe->hist[p2].pos.z - stripe->hist[p1].pos.z;
+
+            v2.x = stripe->hist[p1].pos.x - stripe->hist[p2].pos.x;
+            v2.y = stripe->hist[p1].pos.y - stripe->hist[p2].pos.y;
+            v2.z = stripe->hist[p1].pos.z - stripe->hist[p2].pos.z;
+
+            v3.x = stripe->hist[p3].pos.x - stripe->hist[p2].pos.x;
+            v3.y = stripe->hist[p3].pos.y - stripe->hist[p2].pos.y;
+            v3.z = stripe->hist[p3].pos.z - stripe->hist[p2].pos.z;
+
+            startVel.x = (v1.x - v0.x) * 0.5f;
+            startVel.y = (v1.y - v0.y) * 0.5f;
+            startVel.z = (v1.z - v0.z) * 0.5f;
+
+            endVel.x = (v3.x - v2.x) * 0.5f;
+            endVel.y = (v3.y - v2.y) * 0.5f;
+            endVel.z = (v3.z - v2.z) * 0.5f;
+
+            GetPositionOnCubic(&curVec, stripe->hist[current].pos, startVel, stripe->hist[next].pos, endVel, posRate);
+        }
+
+        f32 alpha0 = (stripeData->stripeStartAlpha + arate * frate) * stripe->ptcl->alpha0 * stripe->ptcl->emitter->emitterSet->mColor.a * stripe->ptcl->emitter->fadeAlpha;
+        f32 alpha1 = (stripeData->stripeStartAlpha + arate * frate) * stripe->ptcl->alpha1 * stripe->ptcl->emitter->emitterSet->mColor.a * stripe->ptcl->emitter->fadeAlpha;
+
+        pos0->x = curVec.x;
+        pos0->y = curVec.y;
+        pos0->z = curVec.z;
+        pos0->w = alpha0 * stripe->ptcl->emitter->emitterAnimValue[EFT_ANIM_ALPHA];
+
+        pos1->x = curVec.x;
+        pos1->y = curVec.y;
+        pos1->z = curVec.z;
+        pos1->w = pos0->w;
+
+        f32 invRate = 1.0f - posRate;
+
+        outer0->x =  stripe->hist[current].outer.x * invRate + stripe->hist[next].outer.x * posRate;
+        outer0->y =  stripe->hist[current].outer.y * invRate + stripe->hist[next].outer.y * posRate;
+        outer0->z =  stripe->hist[current].outer.z * invRate + stripe->hist[next].outer.z * posRate;
+        outer0->w =  stripe->hist[current].scale;
+
+        outer1->x =  outer0->x;
+        outer1->y =  outer0->y;
+        outer1->z =  outer0->z;
+        outer1->w = -stripe->hist[ current ].scale;
+
+        dir0->x = stripe->hist[current].dir.x * invRate + stripe->hist[next].dir.x * posRate;
+        dir0->y = stripe->hist[current].dir.y * invRate + stripe->hist[next].dir.y * posRate;
+        dir0->z = stripe->hist[current].dir.z * invRate + stripe->hist[next].dir.z * posRate;
+        dir0->w = alpha1 * stripe->ptcl->emitter->emitterAnimValue[EFT_ANIM_ALPHA];
+
+        dir1->x = dir0->x;
+        dir1->y = dir0->y;
+        dir1->z = dir0->z;
+        dir1->w = dir0->w;
+
+        tex1->x = stripe->uvParam[0].offset.x;
+        tex0->y = frateUv * stripe->res->textureData[0].texVScale + stripe->uvParam[0].offset.y;
+        tex0->x = stripe->res->textureData[0].texUScale + stripe->uvParam[0].offset.x;
+        tex1->y = tex0->y;
+
+        tex1->z = stripe->uvParam[1].offset.x;
+        tex0->w = frateUv * stripe->res->textureData[1].texVScale + stripe->uvParam[1].offset.y;
+        tex0->z = stripe->res->textureData[1].texUScale + stripe->uvParam[1].offset.x;
+        tex1->w = tex0->w;
+
+        numDrawVertex += 2;
+    }
+
+    stripe->numDrawVertex = numDrawVertex;
+
+    return numDrawVertex;
 }
 
 bool Renderer::MakeStripeAttributeBlock(const EmitterInstance* emitter, PtclInstance* ptcl)
 {
-    PtclStripe* stripe = ptcl->complexParam->stripe;
-    if (stripe == NULL)
+    if (ptcl->complexParam->stripe == NULL)
         return false;
 
-    stripe->stripeUniformBlock = NULL;
-    stripe->stripeUniformBlockCross = NULL;
-    stripe->stripeVertexBuffer = NULL;
+    PtclStripe* stripe = ptcl->complexParam->stripe;
 
-    if (stripe->data == NULL || ptcl->data == NULL)
+    stripe->uniformBlock         = NULL;
+    stripe->uniformBlockForCross = NULL;
+    stripe->attributeBuffer      = NULL;
+
+    if (stripe->res == NULL || ptcl->res == NULL)
         return false;
 
     const StripeData* stripeData = emitter->GetStripeData();
-    u32 numDivisions = stripeData->numDivisions;
 
-    u32 numVertex = stripe->queueCount;
+    s32 numDivide = stripeData->stripeDivideNum;
+
+    u32 numVertex = stripe->numHistory;
     if (numVertex == 0)
         return false;
 
-    numVertex += (stripe->queueCount - 1) * numDivisions;
+    numVertex += (stripe->numHistory - 1) * numDivide;
     numVertex *= 2;
 
-    math::VEC3 emitterSetColor = emitter->emitterSet->color.rgb();
-    emitterSetColor.x *= emitter->data->colorScaleFactor;
-    emitterSetColor.y *= emitter->data->colorScaleFactor;
-    emitterSetColor.z *= emitter->data->colorScaleFactor;
+    nw::ut::Color4f setColor = emitter->emitterSet->GetColor();
+    setColor.r *= emitter->res->colorScale;
+    setColor.g *= emitter->res->colorScale;
+    setColor.b *= emitter->res->colorScale;
 
-    math::VEC3 emitterColor0;
-    emitterColor0.x = emitterSetColor.x * emitter->anim[11];
-    emitterColor0.y = emitterSetColor.y * emitter->anim[12];
-    emitterColor0.z = emitterSetColor.z * emitter->anim[13];
+    nw::ut::Color4f emitterColor0;
+    emitterColor0.r = setColor.r * emitter->emitterAnimValue[EFT_ANIM_COLOR0_R];
+    emitterColor0.g = setColor.g * emitter->emitterAnimValue[EFT_ANIM_COLOR0_G];
+    emitterColor0.b = setColor.b * emitter->emitterAnimValue[EFT_ANIM_COLOR0_B];
 
-    math::VEC3 emitterColor1;
-    emitterColor1.x = emitterSetColor.x * emitter->anim[19];
-    emitterColor1.y = emitterSetColor.y * emitter->anim[20];
-    emitterColor1.z = emitterSetColor.z * emitter->anim[21];
+    nw::ut::Color4f emitterColor1;
+    emitterColor1.r = setColor.r * emitter->emitterAnimValue[EFT_ANIM_COLOR1_R];
+    emitterColor1.g = setColor.g * emitter->emitterAnimValue[EFT_ANIM_COLOR1_G];
+    emitterColor1.b = setColor.b * emitter->emitterAnimValue[EFT_ANIM_COLOR1_B];
 
-    stripe->stripeVertexBuffer = static_cast<StripeVertexBuffer*>(AllocFromDoubleBuffer(sizeof(StripeVertexBuffer) * numVertex));
-    if (stripe->stripeVertexBuffer == NULL)
+    u32 attributeBufferSize = numVertex * sizeof(StripeVertexBuffer);
+    stripe->attributeBuffer = static_cast<StripeVertexBuffer*>(AllocFromDoubleBuffer(attributeBufferSize));
+    if (stripe->attributeBuffer == NULL)
         return false;
 
-    if (numDivisions == 0)
-        stripe->numDraw = MakeStripeAttributeBlockCore(stripe, stripe->stripeVertexBuffer, 0, stripeData);
+    if (numDivide == 0)
+        stripe->numDrawVertex = MakeStripeAttributeBlockCore(stripe, stripe->attributeBuffer, 0, stripeData);
 
     else
-        stripe->numDraw = MakeStripeAttributeBlockCoreDivide(stripe, stripe->stripeVertexBuffer, 0, stripeData);
+        stripe->numDrawVertex = MakeStripeAttributeBlockCoreDivide(stripe, stripe->attributeBuffer, 0, stripeData);
 
-    stripeNumCalcVertex += stripe->numDraw;
+    mStripeVertexCalcNum += stripe->numDrawVertex;
 
-    stripe->stripeUniformBlock = static_cast<StripeUniformBlock*>(AllocFromDoubleBuffer(sizeof(StripeUniformBlock)));
-    if (stripe->stripeUniformBlock == NULL)
+    stripe->uniformBlock = static_cast<StripeUniformBlock*>(AllocFromDoubleBuffer(sizeof(StripeUniformBlock)));
+    if (stripe->uniformBlock == NULL)
         return false;
 
-    math::VEC3 ptclColor0 = ptcl->color0.rgb();
-    ptclColor0.x *= emitterColor0.x;
-    ptclColor0.y *= emitterColor0.y;
-    ptclColor0.z *= emitterColor0.z;
+    f32 color0R = ptcl->color[EFT_COLOR_KIND_0].r * emitterColor0.r;
+    f32 color0G = ptcl->color[EFT_COLOR_KIND_0].g * emitterColor0.g;
+    f32 color0B = ptcl->color[EFT_COLOR_KIND_0].b * emitterColor0.b;
 
-    math::VEC3 ptclColor1 = ptcl->color1.rgb();
-    ptclColor1.x *= emitterColor1.x;
-    ptclColor1.y *= emitterColor1.y;
-    ptclColor1.z *= emitterColor1.z;
+    f32 color1R = ptcl->color[EFT_COLOR_KIND_1].r * emitterColor1.r;
+    f32 color1G = ptcl->color[EFT_COLOR_KIND_1].g * emitterColor1.g;
+    f32 color1B = ptcl->color[EFT_COLOR_KIND_1].b * emitterColor1.b;
 
     {
-        StripeUniformBlock* uniformBlock = stripe->stripeUniformBlock;
+        stripe->uniformBlock->stParam.x = 1.0f;
+        stripe->uniformBlock->stParam.y = 0.0f;
+        stripe->uniformBlock->stParam.z = emitter->res->offsetParam;
+        stripe->uniformBlock->stParam.w = ptcl->scale.x;
 
-        uniformBlock->stParam.x = 1.0f;
-        uniformBlock->stParam.y = 0.0f;
-        uniformBlock->stParam.z = emitter->data->cameraOffset;
-        uniformBlock->stParam.w = ptcl->scale.x;
+        stripe->uniformBlock->uvScrollAnim.x = stripe->uvParam[EFT_TEXTURE_SLOT_0].offset.x + stripe->uvParam[EFT_TEXTURE_SLOT_0].scroll.x;
+        stripe->uniformBlock->uvScrollAnim.y = stripe->uvParam[EFT_TEXTURE_SLOT_0].offset.y - stripe->uvParam[EFT_TEXTURE_SLOT_0].scroll.y;
+        stripe->uniformBlock->uvScrollAnim.z = stripe->uvParam[EFT_TEXTURE_SLOT_1].offset.x + stripe->uvParam[EFT_TEXTURE_SLOT_1].scroll.x;
+        stripe->uniformBlock->uvScrollAnim.w = stripe->uvParam[EFT_TEXTURE_SLOT_1].offset.y - stripe->uvParam[EFT_TEXTURE_SLOT_1].scroll.y;
 
-        uniformBlock->uvScrollAnim.x = stripe->texAnimParam[0].offset.x + stripe->texAnimParam[0].scroll.x;
-        uniformBlock->uvScrollAnim.y = stripe->texAnimParam[0].offset.y - stripe->texAnimParam[0].scroll.y;
-        uniformBlock->uvScrollAnim.z = stripe->texAnimParam[1].offset.x + stripe->texAnimParam[1].scroll.x;
-        uniformBlock->uvScrollAnim.w = stripe->texAnimParam[1].offset.y - stripe->texAnimParam[1].scroll.y;
+        stripe->uniformBlock->uvScaleRotAnim0.x = stripe->uvParam[EFT_TEXTURE_SLOT_0].scale.x;
+        stripe->uniformBlock->uvScaleRotAnim0.y = stripe->uvParam[EFT_TEXTURE_SLOT_0].scale.y;
+        stripe->uniformBlock->uvScaleRotAnim0.z = stripe->uvParam[EFT_TEXTURE_SLOT_0].rotateZ;
+        stripe->uniformBlock->uvScaleRotAnim0.w = 0.0f;
 
-        uniformBlock->uvScaleRotateAnim0.x = stripe->texAnimParam[0].scale.x;
-        uniformBlock->uvScaleRotateAnim0.y = stripe->texAnimParam[0].scale.y;
-        uniformBlock->uvScaleRotateAnim0.z = stripe->texAnimParam[0].rotate;
-        uniformBlock->uvScaleRotateAnim0.w = 0.0f;
+        stripe->uniformBlock->uvScaleRotAnim1.x = stripe->uvParam[EFT_TEXTURE_SLOT_1].scale.x;
+        stripe->uniformBlock->uvScaleRotAnim1.y = stripe->uvParam[EFT_TEXTURE_SLOT_1].scale.y;
+        stripe->uniformBlock->uvScaleRotAnim1.z = stripe->uvParam[EFT_TEXTURE_SLOT_1].rotateZ;
+        stripe->uniformBlock->uvScaleRotAnim1.w = 0.0f;
 
-        uniformBlock->uvScaleRotateAnim1.x = stripe->texAnimParam[1].scale.x;
-        uniformBlock->uvScaleRotateAnim1.y = stripe->texAnimParam[1].scale.y;
-        uniformBlock->uvScaleRotateAnim1.z = stripe->texAnimParam[1].rotate;
-        uniformBlock->uvScaleRotateAnim1.w = 0.0f;
+        stripe->uniformBlock->vtxColor0.Set(color0R, color0G, color0B, ptcl->emitter->fadeAlpha);
+        stripe->uniformBlock->vtxColor1.Set(color1R, color1G, color1B, ptcl->emitter->fadeAlpha);
 
-        uniformBlock->vtxColor0.xyz() = ptclColor0;
-        uniformBlock->vtxColor0.w = ptcl->emitter->fadeAlpha;
+        stripe->uniformBlock->emitterMat = nw::math::MTX44(ptcl->emitter->emitterSRT);
 
-        uniformBlock->vtxColor1.xyz() = ptclColor1;
-        uniformBlock->vtxColor1.w = ptcl->emitter->fadeAlpha;
-
-        uniformBlock->emitterMat = math::MTX44(ptcl->emitter->matrixSRT);
-
-        GX2EndianSwap(uniformBlock, sizeof(StripeUniformBlock));
+        GX2EndianSwap(stripe->uniformBlock, sizeof(StripeUniformBlock));
     }
 
-    if (stripeData->crossType == 1)
+    if (stripeData->stripeOption == EFT_STRIPE_OPTION_TYPE_CROSS)
     {
-        stripe->stripeUniformBlockCross = static_cast<StripeUniformBlock*>(AllocFromDoubleBuffer(sizeof(StripeUniformBlock)));
-        if (stripe->stripeUniformBlockCross == NULL)
-            return true;
+        stripe->uniformBlockForCross = static_cast<StripeUniformBlock*>(AllocFromDoubleBuffer(sizeof(StripeUniformBlock)));
+        if (stripe->uniformBlockForCross == NULL)
+        {
+            stripe->uniformBlockForCross->stParam.x = 0.0f;
+            stripe->uniformBlockForCross->stParam.y = 1.0f;
+            stripe->uniformBlockForCross->stParam.z = emitter->res->offsetParam;
+            stripe->uniformBlockForCross->stParam.w = ptcl->scale.x;
 
-        StripeUniformBlock* uniformBlock = stripe->stripeUniformBlockCross;
+            stripe->uniformBlockForCross->uvScrollAnim.x = stripe->uvParam[EFT_TEXTURE_SLOT_0].offset.x + stripe->uvParam[EFT_TEXTURE_SLOT_0].scroll.x;
+            stripe->uniformBlockForCross->uvScrollAnim.y = stripe->uvParam[EFT_TEXTURE_SLOT_0].offset.y - stripe->uvParam[EFT_TEXTURE_SLOT_0].scroll.y;
+            stripe->uniformBlockForCross->uvScrollAnim.z = stripe->uvParam[EFT_TEXTURE_SLOT_1].offset.x + stripe->uvParam[EFT_TEXTURE_SLOT_1].scroll.x;
+            stripe->uniformBlockForCross->uvScrollAnim.w = stripe->uvParam[EFT_TEXTURE_SLOT_1].offset.y - stripe->uvParam[EFT_TEXTURE_SLOT_1].scroll.y;
 
-        uniformBlock->stParam.x = 0.0f;
-        uniformBlock->stParam.y = 1.0f;
-        uniformBlock->stParam.z = emitter->data->cameraOffset;
-        uniformBlock->stParam.w = ptcl->scale.x;
+            stripe->uniformBlockForCross->uvScaleRotAnim0.x = stripe->uvParam[EFT_TEXTURE_SLOT_0].scale.x;
+            stripe->uniformBlockForCross->uvScaleRotAnim0.y = stripe->uvParam[EFT_TEXTURE_SLOT_0].scale.y;
+            stripe->uniformBlockForCross->uvScaleRotAnim0.z = stripe->uvParam[EFT_TEXTURE_SLOT_0].rotateZ;
+            stripe->uniformBlockForCross->uvScaleRotAnim0.w = 0.0f;
 
-        uniformBlock->uvScrollAnim.x = stripe->texAnimParam[0].offset.x + stripe->texAnimParam[0].scroll.x;
-        uniformBlock->uvScrollAnim.y = stripe->texAnimParam[0].offset.y - stripe->texAnimParam[0].scroll.y;
-        uniformBlock->uvScrollAnim.z = stripe->texAnimParam[1].offset.x + stripe->texAnimParam[1].scroll.x;
-        uniformBlock->uvScrollAnim.w = stripe->texAnimParam[1].offset.y - stripe->texAnimParam[1].scroll.y;
+            stripe->uniformBlockForCross->uvScaleRotAnim1.x = stripe->uvParam[EFT_TEXTURE_SLOT_1].scale.x;
+            stripe->uniformBlockForCross->uvScaleRotAnim1.y = stripe->uvParam[EFT_TEXTURE_SLOT_1].scale.y;
+            stripe->uniformBlockForCross->uvScaleRotAnim1.z = stripe->uvParam[EFT_TEXTURE_SLOT_1].rotateZ;
+            stripe->uniformBlockForCross->uvScaleRotAnim1.w = 0.0f;
 
-        uniformBlock->uvScaleRotateAnim0.x = stripe->texAnimParam[0].scale.x;
-        uniformBlock->uvScaleRotateAnim0.y = stripe->texAnimParam[0].scale.y;
-        uniformBlock->uvScaleRotateAnim0.z = stripe->texAnimParam[0].rotate;
-        uniformBlock->uvScaleRotateAnim0.w = 0.0f;
+            stripe->uniformBlockForCross->vtxColor0.Set(color0R, color0G, color0B, ptcl->emitter->fadeAlpha);
+            stripe->uniformBlockForCross->vtxColor1.Set(color1R, color1G, color1B, ptcl->emitter->fadeAlpha);
 
-        uniformBlock->uvScaleRotateAnim1.x = stripe->texAnimParam[1].scale.x;
-        uniformBlock->uvScaleRotateAnim1.y = stripe->texAnimParam[1].scale.y;
-        uniformBlock->uvScaleRotateAnim1.z = stripe->texAnimParam[1].rotate;
-        uniformBlock->uvScaleRotateAnim1.w = 0.0f;
+            stripe->uniformBlockForCross->emitterMat = nw::math::MTX44(ptcl->emitter->emitterSRT);
 
-        uniformBlock->vtxColor0.xyz() = ptclColor0;
-        uniformBlock->vtxColor0.w = ptcl->emitter->fadeAlpha;
-
-        uniformBlock->vtxColor1.xyz() = ptclColor1;
-        uniformBlock->vtxColor1.w = ptcl->emitter->fadeAlpha;
-
-        uniformBlock->emitterMat = math::MTX44(ptcl->emitter->matrixSRT);
-
-        GX2EndianSwap(uniformBlock, sizeof(StripeUniformBlock));
+            GX2EndianSwap(stripe->uniformBlockForCross, sizeof(StripeUniformBlock));
+        }
     }
 
     return true;
 }
 
-bool Renderer::SetupStripeDrawSetting(const EmitterInstance* emitter, void* argData)
+bool Renderer::SetupStripeDrawSetting(const EmitterInstance* emitter, void* userParam)
 {
     if (emitter->shader == NULL)
         return false;
 
-    const SimpleEmitterData* data = emitter->data;
-
-    ParticleShader* shader = emitter->shader[shaderType];
-    if (shader == NULL)
+    const ComplexEmitterData* res = reinterpret_cast<const ComplexEmitterData*>(emitter->res);
+    ParticleShader* stripeShader = emitter->shader[mCurrentShaderType];
+    if (stripeShader == NULL)
         return false;
 
-    shader->Bind();
+    stripeShader->Bind();
 
-    shader->vertexViewUniformBlock.BindUniformBlock(viewUniformBlock);
-    shader->fragmentViewUniformBlock.BindUniformBlock(viewUniformBlock);
-    shader->fragmentEmitterStaticUniformBlock.BindUniformBlock(emitter->emitterStaticUniformBlock);
+    stripeShader->mVertexViewUniformBlock.BindUniformBlock(mViewUniformBlock);
+    stripeShader->mFragmentViewUniformBlock.BindUniformBlock(mViewUniformBlock);
 
-    renderContext.SetupZBufATest(data->zBufATestType);
-    renderContext.SetupBlendType(data->blendType);
-    renderContext.SetupDisplaySideType(data->displaySideType);
+    stripeShader->mFragmentEmitterStaticUniformBlock.BindUniformBlock(emitter->emitterStaticUniformBlock);
 
-    SetupTexture(shader, &data->textures[0], &data->textures[1], &data->textures[2]);
-
-    CustomShaderRenderStateSetCallback callback = system->GetCustomShaderRenderStateSetCallback(static_cast<CustomShaderCallBackID>(data->shaderUserSetting));
-    if (callback != NULL)
     {
-        RenderStateSetArg arg = {
-            .emitter = emitter,
-            .renderer = this,
-            .flushCache = true,
-            .argData = argData,
-        };
+        mRenderContext.SetupZBufATest(res->zBufATestType);
+        mRenderContext.SetupBlendType(res->blendType);
+        mRenderContext.SetupDisplaySideType(res->displaySide);
+
+        SetupTexture(stripeShader,
+                     &res->texRes[EFT_TEXTURE_SLOT_0],
+                     &res->texRes[EFT_TEXTURE_SLOT_1],
+                     &res->texRes[EFT_TEXTURE_SLOT_2]);
+    }
+
+    CustomShaderRenderStateSetCallback callback = mSystem->GetCustomShaderRenderStateSetCallback(static_cast<CustomShaderCallBackID>(res->userShaderSetting));
+    if (callback)
+    {
+        RenderStateSetArg arg;
+        arg.emitter = emitter;
+        arg.renderer = this;
+        arg.cacheFlush = true;
+        arg.userParam = userParam;
         callback(arg);
     }
 
-    if (system->GetDrawPathRenderStateSetCallback(static_cast<DrawPathFlag>(1 << emitter->data->_bitForUnusedFlag)) != NULL)
+    if (mSystem->GetDrawPathRenderStateSetCallback(static_cast<DrawPathFlag>(1 << emitter->res->drawPath)))
     {
-        RenderStateSetArg arg = {
-            .emitter = emitter,
-            .renderer = this,
-            .flushCache = true,
-            .argData = argData,
-        };
-        system->GetDrawPathRenderStateSetCallback(static_cast<DrawPathFlag>(1 << emitter->data->_bitForUnusedFlag))(arg);
+        RenderStateSetArg arg;
+        arg.emitter = emitter;
+        arg.renderer = this;
+        arg.cacheFlush = true;
+        arg.userParam = userParam;
+        mSystem->GetDrawPathRenderStateSetCallback(static_cast<DrawPathFlag>(1 << emitter->res->drawPath))(arg);
     }
 
     return true;
 }
 
-void Renderer::EntryStripe(const EmitterInstance* emitter, void* argData)
+void Renderer::EntryStripe(const EmitterInstance* emitter, void* userParam)
 {
-    if (emitter->data->displayParent == 0)
+    if (!emitter->res->isDisplayParent)
         return;
 
-    ParticleShader* shader = emitter->shader[shaderType];
-    if (shader == NULL)
+    ParticleShader* stripeShader = emitter->shader[mCurrentShaderType];
+    if (stripeShader == NULL)
         return;
 
-    const StripeData* stripeData = emitter->GetStripeData();
+    const StripeData* spData = emitter->GetStripeData();
 
-    currentParticleType = PtclType_Complex;
+    mCurrentDrawingType = EFT_PTCL_TYPE_COMPLEX;
 
-    if (emitter->data->vertexTransformMode == VertexTransformMode_Complex_Stripe)
+    if (emitter->res->billboardType == EFT_BILLBOARD_TYPE_COMPLEX_STRIPE)
     {
-        EntryConnectionStripe(emitter, argData);
-        numDrawEmitter++;
+        EntryConnectionStripe(emitter, userParam);
+        mRenderingEmitterNum++;
         return;
     }
 
-    if (!SetupStripeDrawSetting(emitter, argData))
+    if (!SetupStripeDrawSetting(emitter, userParam))
         return;
 
-    u32 numDraw = 0;
+    PtclInstance* ptcl = emitter->ptclHead;
+    PtclStripe* stripe = NULL;
+    u32 entryNum = 0;
 
-    for (PtclInstance* ptcl = emitter->particleHead; ptcl != NULL; ptcl = ptcl->next)
+    while (ptcl)
     {
-        PtclStripe* stripe = ptcl->complexParam->stripe;
+        stripe = ptcl->complexParam->stripe;
 
-        if (stripe == NULL
-            || stripe->data == NULL
-            || stripe->stripeVertexBuffer == NULL
-            || stripe->stripeUniformBlock == NULL
-            || stripe->numDraw < 4)
+        if (stripe == NULL ||
+            stripe->res == NULL ||
+            stripe->attributeBuffer == NULL ||
+            stripe->uniformBlock == NULL ||
+            stripe->numDrawVertex < 4)
         {
-            continue;
+            goto next;
         }
 
-        VertexBuffer::BindExtBuffer(0, sizeof(StripeVertexBuffer) * stripe->numDraw, 0, sizeof(StripeVertexBuffer), stripe->stripeVertexBuffer);
+        VertexBuffer::BindExtBuffer(0, sizeof(StripeVertexBuffer) * stripe->numDrawVertex, 0, sizeof(StripeVertexBuffer), stripe->attributeBuffer);
 
-        if (stripe->stripeUniformBlock != NULL && stripe->numDraw != 0)
+        if (stripe->uniformBlock && stripe->numDrawVertex > 0)
         {
-            StripeUniformBlock* uniformBlock = stripe->stripeUniformBlock;
-            shader->stripeUniformBlock.BindUniformBlock(uniformBlock);
-            GX2DrawEx(GX2_PRIMITIVE_TRIANGLE_STRIP, stripe->numDraw, stripe->drawFirstVertex, 1);
+            stripeShader->mStripeUniformBlock.BindUniformBlock(stripe->uniformBlock);
+            Draw::DrawPrimitive(Draw::PRIM_TYPE_TRIANGLE_STRIP, stripe->starDrawVertex, stripe->numDrawVertex);
+            mStripeVertexDrawNum += stripe->numDrawVertex - stripe->starDrawVertex;
 
-            stripeNumDrawVertex += stripe->numDraw - stripe->drawFirstVertex;
-            numDraw++;
+            entryNum++;
         }
 
-        if (stripe->stripeUniformBlockCross != NULL && stripe->numDraw != 0 && stripeData->type != 0)
+        if (stripe->uniformBlockForCross && stripe->numDrawVertex > 0 && spData->stripeType != EFT_STRIPE_TYPE_BILLBOARD)
         {
-            StripeUniformBlock* uniformBlock = stripe->stripeUniformBlockCross;
-            shader->stripeUniformBlock.BindUniformBlock(uniformBlock);
-            GX2DrawEx(GX2_PRIMITIVE_TRIANGLE_STRIP, stripe->numDraw, stripe->drawFirstVertex, 1);
+            stripeShader->mStripeUniformBlock.BindUniformBlock(stripe->uniformBlockForCross);
+            Draw::DrawPrimitive(Draw::PRIM_TYPE_TRIANGLE_STRIP, stripe->starDrawVertex, stripe->numDrawVertex);
+            mStripeVertexDrawNum += stripe->numDrawVertex - stripe->starDrawVertex;
 
-            stripeNumDrawVertex += stripe->numDraw - stripe->drawFirstVertex;
-            numDraw++;
+            entryNum++;
         }
+
+next:
+        ptcl = ptcl->next;
     }
 
-    numDrawParticle += numDraw;
-    numDrawEmitter++;
+    mRenderingParticleNum += entryNum;
+    mRenderingEmitterNum++;
 }
 
 } } // namespace nw::eft

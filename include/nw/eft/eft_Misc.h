@@ -1,21 +1,21 @@
 #ifndef EFT_MISC_H_
 #define EFT_MISC_H_
 
-#include <nw/typeDef.h>
+#include <nw/eft/eft_Heap.h>
 
 namespace nw { namespace eft {
 
-class Heap;
-
-void SetStaticHeap(Heap* heap);
-void* AllocFromStaticHeap(u32 size, u32 alignment = 0x80);
+void SetStaticHeap(Heap* staticHeap);
+void* AllocFromStaticHeap(u32 size, u32 alignment = 128);
+void FreeFromStaticHeap(void* ptr);
 u32 GetAllocedSizeFromStaticHeap();
 
-void SetDynamicHeap(Heap* heap);
-void* AllocFromDynamicHeap(u32 size, u32 alignment = 0x80);
-void FreeFromDynamicHeap(void* ptr, bool noDelay);
+void SetDynamicHeap(Heap* dynamicHeap);
+void* AllocFromDynamicHeap(u32 size, u32 alignment = 128);
+void FreeFromDynamicHeap(void* ptr, bool immediate = true);
 
-void InitializeDelayFreeList(u32 max);
+void InitializeDelayFreeList(u32 freeListNum);
+void FinalizeDelayFreeList();
 void FlushDelayFreeList();
 void AddFreeListForDynamicHeap(void* ptr);
 
@@ -32,6 +32,12 @@ void OutputWarning(const char* fmt, ...);
 // This function is supposed to print the error message and terminate the program
 void OutputError(const char* fmt, ...);
 #define ERROR OutputError
+
+typedef void (*OutputMessageCallback)(const char* format, va_list vargs);
+
+void SetOutputLogCallBack(OutputMessageCallback cb);
+void SetOutputWarningCallBack(OutputMessageCallback cb);
+void SetOutputErrorCallBack(OutputMessageCallback cb);
 
 } } // namespace nw::eft
 

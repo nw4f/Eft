@@ -3,360 +3,373 @@
 
 #include <cafe/gfd.h>
 
-BOOL _DEMOGFDReadVertexShader(nw::eft::Heap* heap, GX2VertexShader** shader, u32 index, const void* binary)
+BOOL _DEMOGFDReadVertexShader(nw::eft::Heap* heap, GX2VertexShader** ppShader, u32 index, const void* pData)
 {
-    if (binary == NULL || shader == NULL || index >= GFDGetVertexShaderCount(binary))
+    GX2VertexShader* pHeader;
+    void* pProgram;
+    u32 ret;
+    u32 headerSize;
+    u32 programSize;
+
+    if (pData == NULL || ppShader == NULL || index >= GFDGetVertexShaderCount(pData))
         return FALSE;
 
-    u32 headerSize = GFDGetVertexShaderHeaderSize(index, binary);
-    u32 programSize = GFDGetVertexShaderProgramSize(index, binary);
+    headerSize = GFDGetVertexShaderHeaderSize(index, pData);
+    programSize = GFDGetVertexShaderProgramSize(index, pData);
 
     if (headerSize == 0 || programSize == 0)
         return FALSE;
 
-    GX2VertexShader* pHeader = static_cast<GX2VertexShader*>(heap->Alloc(headerSize, PPC_IO_BUFFER_ALIGN));
-    void* pProgram = heap->Alloc(programSize, GX2_SHADER_ALIGNMENT);
+    pHeader = static_cast<GX2VertexShader*>(heap->Alloc(headerSize, PPC_IO_BUFFER_ALIGN));
+    pProgram = heap->Alloc(programSize, GX2_SHADER_ALIGNMENT);
 
-    BOOL success = GFDGetVertexShader(pHeader, pProgram, index, binary);
-    if (success)
+    ret = GFDGetVertexShader(pHeader, pProgram, index, pData);
+    if (ret)
     {
         DCFlushRange(pHeader->shaderPtr, pHeader->shaderSize);
-        *shader = pHeader;
+        *ppShader = pHeader;
     }
     else
     {
-        OSReport("Warning: Invalid Vertex Shader :%d", 0);
-        if(pHeader) heap->Free(pHeader);
-        if(pProgram) heap->Free(pProgram);
+        OSReport("Warning: Invalid Vertex Shader :%d", ret);
+        if (pHeader) heap->Free(pHeader);
+        if (pProgram) heap->Free(pProgram);
     }
 
-    return success;
+    return ret;
 }
 
-BOOL _DEMOGFDReadPixelShader(nw::eft::Heap* heap, GX2PixelShader** shader, u32 index, const void* binary)
+BOOL _DEMOGFDReadPixelShader(nw::eft::Heap* heap, GX2PixelShader** ppShader, u32 index, const void* pData)
 {
-    if (binary == NULL || shader == NULL || index >= GFDGetPixelShaderCount(binary))
+    GX2PixelShader* pHeader;
+    void* pProgram;
+    u32 ret;
+    u32 headerSize;
+    u32 programSize;
+
+    if (pData == NULL || ppShader == NULL || index >= GFDGetPixelShaderCount(pData))
         return FALSE;
 
-    u32 headerSize = GFDGetPixelShaderHeaderSize(index, binary);
-    u32 programSize = GFDGetPixelShaderProgramSize(index, binary);
+    headerSize = GFDGetPixelShaderHeaderSize(index, pData);
+    programSize = GFDGetPixelShaderProgramSize(index, pData);
 
     if (headerSize == 0 || programSize == 0)
         return FALSE;
 
-    GX2PixelShader* pHeader = static_cast<GX2PixelShader*>(heap->Alloc(headerSize, PPC_IO_BUFFER_ALIGN));
-    void* pProgram = heap->Alloc(programSize, GX2_SHADER_ALIGNMENT);
+    pHeader = static_cast<GX2PixelShader*>(heap->Alloc(headerSize, PPC_IO_BUFFER_ALIGN));
+    pProgram = heap->Alloc(programSize, GX2_SHADER_ALIGNMENT);
 
-    BOOL success = GFDGetPixelShader(pHeader, pProgram, index, binary);
-    if (success)
+    ret = GFDGetPixelShader(pHeader, pProgram, index, pData);
+    if (ret)
     {
         DCFlushRange(pHeader->shaderPtr, pHeader->shaderSize);
-        *shader = pHeader;
+        *ppShader = pHeader;
     }
     else
     {
-        OSReport("Warning: Invalid Pixel Shader :%d", 0);
-        if(pHeader) heap->Free(pHeader);
-        if(pProgram) heap->Free(pProgram);
+        OSReport("Warning: Invalid Pixel Shader :%d", ret);
+        if (pHeader) heap->Free(pHeader);
+        if (pProgram) heap->Free(pProgram);
     }
 
-    return success;
+    return ret;
 }
 
-BOOL _DEMOGFDReadGeometryShader(nw::eft::Heap* heap, GX2GeometryShader** shader, u32 index, const void* binary)
+BOOL _DEMOGFDReadGeometryShader(nw::eft::Heap* heap, GX2GeometryShader** ppShader, u32 index, const void* pData)
 {
-        if (binary == NULL || shader == NULL || index >= GFDGetGeometryShaderCount(binary))
+    GX2GeometryShader* pHeader;
+    void* pProgram;
+    void* pCopyProgram;
+    u32 ret;
+    u32 headerSize;
+    u32 programSize;
+    u32 copyProgramSize;
+
+    if (pData == NULL || ppShader == NULL || index >= GFDGetGeometryShaderCount(pData))
         return FALSE;
 
-    u32 headerSize = GFDGetGeometryShaderHeaderSize(index, binary);
-    u32 programSize = GFDGetGeometryShaderProgramSize(index, binary);
-    u32 copyProgramSize = GFDGetGeometryShaderCopyProgramSize(index, binary);
+    headerSize = GFDGetGeometryShaderHeaderSize(index, pData);
+    programSize = GFDGetGeometryShaderProgramSize(index, pData);
+    copyProgramSize = GFDGetGeometryShaderCopyProgramSize(index, pData);
 
     if (headerSize == 0 || programSize == 0)
         return FALSE;
 
-    GX2GeometryShader* pHeader = static_cast<GX2GeometryShader*>(heap->Alloc(headerSize, PPC_IO_BUFFER_ALIGN));
-    void* pProgram = heap->Alloc(programSize, GX2_SHADER_ALIGNMENT);
-    void* pCopyProgram = heap->Alloc(copyProgramSize, GX2_SHADER_ALIGNMENT);
+    pHeader = static_cast<GX2GeometryShader*>(heap->Alloc(headerSize, PPC_IO_BUFFER_ALIGN));
+    pProgram = heap->Alloc(programSize, GX2_SHADER_ALIGNMENT);
+    pCopyProgram = heap->Alloc(copyProgramSize, GX2_SHADER_ALIGNMENT);
 
-    BOOL success = GFDGetGeometryShader(pHeader, pProgram, pCopyProgram, index, binary);
-    if (success)
+    ret = GFDGetGeometryShader(pHeader, pProgram, pCopyProgram, index, pData);
+    if (ret)
     {
         DCFlushRange(pHeader->shaderPtr, pHeader->shaderSize);
         DCFlushRange(pHeader->copyShaderPtr, pHeader->copyShaderSize);
-        *shader = pHeader;
+        *ppShader = pHeader;
     }
     else
     {
-        OSReport("Warning: Invalid Geometry Shader :%d", 0);
-        if(pHeader) heap->Free(pHeader);
-        if(pProgram) heap->Free(pProgram);
-        if(pCopyProgram) heap->Free(pCopyProgram);
+        OSReport("Warning: Invalid Geometry Shader :%d", ret);
+        if (pHeader) heap->Free(pHeader);
+        if (pProgram) heap->Free(pProgram);
+        if (pCopyProgram) heap->Free(pCopyProgram);
     }
 
-    return success;
+    return ret;
 }
 
 namespace nw { namespace eft {
 
 TextureSampler::TextureSampler()
 {
-    GX2InitSampler(&sampler, GX2_TEX_CLAMP_WRAP, GX2_TEX_XY_FILTER_BILINEAR);
+    GX2InitSampler(&mTextureSampler, GX2_TEX_CLAMP_WRAP, GX2_TEX_XY_FILTER_BILINEAR);
 }
 
-bool TextureSampler::Setup(TextureFilterMode filterMode, TextureWrapMode wrapModeX, TextureWrapMode wrapModeY)
+TextureSampler::~TextureSampler()
 {
-    if (filterMode == TextureFilterMode_Linear)
-        GX2InitSamplerXYFilter(&sampler, GX2_TEX_XY_FILTER_BILINEAR, GX2_TEX_XY_FILTER_BILINEAR, GX2_TEX_ANISO_1_TO_1);
+}
 
+bool TextureSampler::Setup(TextureFilterMode textureFilter, TextureWrapMode wrapModeU, TextureWrapMode wrapModeV)
+{
+    GX2TexAnisoRatio ratio = GX2_TEX_ANISO_1_TO_1;
+
+    if (textureFilter == EFT_TEXTURE_FILTER_TYPE_LINEAR)
+        GX2InitSamplerXYFilter(&mTextureSampler, GX2_TEX_XY_FILTER_BILINEAR, GX2_TEX_XY_FILTER_BILINEAR, ratio);
     else
-        GX2InitSamplerXYFilter(&sampler, GX2_TEX_XY_FILTER_POINT, GX2_TEX_XY_FILTER_POINT, GX2_TEX_ANISO_1_TO_1);
+        GX2InitSamplerXYFilter(&mTextureSampler, GX2_TEX_XY_FILTER_POINT, GX2_TEX_XY_FILTER_POINT, ratio);
 
     GX2TexClamp clampX = GX2_TEX_CLAMP_MIRROR;
-    switch(wrapModeX)
-    {
-    case TextureWrapMode_Mirror:
-        clampX = GX2_TEX_CLAMP_MIRROR;
-        break;
-    case TextureWrapMode_Wrap:
-        clampX = GX2_TEX_CLAMP_WRAP;
-        break;
-    case TextureWrapMode_Clamp:
-        clampX = GX2_TEX_CLAMP_CLAMP;
-        break;
-    case TextureWrapMode_Mirror_Once:
-        clampX = GX2_TEX_CLAMP_MIRROR_ONCE;
-        break;
-    }
-
     GX2TexClamp clampY = GX2_TEX_CLAMP_MIRROR;
-    switch(wrapModeY)
+    GX2TexClamp clampZ = GX2_TEX_CLAMP_WRAP;
+
+    switch (wrapModeU)
     {
-    case TextureWrapMode_Mirror:
-        clampY = GX2_TEX_CLAMP_MIRROR;
-        break;
-    case TextureWrapMode_Wrap:
-        clampY = GX2_TEX_CLAMP_WRAP;
-        break;
-    case TextureWrapMode_Clamp:
-        clampY = GX2_TEX_CLAMP_CLAMP;
-        break;
-    case TextureWrapMode_Mirror_Once:
-        clampY = GX2_TEX_CLAMP_MIRROR_ONCE;
-        break;
+    case EFT_TEXTURE_WRAP_TYPE_MIRROR:              clampX = GX2_TEX_CLAMP_MIRROR;      break;
+    case EFT_TEXTURE_WRAP_TYPE_REPEAT:              clampX = GX2_TEX_CLAMP_WRAP;        break;
+    case EFT_TEXTURE_WRAP_TYPE_CLAMP:               clampX = GX2_TEX_CLAMP_CLAMP;       break;
+    case EFT_TEXTURE_WRAP_TYPE_MIROOR_ONCE:         clampX = GX2_TEX_CLAMP_MIRROR_ONCE; break;
     }
 
-    GX2InitSamplerClamping(&sampler, clampX, clampY, GX2_TEX_CLAMP_WRAP);
+    switch (wrapModeV)
+    {
+    case EFT_TEXTURE_WRAP_TYPE_MIRROR:              clampY = GX2_TEX_CLAMP_MIRROR;      break;
+    case EFT_TEXTURE_WRAP_TYPE_REPEAT:              clampY = GX2_TEX_CLAMP_WRAP;        break;
+    case EFT_TEXTURE_WRAP_TYPE_CLAMP:               clampY = GX2_TEX_CLAMP_CLAMP;       break;
+    case EFT_TEXTURE_WRAP_TYPE_MIROOR_ONCE:         clampY = GX2_TEX_CLAMP_MIRROR_ONCE; break;
+    }
+
+    GX2InitSamplerClamping(&mTextureSampler, clampX, clampY, clampZ);
     return true;
 }
 
-bool TextureSampler::Initialize(TextureFilterMode filterMode, TextureWrapMode wrapModeX, TextureWrapMode wrapModeY)
+bool TextureSampler::Initialize(TextureFilterMode textureFilter, TextureWrapMode wrapModeU, TextureWrapMode wrapModeV)
 {
-    Setup(filterMode, wrapModeX, wrapModeY);
+    Setup(textureFilter, wrapModeU, wrapModeV);
     return true;
 }
 
-bool TextureSampler::SetupLOD(f32 maxLOD, f32 biasLOD)
+bool TextureSampler::SetupLOD(f32 maxMip, f32 bais)
 {
-    GX2InitSamplerLOD(&sampler, 0.0f, maxLOD, biasLOD);
+    GX2InitSamplerLOD(&mTextureSampler, 0.0f, maxMip, bais);
     return true;
 }
 
 VertexBuffer::VertexBuffer()
 {
-    bufferSize = 0;
-    buffer = NULL;
+    mVertexBufferSize   = 0;
+    mVertexBuffer       = NULL;
 }
 
-void* VertexBuffer::AllocateVertexBuffer(Heap* heap, u32 bufSize, u32 elemSize)
+void* VertexBuffer::AllocateVertexBuffer(Heap* heap, u32 size, u32 element)
 {
-    bufferSize = bufSize;
-    buffer = heap->Alloc(bufferSize, GX2_VERTEX_BUFFER_ALIGNMENT);
-    size = elemSize;
-    return buffer;
+    mVertexBufferSize   = size;
+    mVertexBuffer       = heap->Alloc(mVertexBufferSize, GX2_VERTEX_BUFFER_ALIGNMENT);
+    mVertexElement      = element;
+    return mVertexBuffer;
 }
 
-void VertexBuffer::SetVertexBuffer(void* buf, u32 bufSize, u32 elemSize)
+void VertexBuffer::SetVertexBuffer(void* buffer, u32 size, u32 element)
 {
-    buffer = buf;
-    size = elemSize;
-    bufferSize = bufSize;
+    mVertexBufferSize   = size;
+    mVertexBuffer       = buffer;
+    mVertexElement      = element;
 }
 
 void VertexBuffer::Finalize(Heap* heap)
 {
-    if (buffer != NULL)
+    if (mVertexBuffer)
     {
-        heap->Free(buffer);
-        buffer = NULL;
+        heap->Free(mVertexBuffer);
+        mVertexBuffer = NULL;
     }
 }
 
 void VertexBuffer::Invalidate()
 {
-    DCFlushRange(buffer, bufferSize);
+    DCFlushRange(mVertexBuffer, mVertexBufferSize);
 }
 
 void VertexBuffer::BindBuffer(u32 index, u32 size, u32 stride)
 {
-    GX2SetAttribBuffer(index, size, stride, buffer);
+    GX2SetAttribBuffer(index, size, stride, mVertexBuffer);
 }
 
-void VertexBuffer::BindExtBuffer(u32 index, u32 size, u32, u32 stride, void* buffer)
+void VertexBuffer::BindExtBuffer(u32 index, u32 size, u32 element, u32 stride, void* buffer)
 {
     GX2SetAttribBuffer(index, size, stride, buffer);
 }
 
 Shader::Shader()
 {
-    vertexShader = NULL;
-    pixelShader = NULL;
-    geometryShader = NULL;
-    fetchShaderBufPtr = NULL;
-    numAttribute = 0;
-    initialized = false;
+    mpVertexShader              = NULL;
+    mpPixelShader               = NULL;
+    mpGeometryShader            = NULL;
+    mpFetchShaderBuf            = NULL;
+    mAttribsNum                 = 0;
+    mInitialized                = false;
 }
 
 void Shader::Finalize(Heap* heap)
 {
-    if (vertexShader != NULL && vertexShader->shaderPtr != NULL)
+    if (mpVertexShader && mpVertexShader->shaderPtr)
     {
-        heap->Free(vertexShader->shaderPtr);
-        heap->Free(vertexShader);
+        heap->Free(mpVertexShader->shaderPtr);
+        heap->Free(mpVertexShader);
     }
 
-    if (pixelShader != NULL && pixelShader->shaderPtr != NULL)
+    if (mpPixelShader && mpPixelShader->shaderPtr)
     {
-        heap->Free(pixelShader->shaderPtr);
-        heap->Free(pixelShader);
+        heap->Free(mpPixelShader->shaderPtr);
+        heap->Free(mpPixelShader);
     }
 
-    if (geometryShader != NULL && geometryShader->shaderPtr != NULL)
+    if (mpGeometryShader && mpGeometryShader->shaderPtr)
     {
-        heap->Free(geometryShader->shaderPtr);
-        heap->Free(geometryShader);
+        heap->Free(mpGeometryShader->shaderPtr);
+        heap->Free(mpGeometryShader);
     }
 
-    if (fetchShaderBufPtr != NULL)
+    if (mpFetchShaderBuf)
     {
-        heap->Free(fetchShaderBufPtr);
-        fetchShaderBufPtr = NULL;
+        heap->Free(mpFetchShaderBuf);
+        mpFetchShaderBuf = NULL;
     }
 }
 
 void Shader::BindShader()
 {
-    if (geometryShader != NULL)
-        GX2SetShadersEx(&fetchShader, vertexShader, geometryShader, pixelShader);
+    if (mpGeometryShader)
+        GX2SetShadersEx(&mFetchShader, mpVertexShader, mpGeometryShader, mpPixelShader);
     else
-        GX2SetShaders(&fetchShader, vertexShader, pixelShader);
+        GX2SetShaders(&mFetchShader, mpVertexShader, mpPixelShader);
 }
 
-bool Shader::CreateShader(Heap* heap, const void* binary, u32 binarySize)
+bool Shader::CreateShader(Heap* heap, const void* gshBuffer, u32 gshBufferSize)
 {
-    _DEMOGFDReadVertexShader(heap, &vertexShader, 0, binary);
-    _DEMOGFDReadPixelShader(heap, &pixelShader, 0, binary);
-    _DEMOGFDReadGeometryShader(heap, &geometryShader, 0, binary);
+    _DEMOGFDReadVertexShader  (heap, &mpVertexShader,   0, gshBuffer);
+    _DEMOGFDReadPixelShader   (heap, &mpPixelShader,    0, gshBuffer);
+    _DEMOGFDReadGeometryShader(heap, &mpGeometryShader, 0, gshBuffer);
 
     return true;
 }
 
-s32 Shader::GetFragmentSamplerLocation(const char* name)
+u32 Shader::GetFragmentSamplerLocation(const char* name)
 {
-    return GX2GetPixelSamplerVarLocation(pixelShader, name);
+    return GX2GetPixelSamplerVarLocation(mpPixelShader, name);
 }
 
-s32 Shader::GetVertexSamplerLocation(const char* name)
+u32 Shader::GetVertexSamplerLocation(const char* name)
 {
-    return GX2GetVertexSamplerVarLocation(vertexShader, name);
+    return GX2GetVertexSamplerVarLocation(mpVertexShader, name);
 }
 
-s32 Shader::GetAttributeLocation(const char* name)
+u32 Shader::GetAttributeLocation(const char* name)
 {
-    return GX2GetVertexAttribVarLocation(vertexShader, name);
+    return GX2GetVertexAttribVarLocation(mpVertexShader, name);
 }
 
-u32 Shader::GetAttribute(const char* name, u32 buffer, VertexFormat attribFormat, u32 offset, bool instanceID, bool endianSwap)
+u32 Shader::GetAttribute(const char* name, u32 index, VertexFormat fmt, u32 offset, bool instancingAttr, bool endianSwap)
 {
-    s32 location = GetAttributeLocation(name);
-    if (location == -1)
-        return 0xFFFFFFFF;
+    u32 attrLoc = GetAttributeLocation(name);
+    if (attrLoc == EFT_INVALID_ATTRIBUTE)
+        return EFT_INVALID_ATTRIBUTE;
 
-    attributeBuffer[location] = buffer;
-    GX2InitAttribStream(&attributes[numAttribute], location, buffer, offset * sizeof(u32), static_cast<GX2AttribFormat>(attribFormat));
+    mAttribsIndex[attrLoc] = index;
+    GX2InitAttribStream(&mAttribs[mAttribsNum], attrLoc, index, offset * sizeof(u32), static_cast<GX2AttribFormat>(fmt));
 
-    if (instanceID)
+    if (instancingAttr)
     {
-        attributes[numAttribute].indexType = GX2_ATTRIB_INDEX_INSTANCE_ID;
-        attributes[numAttribute].aluDivisor = 1;
+        mAttribs[mAttribsNum].indexType = GX2_ATTRIB_INDEX_INSTANCE_ID;
+        mAttribs[mAttribsNum].aluDivisor = 1;
     }
 
     if (endianSwap)
-        attributes[numAttribute].endianSwap = GX2_ENDIANSWAP_NONE;
+        mAttribs[mAttribsNum].endianSwap = GX2_ENDIANSWAP_NONE;
 
-    numAttribute++;
-    return buffer;
+    mAttribsNum++;
+    return index;
 }
 
 void Shader::SetupShader(Heap* heap)
 {
-    fetchShaderBufPtr = heap->Alloc(GX2CalcFetchShaderSize(numAttribute), GX2_SHADER_ALIGNMENT);
-    GX2InitFetchShader(&fetchShader, fetchShaderBufPtr, numAttribute, attributes);
-    DCFlushRange(fetchShaderBufPtr, GX2CalcFetchShaderSize(numAttribute));
-    initialized = true;
+    mpFetchShaderBuf = heap->Alloc(GX2CalcFetchShaderSize(mAttribsNum), GX2_SHADER_ALIGNMENT);
+    GX2InitFetchShader(&mFetchShader, mpFetchShaderBuf, mAttribsNum, mAttribs);
+    DCFlushRange(mpFetchShaderBuf, GX2CalcFetchShaderSize(mAttribsNum));
+    mInitialized = true;
 }
 
-bool UniformBlock::InitializeVertexUniformBlock(Shader* shader, const char* name, u32)
+bool UniformBlock::InitializeVertexUniformBlock(Shader* shader, const char* name, u32 bindPoint)
 {
-    GX2UniformBlock* uniformBlock = GX2GetVertexUniformBlock(shader->vertexShader, name);
-    if (uniformBlock == NULL)
+    GX2UniformBlock* block = GX2GetVertexUniformBlock(shader->GetVertexShader(), name);
+    if (block == NULL)
     {
-        blockNotExist = true;
+        mIsFailed = true;
         return false;
     }
 
-    location = uniformBlock->location;
-    bufferSize = uniformBlock->size;
-    shaderStage = ShaderStage_Vertex;
-    initialized = true;
+    mUniformLoc = block->location;
+    mBufferSize = block->size;
+    mUniformBlockMode = EFT_UNIFORM_BLOCK_MODE_VERTEX;
+    mInitialized = true;
 
     return true;
 }
 
 bool UniformBlock::InitializePixelUniformBlock(Shader* shader, const char* name, u32)
 {
-    GX2UniformBlock* uniformBlock = GX2GetPixelUniformBlock(shader->pixelShader, name);
-    if (uniformBlock == NULL)
+    GX2UniformBlock* block = GX2GetPixelUniformBlock(shader->GetPixelShader(), name);
+    if (block == NULL)
     {
-        blockNotExist = true;
+        mIsFailed = true;
         return false;
     }
 
-    location = uniformBlock->location;
-    bufferSize = uniformBlock->size;
-    shaderStage = ShaderStage_Fragment;
-    initialized = true;
+    mUniformLoc = block->location;
+    mBufferSize = block->size;
+    mUniformBlockMode = EFT_UNIFORM_BLOCK_MODE_FRAGMENT;
+    mInitialized = true;
 
     return true;
 }
 
-void UniformBlock::BindUniformBlock(const void* buffer, s32 bufSize)
+void UniformBlock::BindUniformBlock(const void* param, s32 size)
 {
-    if (bufferSize == 0)
+    if (mBufferSize == 0)
         return;
 
-    u32 size = (bufSize != -1) ? bufSize : bufferSize;
+    s32 bufferSize = mBufferSize;
+    if (size != -1)
+        bufferSize = size;
 
-    switch (shaderStage)
+    switch (mUniformBlockMode)
     {
-    case ShaderStage_Vertex:
-        GX2SetVertexUniformBlock(location, size, buffer);
+    case EFT_UNIFORM_BLOCK_MODE_VERTEX:
+        GX2SetVertexUniformBlock(mUniformLoc, bufferSize, param);
         break;
-    case ShaderStage_Fragment:
-        GX2SetPixelUniformBlock(location, size, buffer);
+    case EFT_UNIFORM_BLOCK_MODE_FRAGMENT:
+        GX2SetPixelUniformBlock(mUniformLoc, bufferSize, param);
         break;
-    case ShaderStage_Geometry:
-        GX2SetGeometryUniformBlock(location, size, buffer);
+    case EFT_UNIFORM_BLOCK_MODE_GEOMETRY:
+        GX2SetGeometryUniformBlock(mUniformLoc, bufferSize, param);
         break;
     }
 }

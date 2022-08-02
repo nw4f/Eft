@@ -5,11 +5,11 @@ namespace nw { namespace eft {
 
 RenderContext::RenderContext()
 {
-    for (u32 i = 0; i < TextureSlot_Max; i++)
-        textureSamplers[i].Initialize(TextureFilterMode_Linear, TextureWrapMode_Wrap, TextureWrapMode_Wrap);
+    for (u32 i = 0; i < EFT_TEXTURE_SLOT_MAX; i++)
+        mTextureSampler[i].Initialize(EFT_TEXTURE_FILTER_TYPE_LINEAR, EFT_TEXTURE_WRAP_TYPE_REPEAT, EFT_TEXTURE_WRAP_TYPE_REPEAT);
 
-    textureSampler2.Initialize(TextureFilterMode_Linear, TextureWrapMode_Mirror, TextureWrapMode_Mirror);
-    textureSampler2DArray.Initialize(TextureFilterMode_Linear, TextureWrapMode_Wrap, TextureWrapMode_Wrap);
+    mDefaultTextureSampler.Initialize(EFT_TEXTURE_FILTER_TYPE_LINEAR, EFT_TEXTURE_WRAP_TYPE_MIRROR, EFT_TEXTURE_WRAP_TYPE_MIRROR);
+    m2DArrayTextureSampler.Initialize(EFT_TEXTURE_FILTER_TYPE_LINEAR, EFT_TEXTURE_WRAP_TYPE_REPEAT, EFT_TEXTURE_WRAP_TYPE_REPEAT);
 }
 
 void RenderContext::SetupCommonState()
@@ -35,7 +35,7 @@ void RenderContext::SetupBlendType(BlendType blendType) const
 {
     switch (blendType)
     {
-    case BlendType_Normal:
+    case EFT_BLEND_TYPE_NORMAL:
         GX2SetBlendControl(GX2_RENDER_TARGET_0,
                            GX2_BLEND_SRC_ALPHA,
                            GX2_BLEND_ONE_MINUS_SRC_ALPHA,
@@ -45,7 +45,7 @@ void RenderContext::SetupBlendType(BlendType blendType) const
                            GX2_BLEND_ONE_MINUS_SRC_ALPHA,
                            GX2_BLEND_COMBINE_ADD);
         break;
-    case BlendType_Add:
+    case EFT_BLEND_TYPE_ADD:
         GX2SetBlendControl(GX2_RENDER_TARGET_0,
                            GX2_BLEND_SRC_ALPHA,
                            GX2_BLEND_ONE,
@@ -55,7 +55,7 @@ void RenderContext::SetupBlendType(BlendType blendType) const
                            GX2_BLEND_ONE,
                            GX2_BLEND_COMBINE_ADD);
         break;
-    case BlendType_Sub:
+    case EFT_BLEND_TYPE_SUB:
         GX2SetBlendControl(GX2_RENDER_TARGET_0,
                            GX2_BLEND_SRC_ALPHA,
                            GX2_BLEND_ONE,
@@ -65,7 +65,7 @@ void RenderContext::SetupBlendType(BlendType blendType) const
                            GX2_BLEND_ONE,
                            GX2_BLEND_COMBINE_DST_MINUS_SRC);
         break;
-    case BlendType_Screen:
+    case EFT_BLEND_TYPE_SCREEN:
         GX2SetBlendControl(GX2_RENDER_TARGET_0,
                            GX2_BLEND_ONE_MINUS_DST_COLOR,
                            GX2_BLEND_ONE,
@@ -75,7 +75,7 @@ void RenderContext::SetupBlendType(BlendType blendType) const
                            GX2_BLEND_ONE,
                            GX2_BLEND_COMBINE_ADD);
         break;
-    case BlendType_Mult:
+    case EFT_BLEND_TYPE_MULT:
         GX2SetBlendControl(GX2_RENDER_TARGET_0,
                            GX2_BLEND_ZERO,
                            GX2_BLEND_SRC_COLOR ,
@@ -92,22 +92,22 @@ void RenderContext::SetupZBufATest(ZBufATestType zBufATestType) const
 {
     switch (zBufATestType)
     {
-    case ZBufATestType_Normal:
+    case EFT_ZBUFF_ATEST_TYPE_NORMAL:
         GX2SetDepthOnlyControl(GX2_TRUE, GX2_FALSE, GX2_COMPARE_LEQUAL);
         GX2SetAlphaTest(GX2_TRUE, GX2_COMPARE_GREATER, 0.0f);
         GX2SetColorControl(GX2_LOGIC_OP_COPY, GX2_ENABLE, GX2_DISABLE, GX2_ENABLE);
         break;
-    case ZBufATestType_Ignore_Z:
+    case EFT_ZBUFF_ATEST_TYPE_ZIGNORE:
         GX2SetDepthOnlyControl(GX2_FALSE, GX2_FALSE, GX2_COMPARE_LEQUAL);
         GX2SetAlphaTest(GX2_TRUE, GX2_COMPARE_GREATER, 0.0f);
         GX2SetColorControl(GX2_LOGIC_OP_COPY, GX2_ENABLE, GX2_DISABLE, GX2_ENABLE);
         break;
-    case ZBufATestType_Alpha:
+    case EFT_ZBUFF_ATEST_TYPE_ENTITY:
         GX2SetDepthOnlyControl(GX2_TRUE, GX2_TRUE, GX2_COMPARE_LEQUAL);
         GX2SetAlphaTest(GX2_TRUE, GX2_COMPARE_GREATER, 0.5f);
         GX2SetColorControl(GX2_LOGIC_OP_COPY, GX2_DISABLE, GX2_DISABLE, GX2_ENABLE);
         break;
-    case ZBufATestType_Opaque:
+    case EFT_ZBUFF_ATEST_TYPE_OPAQUE:
         GX2SetDepthOnlyControl(GX2_TRUE, GX2_TRUE, GX2_COMPARE_LEQUAL);
         GX2SetAlphaTest(GX2_FALSE, GX2_COMPARE_GREATER, 0.5f);
         GX2SetColorControl(GX2_LOGIC_OP_COPY, GX2_DISABLE, GX2_DISABLE, GX2_ENABLE);
@@ -119,74 +119,114 @@ void RenderContext::SetupDisplaySideType(DisplaySideType displaySideType) const
 {
     switch (displaySideType)
     {
-    case DisplaySideType_Both:
+    case EFT_DISPLAYSIDETYPE_BOTH:
         GX2SetCullOnlyControl(GX2_FRONT_FACE_CCW, GX2_FALSE, GX2_FALSE);
         break;
-    case DisplaySideType_Front:
+    case EFT_DISPLAYSIDETYPE_FRONT:
         GX2SetCullOnlyControl(GX2_FRONT_FACE_CCW, GX2_FALSE, GX2_TRUE);
         break;
-    case DisplaySideType_Back:
+    case EFT_DISPLAYSIDETYPE_BACK:
         GX2SetCullOnlyControl(GX2_FRONT_FACE_CCW, GX2_TRUE, GX2_FALSE);
         break;
     }
 }
 
-void RenderContext::_SetupFragmentTexture(const GX2Texture* texture, const GX2Sampler* sampler, TextureSlot slot, FragmentTextureLocation samplerLocation) const
+void RenderContext::_SetupFragmentTexture(const Texture texture, const Sampler sampler, TextureSlot slot, FragmentTextureLocation location) const
 {
-    if (texture == NULL || samplerLocation.location == 0xFFFFFFFF)
+    if (texture == NULL || location.loc == EFT_INVALID_LOCATION)
         return;
 
-    GX2SetPixelTexture(texture, samplerLocation.location);
-    GX2SetPixelSampler(sampler, samplerLocation.location);
+    GX2SetPixelTexture(texture, location.loc);
+    GX2SetPixelSampler(sampler, location.loc);
 }
 
-void RenderContext::_SetupFragment2DArrayTexture(const GX2Texture* texture, const GX2Sampler* sampler, TextureSlot slot, FragmentTextureLocation samplerLocation) const
+void RenderContext::_SetupFragment2DArrayTexture(const Texture texture, const Sampler sampler, TextureSlot slot, FragmentTextureLocation location) const
 {
-    _SetupFragmentTexture(texture, sampler, slot, samplerLocation);
+    _SetupFragmentTexture(texture, sampler, slot, location);
 }
 
-void RenderContext::_SetupVertexTexture(const GX2Texture* texture, const GX2Sampler* sampler, TextureSlot slot, VertexTextureLocation samplerLocation) const
+void RenderContext::_SetupFragmentCubeMapTexture(const Texture texture, const Sampler sampler, TextureSlot slot, FragmentTextureLocation location) const
 {
-    //if (texture == NULL || samplerLocation.location == 0xFFFFFFFF)
+    _SetupFragmentTexture(texture, sampler, slot, location);
+}
+
+void RenderContext::_SetupFragmentCubeMapArrayTexture(const Texture texture, const Sampler sampler, TextureSlot slot, FragmentTextureLocation location) const
+{
+    _SetupFragmentTexture(texture, sampler, slot, location);
+}
+
+void RenderContext::_SetupVertexTexture(const Texture texture, const Sampler sampler, TextureSlot slot, VertexTextureLocation location) const
+{
+    //if (texture == NULL || location.loc == EFT_INVALID_LOCATION)
     //    return;
 
-    GX2SetVertexTexture(texture, samplerLocation.location);
-    GX2SetVertexSampler(sampler, samplerLocation.location);
+    GX2SetVertexTexture(texture, location.loc);
+    GX2SetVertexSampler(sampler, location.loc);
 }
 
-void RenderContext::_SetupVertex2DArrayTexture(const GX2Texture* texture, const GX2Sampler* sampler, TextureSlot slot, VertexTextureLocation samplerLocation) const
+void RenderContext::_SetupVertex2DArrayTexture(const Texture texture, const Sampler sampler, TextureSlot slot, VertexTextureLocation location) const
 {
-    _SetupVertexTexture(texture, sampler, slot, samplerLocation);
+    _SetupVertexTexture(texture, sampler, slot, location);
 }
 
-void RenderContext::SetupTexture(const TextureRes* texture, TextureSlot slot, FragmentTextureLocation samplerLocation)
+void RenderContext::SetupTexture(const TextureRes* texture, TextureSlot slot, FragmentTextureLocation location)
 {
-    textureSamplers[slot].Setup(static_cast<TextureFilterMode>(texture->filterMode),
-                         static_cast<TextureWrapMode>(texture->wrapMode & 0xF),
-                         static_cast<TextureWrapMode>(texture->wrapMode >> 4));
-    textureSamplers[slot].SetupLOD(texture->maxLOD, texture->biasLOD);
+    mTextureSampler[slot].Setup(static_cast<TextureFilterMode>(texture->filterMode),
+                                static_cast<TextureWrapMode>( texture->wrapMode       & 0xF),
+                                static_cast<TextureWrapMode>((texture->wrapMode >> 4) & 0xF));
+    mTextureSampler[slot].SetupLOD(texture->enableMipLevel, texture->mipMapBias);
 
-    _SetupFragmentTexture(&texture->gx2Texture, &textureSamplers[slot].sampler, slot, samplerLocation);
+    _SetupFragmentTexture(&texture->gx2Texture, mTextureSampler[slot].GetSampler(), slot, location);
 }
 
-void RenderContext::SetupTexture(const GX2Texture* texture, TextureSlot slot, FragmentTextureLocation samplerLocation)
+void RenderContext::SetupTexture(const Texture texture, TextureSlot slot, FragmentTextureLocation location)
 {
-    _SetupFragmentTexture(texture, &textureSampler2.sampler, slot, samplerLocation);
+    _SetupFragmentTexture(texture, mDefaultTextureSampler.GetSampler(), slot, location);
 }
 
-void RenderContext::SetupUserFragment2DArrayTexture(const GX2Texture* texture, TextureSlot slot, FragmentTextureLocation samplerLocation) const
+void RenderContext::SetupUserFragmentTexture(const Texture texture, const Sampler sampler, TextureSlot slot, FragmentTextureLocation location) const
 {
-    _SetupFragment2DArrayTexture(texture, &textureSampler2.sampler, slot, samplerLocation);
+    _SetupFragmentTexture(texture, sampler, slot, location);
 }
 
-void RenderContext::SetupUserVertexTexture(const GX2Texture* texture, TextureSlot slot, VertexTextureLocation samplerLocation) const
+void RenderContext::SetupUserFragmentCubeMapTexture(const Texture texture, const Sampler sampler, TextureSlot slot, FragmentTextureLocation location) const
 {
-    _SetupVertexTexture(texture, &textureSampler2.sampler, slot, samplerLocation);
+    _SetupFragmentCubeMapTexture(texture, sampler, slot, location);
 }
 
-void RenderContext::SetupVertexArrayTexture(const GX2Texture* texture, TextureSlot slot, VertexTextureLocation samplerLocation) const
+void RenderContext::SetupUserFragment2DArrayTexture(const Texture texture, TextureSlot slot, FragmentTextureLocation location) const
 {
-    _SetupVertex2DArrayTexture(texture, &textureSampler2DArray.sampler, slot, samplerLocation);
+    _SetupFragment2DArrayTexture(texture, mDefaultTextureSampler.GetSampler(), slot, location);
+}
+
+void RenderContext::SetupUserFragment2DArrayTexture(const Texture texture, const Sampler sampler, TextureSlot slot, FragmentTextureLocation location) const
+{
+    _SetupFragment2DArrayTexture(texture, sampler, slot, location);
+}
+
+void RenderContext::SetupUserFragmentCubeMapArrayTexture(const Texture texture, const Sampler sampler, TextureSlot slot, FragmentTextureLocation location) const
+{
+    _SetupFragmentCubeMapArrayTexture(texture, sampler, slot, location);
+}
+
+void RenderContext::SetupUserVertexTexture(const Texture texture, TextureSlot slot, VertexTextureLocation location) const
+{
+    _SetupVertexTexture(texture, mDefaultTextureSampler.GetSampler(), slot, location);
+}
+
+void RenderContext::SetupUserVertexTexture(const Texture texture, const Sampler sampler, TextureSlot slot, VertexTextureLocation location) const
+{
+    _SetupVertexTexture(texture, sampler, slot, location);
+}
+
+void RenderContext::SetupUserVertexArrayTexture(const Texture texture, const Sampler sampler, TextureSlot slot, VertexTextureLocation location) const
+{
+    _SetupVertex2DArrayTexture(texture, sampler, slot, location);
+}
+
+void RenderContext::SetupVertexArrayTexture(const Texture texture, TextureSlot slot, VertexTextureLocation location) const
+{
+    _SetupVertex2DArrayTexture(texture, m2DArrayTextureSampler.GetSampler(), slot, location);
 }
 
 } } // namespace nw::eft

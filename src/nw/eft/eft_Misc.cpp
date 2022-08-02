@@ -9,12 +9,12 @@ u32 g_StaticHeapAllocedSize = 0;
 Heap* g_StaticHeap = NULL;
 Heap* g_DynamicHeap = NULL;
 
+bool g_SuppressLog = false;
+
 void** g_DelayFreeList[3];
 u32 g_DelayFreeListNum[3];
 u32 g_DelayFreeListMax = 0;
 u32 g_DelayFreeListCntr = 0;
-
-bool g_SuppressLog = false;
 
 void OutputError(const char* fmt, ...)
 {

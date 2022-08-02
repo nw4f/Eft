@@ -78,18 +78,6 @@ struct ShaderProgram // Actual name not known
 };
 static_assert(sizeof(ShaderProgram) == 0x78, "ShaderProgram size mismatch");
 
-struct VertexTextureLocation
-{
-    u32 location;
-};
-static_assert(sizeof(VertexTextureLocation) == 4, "VertexTextureLocation size mismatch");
-
-struct FragmentTextureLocation
-{
-    u32 location;
-};
-static_assert(sizeof(FragmentTextureLocation) == 4, "FragmentTextureLocation size mismatch");
-
 class Heap;
 struct RenderStateSetArg;
 

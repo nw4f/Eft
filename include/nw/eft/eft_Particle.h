@@ -9,6 +9,54 @@
 
 namespace nw { namespace eft {
 
+struct PtclStripeSliceHistory // Actual name not known
+{
+    math::VEC3 pos;
+    f32 scale;
+    math::MTX34 emitterMatrixSRT;
+    math::VEC3 outer;
+    math::VEC3 dir;
+};
+static_assert(sizeof(PtclStripeSliceHistory) == 0x58, "PtclStripeSliceHistory size mismatch");
+
+struct TexUVParam // Actual name not known
+{
+    f32 rotate;
+    math::VEC2 offset;
+    math::VEC2 scroll;
+    math::VEC2 scale;
+};
+static_assert(sizeof(TexUVParam) == 0x1C, "TexUVParam size mismatch");
+
+struct PtclInstance;
+struct StripeUniformBlock;
+struct StripeVertexBuffer;
+
+struct PtclStripe
+{
+    PtclInstance* particle;
+    u32 queueFront;
+    u32 queueRear;
+    PtclStripeSliceHistory queue[256];
+    u32 queueCount;
+    u32 groupID;
+    const ComplexEmitterData* data;
+    s32 counter;
+    math::VEC3 currentSliceDir;
+    math::VEC3 pos0;
+    math::VEC3 pos1;
+    PtclStripe* prev;
+    PtclStripe* next;
+    u32 drawFirstVertex;
+    u32 numDraw;
+    StripeUniformBlock* stripeUniformBlock;
+    StripeUniformBlock* stripeUniformBlockCross;
+    StripeVertexBuffer* stripeVertexBuffer;
+    TexUVParam texAnimParam[2];
+    u32 flags;
+};
+static_assert(sizeof(PtclStripe) == 0x5898, "PtclStripe size mismatch");
+
 struct AlphaAnim
 {
     f32 startDiff;
@@ -26,17 +74,6 @@ struct ScaleAnim // Name is not certain
     s32 time3;
 };
 static_assert(sizeof(ScaleAnim) == 0x18, "ScaleAnim size mismatch");
-
-struct TexUVParam // Actual name not known
-{
-    f32 rotate;
-    math::VEC2 offset;
-    math::VEC2 scroll;
-    math::VEC2 scale;
-};
-static_assert(sizeof(TexUVParam) == 0x1C, "TexUVParam size mismatch");
-
-struct PtclStripe;
 
 struct ComplexEmitterParam // Actual name not known
 {
@@ -108,44 +145,6 @@ struct PtclInstance
     u32 fieldCollisionCounter;
 };
 static_assert(sizeof(PtclInstance) == 0x158, "PtclInstance size mismatch");
-
-struct PtclStripeSliceHistory // Actual name not known
-{
-    math::VEC3 pos;
-    f32 scale;
-    math::MTX34 emitterMatrixSRT;
-    math::VEC3 outer;
-    math::VEC3 dir;
-};
-static_assert(sizeof(PtclStripeSliceHistory) == 0x58, "PtclStripeSliceHistory size mismatch");
-
-struct StripeUniformBlock;
-struct StripeVertexBuffer;
-
-struct PtclStripe
-{
-    PtclInstance* particle;
-    u32 queueFront;
-    u32 queueRear;
-    PtclStripeSliceHistory queue[256];
-    u32 queueCount;
-    u32 groupID;
-    const ComplexEmitterData* data;
-    s32 counter;
-    math::VEC3 currentSliceDir;
-    math::VEC3 pos0;
-    math::VEC3 pos1;
-    PtclStripe* prev;
-    PtclStripe* next;
-    u32 drawFirstVertex;
-    u32 numDraw;
-    StripeUniformBlock* stripeUniformBlock;
-    StripeUniformBlock* stripeUniformBlockCross;
-    StripeVertexBuffer* stripeVertexBuffer;
-    TexUVParam texAnimParam[2];
-    u32 flags;
-};
-static_assert(sizeof(PtclStripe) == 0x5898, "PtclStripe size mismatch");
 
 } } // namespace nw::eft
 

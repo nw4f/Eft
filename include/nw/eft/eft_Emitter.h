@@ -21,49 +21,10 @@ struct PtclAttributeBufferGpu;
 struct StripeUniformBlock;
 class StripeVertexBuffer;
 
+f32 _initialize3v4kAnim(AlphaAnim* anim, const anim3v4Key* key, s32 lifespan);
+
 struct EmitterInstance
 {
-    void Init(const SimpleEmitterData* data);
-    static void UpdateEmitterStaticUniformBlock(EmitterStaticUniformBlock* uniformBlock, const SimpleEmitterData* data, const ComplexEmitterData* cdata);
-    static void UpdateChildStaticUniformBlock(EmitterStaticUniformBlock* uniformBlock, const ChildData* data);
-    void UpdateEmitterInfoByEmit();
-    void UpdateResInfo();
-
-    const ComplexEmitterData* GetComplexEmitterData() const
-    {
-        if (data->type != EmitterType_Complex)
-            return NULL;
-
-        return static_cast<const ComplexEmitterData*>(data);
-    }
-
-    bool HasChild() const
-    {
-        return data->type != EmitterType_Simple && (static_cast<const ComplexEmitterData*>(data)->childFlags & 1);
-    }
-
-    const ChildData* GetChildData() const
-    {
-        if (!HasChild())
-            return NULL;
-
-        return reinterpret_cast<const ChildData*>(static_cast<const ComplexEmitterData*>(data) + 1);
-    }
-
-    bool IsStripe() const
-    {
-        return data->type != EmitterType_Simple && (data->vertexTransformMode == VertexTransformMode_Stripe || data->vertexTransformMode == VertexTransformMode_Complex_Stripe);
-    }
-
-    const StripeData* GetStripeData() const
-    {
-        if (!IsStripe())
-            return NULL;
-
-        const ComplexEmitterData* cdata = static_cast<const ComplexEmitterData*>(data);
-        return reinterpret_cast<const StripeData*>((u32)cdata + cdata->stripeDataOffs);
-    }
-
     u8 _unusedPad0[16];
     u32 numParticles;
     u32 numChildParticles;
@@ -139,6 +100,47 @@ struct EmitterInstance
     u32 _unused;
     u32 userData;
     u8 _unusedPad1[4];
+
+    void Init(const SimpleEmitterData* data);
+    void UpdateResInfo();
+    void UpdateEmitterInfoByEmit();
+    static void UpdateEmitterStaticUniformBlock(EmitterStaticUniformBlock* uniformBlock, const SimpleEmitterData* data, const ComplexEmitterData* cdata);
+    static void UpdateChildStaticUniformBlock(EmitterStaticUniformBlock* uniformBlock, const ChildData* data);
+
+    const ComplexEmitterData* GetComplexEmitterData() const
+    {
+        if (data->type != EmitterType_Complex)
+            return NULL;
+
+        return static_cast<const ComplexEmitterData*>(data);
+    }
+
+    const ChildData* GetChildData() const
+    {
+        if (!HasChild())
+            return NULL;
+
+        return reinterpret_cast<const ChildData*>(static_cast<const ComplexEmitterData*>(data) + 1);
+    }
+
+    bool IsStripe() const
+    {
+        return data->type != EmitterType_Simple && (data->vertexTransformMode == VertexTransformMode_Stripe || data->vertexTransformMode == VertexTransformMode_Complex_Stripe);
+    }
+
+    const StripeData* GetStripeData() const
+    {
+        if (!IsStripe())
+            return NULL;
+
+        const ComplexEmitterData* cdata = static_cast<const ComplexEmitterData*>(data);
+        return reinterpret_cast<const StripeData*>((u32)cdata + cdata->stripeDataOffs);
+    }
+
+    bool HasChild() const
+    {
+        return data->type != EmitterType_Simple && (static_cast<const ComplexEmitterData*>(data)->childFlags & 1);
+    }
 };
 static_assert(sizeof(EmitterInstance) == 0x3E0, "EmitterInstance size mismatch");
 
@@ -156,12 +158,12 @@ public:
 
     virtual void CalcEmitter(EmitterInstance* emitter) = 0;
     virtual PtclType GetPtclType() const = 0;
-    virtual u32 CalcParticle(EmitterInstance* emitter, CpuCore core, bool noCalcBehavior, bool noMakePtclAttributeBuffer) = 0;
-    virtual u32 CalcChildParticle(EmitterInstance* emitter, CpuCore core, bool noCalcBehavior, bool noMakePtclAttributeBuffer) = 0;
+    virtual u32 CalcParticle(EmitterInstance* emitter, CpuCore core, bool noCalcBehavior, bool noMakePtclAttributeBuffer) { return 0; }
+    virtual u32 CalcChildParticle(EmitterInstance* emitter, CpuCore core, bool noCalcBehavior, bool noMakePtclAttributeBuffer) { return 0; }
     virtual EmitterDynamicUniformBlock* MakeEmitterUniformBlock(EmitterInstance* emitter, CpuCore core, const ChildData* childData, bool noCalcBehavior) = 0;
 
     static void RemoveParticle(PtclInstance* ptcl, CpuCore core);
-    static inline void AddChildPtclToList(EmitterInstance* emitter, PtclInstance* childPtcl);
+
     static void AddPtclToList(EmitterInstance* emitter, PtclInstance* ptcl);
     static void EmitCommon(EmitterInstance* emitter, PtclInstance* ptcl);
 
@@ -228,30 +230,6 @@ public:
 };
 static_assert(sizeof(EmitterCalc) == 4, "EmitterCalc size mismatch");
 
-void EmitterCalc::AddChildPtclToList(EmitterInstance* emitter, PtclInstance* childPtcl)
-{
-    if (emitter->childParticleHead == NULL)
-    {
-        emitter->childParticleHead = childPtcl;
-        childPtcl->next = NULL;
-        childPtcl->prev = NULL;
-    }
-    else
-    {
-        emitter->childParticleHead->prev = childPtcl;
-        childPtcl->next = emitter->childParticleHead;
-        emitter->childParticleHead = childPtcl;
-        childPtcl->prev = NULL;
-    }
-
-    if (emitter->childParticleTail == NULL)
-        emitter->childParticleTail = childPtcl;
-
-    emitter->numChildParticles++;
-}
-
-f32 _initialize3v4kAnim(AlphaAnim* anim, const anim3v4Key* key, s32 lifespan);
-u32 _getUnifiedAnimID(u32 animValIdx);
 f32 _calcParticleAnimTime(EmitterInstance* emitter, PtclInstance* ptcl, u32 animValIdx);
 f32 _calcParticleAnimTime(KeyFrameAnim* anim, PtclInstance* ptcl, u32 animValIdx);
 

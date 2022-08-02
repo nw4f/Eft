@@ -30,6 +30,122 @@ static inline f32 _initialize3v4kAnimInherit(AlphaAnim* anim, const anim3v4Key* 
     return key->startValue - anim->startDiff;
 }
 
+u32 EmitterComplexCalc::CalcChildParticle(EmitterInstance* emitter, CpuCore core, bool noCalcBehavior, bool noMakePtclAttributeBuffer)
+{
+    emitter->numDrawChildParticle = 0;
+    if (emitter->numChildParticles == 0)
+        return 0;
+
+    const ComplexEmitterData* data = emitter->GetComplexEmitterData();
+    const ChildData* childData = emitter->GetChildData();
+
+    if (!noMakePtclAttributeBuffer)
+    {
+        Renderer** const renderers = emitter->emitterSet->system->renderers;
+
+        emitter->childPtclAttributeBuffer = static_cast<PtclAttributeBuffer*>(renderers[core]->AllocFromDoubleBuffer(sizeof(PtclAttributeBuffer) * emitter->numChildParticles));
+        if (emitter->childPtclAttributeBuffer == NULL)
+        {
+            emitter->childEmitterDynamicUniformBlock = NULL;
+            return 0;
+        }
+
+        emitter->childEmitterDynamicUniformBlock = MakeEmitterUniformBlock(emitter, core, childData, false);
+        if (emitter->childEmitterDynamicUniformBlock == NULL)
+        {
+            emitter->childPtclAttributeBuffer = NULL;
+            return 0;
+        }
+    }
+    else
+    {
+        emitter->childPtclAttributeBuffer = NULL;
+        emitter->childEmitterDynamicUniformBlock = NULL;
+    }
+
+    CustomActionParticleCalcCallback callback1 = mSys->GetCurrentCustomActionParticleCalcCallback(emitter);
+    CustomActionParticleMakeAttributeCallback callback2 = mSys->GetCurrentCustomActionParticleMakeAttributeCallback(emitter);
+
+    u32 shaderAvailableAttribFlg = emitter->childShader[ShaderType_Normal]->shaderAvailableAttribFlg;
+
+    f32 numBehaviorIterF32 = emitter->counter - emitter->counter2;
+    u32 numBehaviorIter = (u32)numBehaviorIterF32;
+    f32 numBehaviorIterDelta = numBehaviorIterF32 - numBehaviorIter;
+    bool behaviorRepeat = emitter->emissionSpeed > 1.0f;
+
+    PtclInstance* ptcl = emitter->childParticleHead;
+    PtclInstance* next;
+
+    for (; ptcl != NULL; ptcl = next)
+    {
+        next = ptcl->next;
+
+        if (!noCalcBehavior)
+        {
+            ptcl->counterS32 = (s32)ptcl->counter;
+            if (ptcl->counterS32 >= ptcl->lifespan || ptcl->lifespan == 1 && ptcl->counter > 1.0f)
+            {
+                RemoveParticle(ptcl, core);
+                continue;
+            }
+
+            if (data->childFlags & 0x40)
+            {
+                ptcl->matrixSRT = emitter->matrixSRT;
+                ptcl->matrixRT = emitter->matrixRT;
+            }
+
+            if (behaviorRepeat)
+            {
+                for (u32 i = 0; i < numBehaviorIter; i++)
+                    CalcChildParticleBehavior(emitter, ptcl, 1.0f);
+
+                if (numBehaviorIterDelta != 0.0f)
+                    CalcChildParticleBehavior(emitter, ptcl, numBehaviorIterDelta);
+            }
+            else
+            {
+                CalcChildParticleBehavior(emitter, ptcl, emitter->emissionSpeed);
+            }
+        }
+
+        if (callback1 != NULL)
+        {
+            ParticleCalcArg arg = {
+                .emitter = emitter,
+                .ptcl = ptcl,
+                .core = core,
+                .noCalcBehavior = noCalcBehavior,
+            };
+            callback1(arg);
+
+            if (ptcl->data == NULL)
+                continue;
+        }
+
+        if (!noMakePtclAttributeBuffer)
+        {
+            ptcl->ptclAttributeBuffer = &emitter->childPtclAttributeBuffer[emitter->numDrawChildParticle];
+            MakeParticleAttributeBuffer(ptcl->ptclAttributeBuffer, ptcl, shaderAvailableAttribFlg);
+            emitter->numDrawParticle++;
+
+            if (callback2 != NULL)
+            {
+                ParticleMakeAttrArg arg = {
+                    .emitter = emitter,
+                    .ptcl = ptcl,
+                    .core = core,
+                    .noCalcBehavior = noCalcBehavior,
+                };
+                callback2(arg);
+            }
+        }
+    }
+
+    emitter->emitterBehaviorFlg |= EmitterBehaviorFlag_IsCalculated;
+    return emitter->numDrawChildParticle;
+}
+
 void EmitterComplexCalc::EmitChildParticle(EmitterInstance* emitter, PtclInstance* ptcl)
 {
     const ComplexEmitterData* data = static_cast<const ComplexEmitterData*>(emitter->data);

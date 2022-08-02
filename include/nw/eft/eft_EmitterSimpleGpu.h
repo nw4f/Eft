@@ -15,6 +15,8 @@ public:
 
     virtual void CalcEmitter(EmitterInstance* emitter);
     virtual u32 CalcParticle(EmitterInstance* emitter, CpuCore core, bool noCalcBehavior, bool noMakePtclAttributeBuffer);
+
+    virtual PtclType GetPtclType() const { return PtclType_Simple; }
 };
 static_assert(sizeof(EmitterSimpleGpuCalc) == 4, "EmitterSimpleGpuCalc size mismatch");
 

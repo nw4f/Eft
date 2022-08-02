@@ -6,6 +6,18 @@
 
 namespace nw { namespace eft {
 
+void InitializeCurlNoise();
+const GX2Texture* GetCurlNoiseTexture();
+
+class CurlNoiseTexture
+{
+public:
+    void Initialize();
+
+    GX2Texture gx2Texture;
+    void* imagePtr;
+};
+
 class CurlNoiseTbl
 {
 public:
@@ -38,18 +50,6 @@ public:
     u8 (*data)[3];
 };
 static_assert(sizeof(CurlNoiseTbl) == 8, "CurlNoiseTbl size mismatch");
-
-class CurlNoiseTexture
-{
-public:
-    void Initialize();
-
-    GX2Texture gx2Texture;
-    void* imagePtr;
-};
-
-void InitializeCurlNoise();
-const GX2Texture* GetCurlNoiseTexture();
 
 } } // namespace nw::eft
 

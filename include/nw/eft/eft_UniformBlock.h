@@ -7,6 +7,31 @@
 
 namespace nw { namespace eft {
 
+struct ViewUniformBlock
+{
+    math::MTX44 viewMat;
+    math::MTX44 projMat;
+    math::MTX44 vpMat;
+    math::MTX44 bldMat;
+    math::VEC4 eyeVec;
+    math::VEC4 eyePos;
+    math::VEC4 depthBufferTexMat;
+    math::VEC4 frameBufferTexMat;
+    math::VEC4 viewParam;
+};
+static_assert(sizeof(ViewUniformBlock) == 0x150, "ViewUniformBlock size mismatch");
+
+struct EmitterDynamicUniformBlock
+{
+    math::VEC4 emitterColor0;
+    math::VEC4 emitterColor1;
+    math::VEC4 emp0;
+    math::VEC4 emp1;
+    math::MTX44 emitterMatrix;
+    math::MTX44 emitterMatrixRT;
+};
+static_assert(sizeof(EmitterDynamicUniformBlock) == 0xC0, "EmitterDynamicUniformBlock size mismatch");
+
 struct TexUvShiftAnimUbo
 {
     math::VEC4 pm0;
@@ -68,57 +93,14 @@ struct EmitterStaticUniformBlock
 };
 static_assert(sizeof(EmitterStaticUniformBlock) == 0x500, "EmitterStaticUniformBlock size mismatch");
 
-struct EmitterDynamicUniformBlock
+struct StripeVertexBuffer
 {
-    math::VEC4 emitterColor0;
-    math::VEC4 emitterColor1;
-    math::VEC4 emp0;
-    math::VEC4 emp1;
-    math::MTX44 emitterMatrix;
-    math::MTX44 emitterMatrixRT;
+    math::VEC4 pos;
+    math::VEC4 outer;
+    math::VEC4 texCoord;
+    math::VEC4 dir;
 };
-static_assert(sizeof(EmitterDynamicUniformBlock) == 0xC0, "EmitterDynamicUniformBlock size mismatch");
-
-struct ViewUniformBlock
-{
-    math::MTX44 viewMat;
-    math::MTX44 projMat;
-    math::MTX44 vpMat;
-    math::MTX44 bldMat;
-    math::VEC4 eyeVec;
-    math::VEC4 eyePos;
-    math::VEC4 depthBufferTexMat;
-    math::VEC4 frameBufferTexMat;
-    math::VEC4 viewParam;
-};
-static_assert(sizeof(ViewUniformBlock) == 0x150, "ViewUniformBlock size mismatch");
-
-struct PtclAttributeBuffer
-{
-    math::VEC4 wldPos;
-    math::VEC4 scl;
-    math::VEC4 vec;
-    math::VEC4 random;
-    math::VEC4 rot;
-    math::MTX34 emtMat;
-    math::VEC4 color0;
-    math::VEC4 color1;
-    math::VEC4 wldPosDf;
-
-    math::VEC4 pad[1];
-};
-static_assert(sizeof(PtclAttributeBuffer) == 0xC0, "PtclAttributeBuffer size mismatch");
-
-struct PtclAttributeBufferGpu
-{
-    math::VEC4 wldPos;
-    math::VEC4 scl;
-    math::VEC4 vec;
-    math::VEC4 random;
-    math::VEC4 rot;
-    math::MTX34 emtMat;
-};
-static_assert(sizeof(PtclAttributeBufferGpu) == 0x80, "PtclAttributeBufferGpu size mismatch");
+static_assert(sizeof(StripeVertexBuffer) == 0x40, "StripeVertexBuffer size mismatch");
 
 struct StripeUniformBlock
 {
@@ -131,15 +113,6 @@ struct StripeUniformBlock
     math::MTX44 emitterMat;
 };
 static_assert(sizeof(StripeUniformBlock) == 0xA0, "StripeUniformBlock size mismatch");
-
-struct StripeVertexBuffer
-{
-    math::VEC4 pos;
-    math::VEC4 outer;
-    math::VEC4 texCoord;
-    math::VEC4 dir;
-};
-static_assert(sizeof(StripeVertexBuffer) == 0x40, "StripeVertexBuffer size mismatch");
 
 } } // namespace nw::eft
 

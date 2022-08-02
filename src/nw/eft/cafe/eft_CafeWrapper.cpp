@@ -192,6 +192,11 @@ void VertexBuffer::Finalize(Heap* heap)
     }
 }
 
+void VertexBuffer::Invalidate()
+{
+    DCFlushRange(buffer, bufferSize);
+}
+
 void VertexBuffer::BindBuffer(u32 index, u32 size, u32 stride)
 {
     GX2SetAttribBuffer(index, size, stride, buffer);

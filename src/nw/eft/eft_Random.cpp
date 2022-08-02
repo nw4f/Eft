@@ -3,9 +3,10 @@
 
 namespace nw { namespace eft {
 
-Random PtclRandom::gRandom;
 math::VEC3* PtclRandom::mVec3Tbl = NULL;
 math::VEC3* PtclRandom::mNormalizedVec3Tbl = NULL;
+
+Random PtclRandom::gRandom;
 
 Random* PtclRandom::GetGlobalRandom()
 {

@@ -12,6 +12,164 @@
 
 namespace nw { namespace eft {
 
+struct EmitterData;
+
+struct VertexTextureLocation
+{
+    u32 location;
+};
+static_assert(sizeof(VertexTextureLocation) == 4, "VertexTextureLocation size mismatch");
+
+struct FragmentTextureLocation
+{
+    u32 location;
+};
+static_assert(sizeof(FragmentTextureLocation) == 4, "FragmentTextureLocation size mismatch");
+
+struct PtclAttributeBuffer
+{
+    math::VEC4 wldPos;
+    math::VEC4 scl;
+    math::VEC4 vec;
+    math::VEC4 random;
+    math::VEC4 rot;
+    math::MTX34 emtMat;
+    math::VEC4 color0;
+    math::VEC4 color1;
+    math::VEC4 wldPosDf;
+
+    math::VEC4 pad[1];
+};
+static_assert(sizeof(PtclAttributeBuffer) == 0xC0, "PtclAttributeBuffer size mismatch");
+
+struct PtclAttributeBufferGpu
+{
+    math::VEC4 wldPos;
+    math::VEC4 scl;
+    math::VEC4 vec;
+    math::VEC4 random;
+    math::VEC4 rot;
+    math::MTX34 emtMat;
+};
+static_assert(sizeof(PtclAttributeBufferGpu) == 0x80, "PtclAttributeBufferGpu size mismatch");
+
+struct PrimitiveTable // Actual name not known
+{
+    u32 numPrimitive;
+    u32 size;
+    u32 primitiveOffs;
+};
+static_assert(sizeof(PrimitiveTable) == 0xC, "PrimitiveTable size mismatch");
+
+struct PrimitiveData // Actual name not known
+{
+    struct PrimitiveAttrib // Actual name not known
+    {
+        u32 count;
+        u32 size;
+        u32 bufferOffs;
+        u32 bufferSize;
+    };
+    static_assert(sizeof(PrimitiveAttrib) == 0x10, "PrimitiveAttrib size mismatch");
+
+    PrimitiveAttrib pos;
+    PrimitiveAttrib normal;
+    PrimitiveAttrib color;
+    PrimitiveAttrib texCoord;
+    PrimitiveAttrib index;
+};
+static_assert(sizeof(PrimitiveData) == 0x50, "PrimitiveData size mismatch");
+
+struct Header // Actual name not known
+{
+    char magic[4];
+    u32 version;
+    s32 numEmitterSet;
+    u8 _unusedPad0[4];
+    u32 strTblOffs;
+    u32 textureDataTblOffs;
+    u32 textureDataTblSize;
+    u32 shaderTblOffs;
+    u32 shaderTblSize;
+    u32 keyAnimArrayTblOffs;
+    u32 keyAnimArrayTblSize;
+    u32 primitiveTblOffs;
+    u32 primitiveTblSize;
+    u32 shaderParamTblOffs;
+    u32 shaderParamTblSize;
+    u8 _unusedPad1[12];
+};
+static_assert(sizeof(Header) == 0x48, "Header size mismatch");
+
+struct EmitterSetData // Actual name not known
+{
+    u32 userData;
+    u8 _unusedPad[4];
+    u32 nameOffs;
+    const char* name;
+    s32 numEmitter;
+    u32 emitterRefOffs;
+    u32* emitterRef;
+};
+static_assert(sizeof(EmitterSetData) == 0x1C, "EmitterSetData size mismatch");
+
+struct EmitterStaticUniformBlock;
+
+struct EmitterTblData
+{
+    u32 dataOffs;
+    EmitterData* data;
+    EmitterStaticUniformBlock* emitterStaticUniformBlock;
+    EmitterStaticUniformBlock* childEmitterStaticUniformBlock;
+};
+static_assert(sizeof(EmitterTblData) == 0x10, "EmitterTblData size mismatch");
+
+struct EmitterKeyAnimArray
+{
+    KeyFrameAnimArray* ptr;
+    u32 offset;
+    u32 size;
+};
+static_assert(sizeof(EmitterKeyAnimArray) == 0xC, "EmitterKeyAnimArray size mismatch");
+
+struct EmitterShaderParam
+{
+    u32 count;
+    u32 offset;
+    f32* ptr;
+};
+static_assert(sizeof(EmitterShaderParam) == 0xC, "EmitterShaderParam size mismatch");
+
+struct KeyFrameAnimKey
+{
+    f32 time;
+    union
+    {
+        f32 value;
+        s32 valueS32;
+    };
+};
+static_assert(sizeof(KeyFrameAnimKey) == 8, "KeyFrameAnimKey size mismatch");
+
+struct KeyFrameAnimArray
+{
+    char magic[4];
+    u32 numAnim;
+};
+static_assert(sizeof(KeyFrameAnimArray) == 8, "KeyFrameAnimArray size mismatch");
+
+struct KeyFrameAnim
+{
+    u32 numKeys;
+    u32 interpolation;
+    u32 animValIdx;
+    u32 loop;
+    u32 loopLength;
+    u32 randomStart;
+    u32 nextOffs;
+};
+static_assert(sizeof(KeyFrameAnim) == 0x1C, "KeyFrameAnim size mismatch");
+
 struct TextureRes
 {
     u16 width;
@@ -36,35 +194,12 @@ struct TextureRes
 };
 static_assert(sizeof(TextureRes) == 0xD8, "TextureRes size mismatch");
 
-struct KeyFrameAnimArray
-{
-    char magic[4];
-    u32 numAnim;
-};
-static_assert(sizeof(KeyFrameAnimArray) == 8, "KeyFrameAnimArray size mismatch");
-
-struct EmitterKeyAnimArray
-{
-    KeyFrameAnimArray* ptr;
-    u32 offset;
-    u32 size;
-};
-static_assert(sizeof(EmitterKeyAnimArray) == 0xC, "EmitterKeyAnimArray size mismatch");
-
 struct EmitterPrimitive
 {
     u8 _unusedPad[8];
     u32 idx;
 };
 static_assert(sizeof(EmitterPrimitive) == 0xC, "EmitterPrimitive size mismatch");
-
-struct EmitterShaderParam
-{
-    u32 count;
-    u32 offset;
-    f32* ptr;
-};
-static_assert(sizeof(EmitterShaderParam) == 0xC, "EmitterShaderParam size mismatch");
 
 struct EmitterData // Actual name not known
 {
@@ -448,100 +583,6 @@ struct StripeData
     f32 dirInterpolation;
 };
 static_assert(sizeof(StripeData) == 0x34, "StripeData size mismatch");
-
-struct EmitterStaticUniformBlock;
-
-struct EmitterTblData
-{
-    u32 dataOffs;
-    EmitterData* data;
-    EmitterStaticUniformBlock* emitterStaticUniformBlock;
-    EmitterStaticUniformBlock* childEmitterStaticUniformBlock;
-};
-static_assert(sizeof(EmitterTblData) == 0x10, "EmitterTblData size mismatch");
-
-struct EmitterSetData // Actual name not known
-{
-    u32 userData;
-    u8 _unusedPad[4];
-    u32 nameOffs;
-    const char* name;
-    s32 numEmitter;
-    u32 emitterRefOffs;
-    EmitterTblData* emitterRef;
-};
-static_assert(sizeof(EmitterSetData) == 0x1C, "EmitterSetData size mismatch");
-
-struct Header // Actual name not known
-{
-    char magic[4];
-    u32 version;
-    s32 numEmitterSet;
-    u8 _unusedPad0[4];
-    u32 strTblOffs;
-    u32 textureDataTblOffs;
-    u32 textureDataTblSize;
-    u32 shaderTblOffs;
-    u32 shaderTblSize;
-    u32 keyAnimArrayTblOffs;
-    u32 keyAnimArrayTblSize;
-    u32 primitiveTblOffs;
-    u32 primitiveTblSize;
-    u32 shaderParamTblOffs;
-    u32 shaderParamTblSize;
-    u8 _unusedPad1[12];
-};
-static_assert(sizeof(Header) == 0x48, "Header size mismatch");
-
-struct PrimitiveAttrib // Actual name not known
-{
-    u32 count;
-    u32 size;
-    u32 bufferOffs;
-    u32 bufferSize;
-};
-static_assert(sizeof(PrimitiveAttrib) == 0x10, "PrimitiveAttrib size mismatch");
-
-struct PrimitiveData // Actual name not known
-{
-    PrimitiveAttrib pos;
-    PrimitiveAttrib normal;
-    PrimitiveAttrib color;
-    PrimitiveAttrib texCoord;
-    PrimitiveAttrib index;
-};
-static_assert(sizeof(PrimitiveData) == 0x50, "PrimitiveData size mismatch");
-
-struct PrimitiveTable // Actual name not known
-{
-    u32 numPrimitive;
-    u32 size;
-    u32 primitiveOffs;
-};
-static_assert(sizeof(PrimitiveTable) == 0xC, "PrimitiveTable size mismatch");
-
-struct KeyFrameAnim
-{
-    u32 numKeys;
-    u32 interpolation;
-    u32 animValIdx;
-    u32 loop;
-    u32 loopLength;
-    u32 randomStart;
-    u32 nextOffs;
-};
-static_assert(sizeof(KeyFrameAnim) == 0x1C, "KeyFrameAnim size mismatch");
-
-struct KeyFrameAnimKey
-{
-    f32 time;
-    union
-    {
-        f32 value;
-        s32 valueS32;
-    };
-};
-static_assert(sizeof(KeyFrameAnimKey) == 8, "KeyFrameAnimKey size mismatch");
 
 } } // namespace nw::eft
 

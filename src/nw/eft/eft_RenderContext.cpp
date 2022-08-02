@@ -140,6 +140,25 @@ void RenderContext::_SetupFragmentTexture(const GX2Texture* texture, const GX2Sa
     GX2SetPixelSampler(sampler, samplerLocation.location);
 }
 
+void RenderContext::_SetupFragment2DArrayTexture(const GX2Texture* texture, const GX2Sampler* sampler, TextureSlot slot, FragmentTextureLocation samplerLocation) const
+{
+    _SetupFragmentTexture(texture, sampler, slot, samplerLocation);
+}
+
+void RenderContext::_SetupVertexTexture(const GX2Texture* texture, const GX2Sampler* sampler, TextureSlot slot, VertexTextureLocation samplerLocation) const
+{
+    //if (texture == NULL || samplerLocation.location == 0xFFFFFFFF)
+    //    return;
+
+    GX2SetVertexTexture(texture, samplerLocation.location);
+    GX2SetVertexSampler(sampler, samplerLocation.location);
+}
+
+void RenderContext::_SetupVertex2DArrayTexture(const GX2Texture* texture, const GX2Sampler* sampler, TextureSlot slot, VertexTextureLocation samplerLocation) const
+{
+    _SetupVertexTexture(texture, sampler, slot, samplerLocation);
+}
+
 void RenderContext::SetupTexture(const TextureRes* texture, TextureSlot slot, FragmentTextureLocation samplerLocation)
 {
     textureSamplers[slot].Setup(static_cast<TextureFilterMode>(texture->filterMode),
@@ -155,33 +174,14 @@ void RenderContext::SetupTexture(const GX2Texture* texture, TextureSlot slot, Fr
     _SetupFragmentTexture(texture, &textureSampler2.sampler, slot, samplerLocation);
 }
 
-void RenderContext::_SetupFragment2DArrayTexture(const GX2Texture* texture, const GX2Sampler* sampler, TextureSlot slot, FragmentTextureLocation samplerLocation) const
-{
-    _SetupFragmentTexture(texture, sampler, slot, samplerLocation);
-}
-
 void RenderContext::SetupUserFragment2DArrayTexture(const GX2Texture* texture, TextureSlot slot, FragmentTextureLocation samplerLocation) const
 {
     _SetupFragment2DArrayTexture(texture, &textureSampler2.sampler, slot, samplerLocation);
 }
 
-void RenderContext::_SetupVertexTexture(const GX2Texture* texture, const GX2Sampler* sampler, TextureSlot slot, VertexTextureLocation samplerLocation) const
-{
-    //if (texture == NULL || samplerLocation.location == 0xFFFFFFFF)
-    //    return;
-
-    GX2SetVertexTexture(texture, samplerLocation.location);
-    GX2SetVertexSampler(sampler, samplerLocation.location);
-}
-
 void RenderContext::SetupUserVertexTexture(const GX2Texture* texture, TextureSlot slot, VertexTextureLocation samplerLocation) const
 {
     _SetupVertexTexture(texture, &textureSampler2.sampler, slot, samplerLocation);
-}
-
-void RenderContext::_SetupVertex2DArrayTexture(const GX2Texture* texture, const GX2Sampler* sampler, TextureSlot slot, VertexTextureLocation samplerLocation) const
-{
-    _SetupVertexTexture(texture, sampler, slot, samplerLocation);
 }
 
 void RenderContext::SetupVertexArrayTexture(const GX2Texture* texture, TextureSlot slot, VertexTextureLocation samplerLocation) const

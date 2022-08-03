@@ -2,6 +2,11 @@
 #include <nw/eft/eft_Emitter.h>
 #include <nw/eft/eft_Heap.h>
 
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
+
 namespace nw { namespace eft {
 
 f32* EmitterCalc::sFluctuationTbl = NULL;
@@ -25,6 +30,12 @@ void EmitterCalc::FinalzieFluctuation_(Heap* heap)
     mSys = NULL;
 }
 
+void EmitterCalc::FinalzieFluctuation_(Heap* heap)
+{
+    heap->Free(sFluctuationTbl);
+    mSys = NULL;
+}
+
 void EmitterCalc::CalcFluctuation(EmitterInstance* __restrict e, PtclInstance* __restrict ptcl)
 {
     const ComplexEmitterData* res  = static_cast<const ComplexEmitterData*>(e->res);
@@ -38,3 +49,7 @@ void EmitterCalc::CalcFluctuation(EmitterInstance* __restrict e, PtclInstance* _
 }
 
 } } // namespace nw::eft
+
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic pop
+#endif

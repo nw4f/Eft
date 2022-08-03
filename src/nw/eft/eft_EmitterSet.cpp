@@ -2,6 +2,11 @@
 #include <nw/eft/eft_EmitterSet.h>
 #include <nw/eft/eft_System.h>
 
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
+
 namespace nw { namespace eft {
 
 void EmitterController::SetFollowType(PtclFollowType type)
@@ -156,3 +161,7 @@ void EmitterSet::SetRandomSeed(u32 seed)
 }
 
 } } // namespace nw::eft
+
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic pop
+#endif

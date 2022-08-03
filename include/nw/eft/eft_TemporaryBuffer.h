@@ -88,7 +88,9 @@ public:
     {
         if (mFlushedSize != mAllocedSize)
         {
+#if EFT_IS_CAFE
             DCFlushRange(static_cast<u8*>(mBuffer[mBufferSide]) + mFlushedSize, mAllocedSize - mFlushedSize);
+#endif // EFT_IS_CAFE
             mFlushedSize = mAllocedSize;
         }
     }

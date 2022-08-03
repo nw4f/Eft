@@ -3,6 +3,11 @@
 #include <nw/eft/eft_Shader.h>
 #include <nw/eft/eft_System.h>
 
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
+
 namespace nw { namespace eft {
 
 System* EmitterCalc::mSys = NULL;
@@ -225,8 +230,10 @@ void EmitterInstance::UpdateResInfo()
     emitterStaticUniformBlock->shaderParam.z = res->softFadeDistance;
     emitterStaticUniformBlock->shaderParam.w = res->softVolumeParam;
 
+#if EFT_IS_CAFE
     GX2EndianSwap(emitterStaticUniformBlock, sizeof(EmitterStaticUniformBlock));
     DCFlushRange(emitterStaticUniformBlock, sizeof(EmitterStaticUniformBlock));
+#endif // EFT_IS_CAFE
 
     if (IsHasChildParticle())
     {
@@ -247,8 +254,10 @@ void EmitterInstance::UpdateResInfo()
         childEmitterStaticUniformBlock->shaderParam.z = cres->childSoftFadeDistance;
         childEmitterStaticUniformBlock->shaderParam.w = cres->childSoftVolumeParam;
 
+#if EFT_IS_CAFE
         GX2EndianSwap(childEmitterStaticUniformBlock, sizeof(EmitterStaticUniformBlock));
         DCFlushRange(childEmitterStaticUniformBlock, sizeof(EmitterStaticUniformBlock));
+#endif // EFT_IS_CAFE
     }
 }
 
@@ -592,3 +601,7 @@ void EmitterCalc::EmitCommon(EmitterInstance* __restrict e, PtclInstance* __rest
 }
 
 } } // namespace nw::eft
+
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic pop
+#endif

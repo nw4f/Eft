@@ -1,6 +1,11 @@
 #include <nw/eft/eft_Data.h>
 #include <nw/eft/eft_Shader.h>
 
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
+
 namespace nw { namespace eft {
 
 ParticleShader::ParticleShader()
@@ -119,6 +124,7 @@ bool ParticleShader::SetupShaderResource(Heap* heap, void* shaderResource, u32 s
 
     Setup(heap);
 
+#if EFT_IS_CAFE
     memset(mDisplayListBuffer, 0, DISPLAY_LSIT_SIZE);
     DCFlushRange(mDisplayListBuffer, DISPLAY_LSIT_SIZE);
     DCInvalidateRange(mDisplayListBuffer, DISPLAY_LSIT_SIZE);
@@ -128,13 +134,18 @@ bool ParticleShader::SetupShaderResource(Heap* heap, void* shaderResource, u32 s
         mShader.BindShader();
     }
     mDisplayListBufferUsed = GX2EndDisplayList(mDisplayListBuffer);
+#endif // EFT_IS_CAFE
 
     return true;
 }
 
 void ParticleShader::Bind()
 {
+#if EFT_IS_CAFE
     GX2CallDisplayList(mDisplayListBuffer, mDisplayListBufferUsed);
+#else
+    mShader.BindShader();
+#endif
 }
 
 bool ParticleShader::SetUserVertexUniformBlock(UserUniformBlockID uniformBlockID, const char* name, void* param)
@@ -155,10 +166,82 @@ bool ParticleShader::SetUserVertexUniformBlock(UserUniformBlockID uniformBlockID
 
 void ParticleShader::EnableInstanced()
 {
+#if EFT_IS_WIN
+    if (mWldPosAttr != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mWldPosAttr, 1);
+
+    if (mSclAttr != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mSclAttr, 1);
+
+    if (mColor0Attr != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mColor0Attr, 1);
+
+    if (mColor1Attr != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mColor1Attr, 1);
+
+    if (mTexAnimAttr != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mTexAnimAttr, 1);
+
+    if (mWldPosDfAttr != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mWldPosDfAttr, 1);
+
+    if (vRotAttr != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(vRotAttr, 1);
+
+    if (mSubTexAnimAttr != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mSubTexAnimAttr, 1);
+
+    if (mEmtMatAttr0 != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mEmtMatAttr0, 1);
+
+    if (mEmtMatAttr1 != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mEmtMatAttr1, 1);
+
+    if (mEmtMatAttr2 != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mEmtMatAttr2, 1);
+#endif
 }
 
 void ParticleShader::DisableInstanced()
 {
+#if EFT_IS_WIN
+    if (mWldPosAttr != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mWldPosAttr, 0);
+
+    if (mSclAttr != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mSclAttr, 0);
+
+    if (mColor0Attr != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mColor0Attr, 0);
+
+    if (mColor1Attr != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mColor1Attr, 0);
+
+    if (mTexAnimAttr != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mTexAnimAttr, 0);
+
+    if (mWldPosDfAttr != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mWldPosDfAttr, 0);
+
+    if (vRotAttr != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(vRotAttr, 0);
+
+    if (mSubTexAnimAttr != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mSubTexAnimAttr, 0);
+
+    if (mEmtMatAttr0 != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mEmtMatAttr0, 0);
+
+    if (mEmtMatAttr1 != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mEmtMatAttr1, 0);
+
+    if (mEmtMatAttr2 != EFT_INVALID_ATTRIBUTE)
+        glVertexAttribDivisor(mEmtMatAttr2, 0);
+#endif
 }
 
 } } // namespace nw::eft
+
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic pop
+#endif

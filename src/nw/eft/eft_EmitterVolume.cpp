@@ -3046,7 +3046,11 @@ PtclInstance* EmitterCalc::_emitBox(EmitterInstance* __restrict e)
             }
         }
 
+#if (EFT_IS_CAFE_WUT || !EFT_IS_CAFE) // Fix undefined behavior
+        register nw::math::VEC3 dir = nw::math::VEC3::Zero();
+#else
         register nw::math::VEC3 dir;
+#endif
         if (!ptcl->pos.IsZero())
         {
             dir.SetNormalize(ptcl->pos);
@@ -3125,7 +3129,11 @@ PtclInstance* EmitterCalc::_emitFillBox(EmitterInstance* __restrict e)
             ptcl->pos.z *= scaleZ;
         }
 
+#if (EFT_IS_CAFE_WUT || !EFT_IS_CAFE) // Fix undefined behavior
+        register nw::math::VEC3 dir = nw::math::VEC3::Zero();
+#else
         register nw::math::VEC3 dir;
+#endif
         if (!ptcl->pos.IsZero())
         {
             dir.SetNormalize(ptcl->pos);
@@ -3247,7 +3255,11 @@ PtclInstance* EmitterCalc::_emitRectangle(EmitterInstance* __restrict e)
             }
         }
 
+#if (EFT_IS_CAFE_WUT || !EFT_IS_CAFE) // Fix undefined behavior
+        register nw::math::VEC3 dir = nw::math::VEC3::Zero();
+#else
         register nw::math::VEC3 dir;
+#endif
         if (!ptcl->pos.IsZero())
         {
             dir.SetNormalize(ptcl->pos);

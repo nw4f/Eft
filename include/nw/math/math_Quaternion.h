@@ -218,7 +218,7 @@ QUATNormalize(QUAT* pOut, const QUAT* __restrict q)
 
     if ( mag >= NW_QUAT_EPSILON )
     {
-        mag = 1.0F / ::std::sqrtf(mag);
+        mag = 1.0F / ::std::sqrt(mag);
 
         pOut->x = q->x * mag;
         pOut->y = q->y * mag;
@@ -260,18 +260,18 @@ QUATExp(QUAT* pOut, const QUAT* __restrict q)
 {
     f32 theta, scale;
 
-    theta = ::std::sqrtf( q->x * q->x + q->y * q->y + q->z * q->z );
+    theta = ::std::sqrt( q->x * q->x + q->y * q->y + q->z * q->z );
     scale = 1.0F;
 
     if ( theta > NW_QUAT_EPSILON )
     {
-        scale = (f32)::std::sinf(theta) / theta;
+        scale = (f32)::std::sin(theta) / theta;
     }
 
     pOut->x = scale * q->x;
     pOut->y = scale * q->y;
     pOut->z = scale * q->z;
-    pOut->w = (f32)::std::cosf(theta);
+    pOut->w = (f32)::std::cos(theta);
 
     return pOut;
 }
@@ -283,8 +283,8 @@ QUATLogN(QUAT* pOut, const QUAT* __restrict q)
 
     scale = q->x * q->x + q->y * q->y + q->z * q->z;
 
-    scale = ::std::sqrtf(scale);
-    theta = ::std::atan2f( scale, q->w );
+    scale = ::std::sqrt(scale);
+    theta = ::std::atan2( scale, q->w );
 
     if ( scale > 0.0F )
     {
@@ -326,10 +326,10 @@ QUATSlerp(QUAT* pOut, const QUAT* __restrict q1, const QUAT* __restrict q2, f32 
 
     if ( cos_th <= 1.0F - NW_QUAT_EPSILON )
     {
-        theta  = ::std::acosf(cos_th);
-        sin_th = ::std::sinf(theta);
-        tp     = ::std::sinf((1.0F - t) * theta) / sin_th;
-        tq    *= ::std::sinf( t * theta ) / sin_th;
+        theta  = ::std::acos(cos_th);
+        sin_th = ::std::sin(theta);
+        tp     = ::std::sin((1.0F - t) * theta) / sin_th;
+        tq    *= ::std::sin( t * theta ) / sin_th;
     }
     else
     {
@@ -516,7 +516,7 @@ QUATNormalize(QUAT* pOut, const QUAT* q)
 
     if ( mag >= NW_QUAT_EPSILON )
     {
-        mag = 1.0F / ::std::sqrtf(mag);
+        mag = 1.0F / ::std::sqrt(mag);
 
         tof32x2(pOut->x) = __PS_MULS0F(xy, mag);
         tof32x2(pOut->z) = __PS_MULS0F(zw, mag);
@@ -597,10 +597,10 @@ QUATSlerp(QUAT* pOut, const QUAT* __restrict q1, const QUAT* __restrict q2, f32 
 
     if ( cos_th <= 1.0F - NW_QUAT_EPSILON )
     {
-        theta  = ::std::acosf(cos_th);
-        sin_th = ::std::sinf(theta);
-        tp     = __PS_FDUP(::std::sinf((1.0F - t) * theta) / sin_th);
-        tq     = __PS_MULS0F(tq, ::std::sinf( t * theta ) / sin_th);
+        theta  = ::std::acos(cos_th);
+        sin_th = ::std::sin(theta);
+        tp     = __PS_FDUP(::std::sin((1.0F - t) * theta) / sin_th);
+        tq     = __PS_MULS0F(tq, ::std::sin( t * theta ) / sin_th);
     }
     else
     {
@@ -751,8 +751,8 @@ QUATRotAxisRad( QUAT *pOut, const VEC3 *axis, f32 rad )
     VEC3Normalize(&nAxis, axis);
 
     half = rad * 0.50F;
-    sh   = ::std::sinf(half);
-    ch   = ::std::cosf(half);
+    sh   = ::std::sin(half);
+    ch   = ::std::cos(half);
 
     pOut->x = sh * nAxis.x;
     pOut->y = sh * nAxis.y;

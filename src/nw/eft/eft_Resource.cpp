@@ -285,12 +285,12 @@ void Resource::Initialize(Heap* heap, void* bin, u32 resourceID, System* eftSys,
                     {
                         if (table->emitterResource->texRes[k].nativeDataSize > 0)
                         {
-                            texture_addr = mTextureTbl + table->emitterResource->texRes[k].nativeDataPos;
+                            texture_addr = reinterpret_cast<void*>((u32)mTextureTbl + table->emitterResource->texRes[k].nativeDataPos);
                             CreateFtexbTextureHandle(heap, texture_addr, table->emitterResource->texRes[k]);
                         }
                         else if (table->emitterResource->texRes[k].originalDataSize > 0)
                         {
-                            texture_addr = mTextureTbl + table->emitterResource->texRes[k].originalDataPos;
+                            texture_addr = reinterpret_cast<void*>((u32)mTextureTbl + table->emitterResource->texRes[k].originalDataPos);
                             CreateOriginalTextureHandle(heap, texture_addr, table->emitterResource->texRes[k]);
                         }
                         else if (k == 0)
@@ -307,12 +307,12 @@ void Resource::Initialize(Heap* heap, void* bin, u32 resourceID, System* eftSys,
                             ChildData* cres = reinterpret_cast<ChildData*>(complex + 1);
                             if (cres->childTex.nativeDataSize > 0)
                             {
-                                texture_addr = mTextureTbl + cres->childTex.nativeDataPos;
+                                texture_addr = reinterpret_cast<void*>((u32)mTextureTbl + cres->childTex.nativeDataPos);
                                 CreateFtexbTextureHandle(heap, texture_addr, cres->childTex);
                             }
                             else if (cres->childTex.originalDataSize > 0)
                             {
-                                texture_addr = mTextureTbl + cres->childTex.originalDataPos;
+                                texture_addr = reinterpret_cast<void*>((u32)mTextureTbl + cres->childTex.originalDataPos);
                                 CreateOriginalTextureHandle(heap, texture_addr, cres->childTex);
                             }
                             else

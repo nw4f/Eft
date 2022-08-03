@@ -117,7 +117,7 @@ public:
         : mNumEmitter(0)
         , mNumEmitterFirst(0)
         , mEmitterCreateID(0)
-        , mRuntimeUserData(NULL)
+        , mRuntimeUserData(0)
         , mParticleEmissionPoints(NULL)
     {
         mInitialRoate.x = 0;

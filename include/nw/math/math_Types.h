@@ -1,18 +1,4 @@
-﻿/*---------------------------------------------------------------------------*
-  Project:  NintendoWare
-
-  Copyright (C)Nintendo/HAL Laboratory, Inc.  All rights reserved.
-
-  These coded instructions, statements, and computer programs contain proprietary
-  information of Nintendo and/or its licensed developers and are protected by
-  national and international copyright laws. They may not be disclosed to third
-  parties or copied or duplicated in any form, in whole or in part, without the
-  prior written consent of Nintendo.
-
-  The content herein is highly confidential and should be handled accordingly.
- *---------------------------------------------------------------------------*/
-
-#ifndef NW_MATH_TYPES_H_
+﻿#ifndef NW_MATH_TYPES_H_
 #define NW_MATH_TYPES_H_
 
 #include <nw/types.h>
@@ -755,7 +741,7 @@ MTX34ToQUAT(QUAT* pOut, const MTX34* pMtx)
     tr = m[0][0] + m[1][1] + m[2][2];
     if ( tr > 0.0f )
     {
-        s = (f32)::std::sqrtf(tr + 1.0f);
+        s = (f32)::std::sqrt(tr + 1.0f);
         pOut->w = s * 0.5f;
         s = 0.5f / s;
         pOut->x = (m[2][1] - m[1][2]) * s;
@@ -769,7 +755,7 @@ MTX34ToQUAT(QUAT* pOut, const MTX34* pMtx)
         if (m[2][2] > m[i][i]) i = 2;
         j = nxt[i];
         k = nxt[j];
-        s = (f32)::std::sqrtf( (m[i][i] - (m[j][j] + m[k][k])) + 1.0f );
+        s = (f32)::std::sqrt( (m[i][i] - (m[j][j] + m[k][k])) + 1.0f );
         q[i] = s * 0.5f;
 
         if (s!=0.0f)

@@ -30,12 +30,6 @@ void EmitterCalc::FinalzieFluctuation_(Heap* heap)
     mSys = NULL;
 }
 
-void EmitterCalc::FinalzieFluctuation_(Heap* heap)
-{
-    heap->Free(sFluctuationTbl);
-    mSys = NULL;
-}
-
 void EmitterCalc::CalcFluctuation(EmitterInstance* __restrict e, PtclInstance* __restrict ptcl)
 {
     const ComplexEmitterData* res  = static_cast<const ComplexEmitterData*>(e->res);

@@ -364,13 +364,13 @@ VEC3SquareLen(const VEC3* p)
 inline f32
 VEC3Len(const VEC3* p)
 {
-    return ::std::sqrtf( VEC3SquareLen( p ) );
+    return ::std::sqrt( VEC3SquareLen( p ) );
 }
 
 inline f32
 VEC3Dist( const VEC3* p1, const VEC3* p2 )
 {
-    return ::std::sqrtf( VEC3SquareDist( p1, p2 ) );
+    return ::std::sqrt( VEC3SquareDist( p1, p2 ) );
 }
 
 inline VEC3
@@ -517,7 +517,7 @@ VEC3Normalize(VEC3* pOut, const VEC3* p)
 {
     f32 mag = (p->x * p->x) + (p->y * p->y) + (p->z * p->z);
 
-    mag = 1.0f / ::std::sqrtf(mag);
+    mag = 1.0f / ::std::sqrt(mag);
 
     pOut->x = p->x * mag;
     pOut->y = p->y * mag;
@@ -552,7 +552,7 @@ VEC3SafeNormalize(VEC3* pOut, const VEC3* p, const VEC3& alt)
         return pOut;
     }
 
-    mag = 1.0f / ::std::sqrtf(mag);
+    mag = 1.0f / ::std::sqrt(mag);
 
     pOut->x = p->x * mag;
     pOut->y = p->y * mag;

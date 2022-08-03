@@ -84,6 +84,14 @@ Renderer::Renderer(Heap* heap, System* system, const Config& config)
     mTemporaryBuffer.Initialize(mHeap, tempBufferSize);
 }
 
+Renderer::~Renderer()
+{
+    mTemporaryBuffer.Finalize(mHeap);
+    mHeap->Free(mPositionVB.GetVertexBuffer());
+    mHeap->Free(mIndexVB.GetVertexBuffer());
+    mRenderContext.~Rendercontext();
+}
+
 void Renderer::BeginRender(const nw::math::MTX44& proj, const nw::math::MTX34& view, const nw::math::VEC3& camPos, f32 near, f32 far)
 {
     mRenderContext.SetupCommonState();

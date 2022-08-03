@@ -20,7 +20,7 @@ inline f32
 FAbs(f32 x)
 {
     f32 ret;
-    ret = ::std::fabsf(x);
+    ret = ::std::fabs(x);
     return ret;
 }
 
@@ -44,43 +44,43 @@ FCopySign(f32 abs, f32 sign)
 inline f32
 FExp(f32 x)
 {
-    return ::std::expf(x);
+    return ::std::exp(x);
 }
 
 inline f32
 FLog(f32 x)
 {
-    return ::std::logf(x);
+    return ::std::log(x);
 }
 
 inline f32
 FLog10(f32 x)
 {
-    return ::std::log10f(x);
+    return ::std::log10(x);
 }
 
 inline f32
 FMod(f32 x, f32 y)
 {
-    return ::std::fmodf(x, y);
+    return ::std::fmod(x, y);
 }
 
 inline f32
 FModf(f32 x, f32* y)
 {
-    return ::std::modff(x, y);
+    return ::std::modf(x, y);
 }
 
 inline f32
 FCeil(f32 x)
 {
-    return ::std::ceilf(x);
+    return ::std::ceil(x);
 }
 
 inline f32
 FFloor(f32 x)
 {
-    return ::std::floorf(x);
+    return ::std::floor(x);
 }
 
 inline s16
@@ -119,7 +119,7 @@ FInv(f32 x)
 inline f32
 FSqrt(f32 x)
 {
-    return ::std::sqrtf(x);
+    return ::std::sqrt(x);
 }
 
 inline f32

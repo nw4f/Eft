@@ -6,43 +6,43 @@ namespace nw { namespace eft {
 
 void System::SetUserDataEmitterPreCalcCallback(UserDataCallBackID id, UserDataEmitterPreCalcCallback callback)
 {
-    if (id < EFT_CALLBACK_MAX)
+    if (id < EFT_USER_DATA_CALLBACK_ID_MAX)
         mUserDataEmitterPreCalcCallback[id] = callback;
 }
 
 void System::SetUserDataEmitterPostCalcCallback(UserDataCallBackID id, UserDataEmitterPostCalcCallback callback)
 {
-    if (id < EFT_CALLBACK_MAX)
+    if (id < EFT_USER_DATA_CALLBACK_ID_MAX)
         mUserDataEmitterPostCalcCallback[id] = callback;
 }
 
 void System::SetUserDataParticleEmitCallback(UserDataCallBackID id, UserDataParticleEmitCallback callback)
 {
-    if (id < EFT_CALLBACK_MAX)
+    if (id < EFT_USER_DATA_CALLBACK_ID_MAX)
         mUserDataParticleEmitCallback[id] = callback;
 }
 
 void System::SetUserDataParticleRemoveCallback(UserDataCallBackID id, UserDataParticleRemoveCallback callback)
 {
-    if (id < EFT_CALLBACK_MAX)
+    if (id < EFT_USER_DATA_CALLBACK_ID_MAX)
         mUserDataParticleRemoveCallback[id] = callback;
 }
 
 void System::SetUserDataParticleCalcCallback(UserDataCallBackID id, UserDataParticleCalcCallback callback)
 {
-    if (id < EFT_CALLBACK_MAX)
+    if (id < EFT_USER_DATA_CALLBACK_ID_MAX)
         mUserDataParticleCalcCallback[id] = callback;
 }
 
 void System::SetUserDataParticleMakeAttributeCallback(UserDataCallBackID id, UserDataParticleMakeAttributeCallback callback)
 {
-    if (id < EFT_CALLBACK_MAX)
+    if (id < EFT_USER_DATA_CALLBACK_ID_MAX)
         mUserDataParticleMakeAttrCallback[id] = callback;
 }
 
 void System::SetUserDataEmitterDrawOverrideCallback(UserDataCallBackID id, UserDataEmitterDrawOverrideCallback callback)
 {
-    if (id < EFT_CALLBACK_MAX)
+    if (id < EFT_USER_DATA_CALLBACK_ID_MAX)
         mUserDataEmitterDrawOverrideCallback[id] = callback;
 }
 

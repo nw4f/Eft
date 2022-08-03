@@ -230,23 +230,23 @@ void Resource::Initialize(Heap* heap, void* bin, s32 resourceID, System* ptclSys
 
                     if (e->emitter->texRes[EFT_TEXTURE_SLOT_0].nativeDataSize > 0)
                     {
-                        texture_addr = mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_0].nativeDataPos;
+                        texture_addr = reinterpret_cast<void*>((u32)mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_0].nativeDataPos);
                         CreateFtexbTextureHandle(heap, texture_addr, e->emitter->texRes[EFT_TEXTURE_SLOT_0]);
                     }
                     else if (e->emitter->texRes[EFT_TEXTURE_SLOT_0].originalDataSize > 0)
                     {
-                        texture_addr = mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_0].originalDataPos;
+                        texture_addr = reinterpret_cast<void*>((u32)mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_0].originalDataPos);
                         CreateOriginalTextureHandle(heap, texture_addr, e->emitter->texRes[EFT_TEXTURE_SLOT_0]);
                     }
 
                     if (e->emitter->texRes[EFT_TEXTURE_SLOT_1].nativeDataSize > 0)
                     {
-                        texture_addr = mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_1].nativeDataPos;
+                        texture_addr = reinterpret_cast<void*>((u32)mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_1].nativeDataPos);
                         CreateFtexbTextureHandle(heap, texture_addr, e->emitter->texRes[EFT_TEXTURE_SLOT_1]);
                     }
                     else if (e->emitter->texRes[EFT_TEXTURE_SLOT_1].originalDataSize > 0)
                     {
-                        texture_addr = mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_1].originalDataPos;
+                        texture_addr = reinterpret_cast<void*>((u32)mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_1].originalDataPos);
                         CreateOriginalTextureHandle(heap, texture_addr, e->emitter->texRes[EFT_TEXTURE_SLOT_1]);
                     }
 
@@ -258,12 +258,12 @@ void Resource::Initialize(Heap* heap, void* bin, s32 resourceID, System* ptclSys
                             ChildData* cres = reinterpret_cast<ChildData*>(complex + 1);
                             if (cres->childTex.nativeDataSize > 0)
                             {
-                                texture_addr = mTextureTbl + cres->childTex.nativeDataPos;
+                                texture_addr = reinterpret_cast<void*>((u32)mTextureTbl + cres->childTex.nativeDataPos);
                                 CreateFtexbTextureHandle(heap, texture_addr, cres->childTex);
                             }
                             else if (cres->childTex.originalDataSize > 0)
                             {
-                                texture_addr = mTextureTbl + cres->childTex.originalDataPos;
+                                texture_addr = reinterpret_cast<void*>((u32)mTextureTbl + cres->childTex.originalDataPos);
                                 CreateOriginalTextureHandle(heap, texture_addr, cres->childTex);
                             }
                         }

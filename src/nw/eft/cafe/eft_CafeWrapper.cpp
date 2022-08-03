@@ -127,10 +127,12 @@ TextureSampler::~TextureSampler()
 
 bool TextureSampler::Setup(TextureFilterMode textureFilter, TextureWrapMode wrapModeU, TextureWrapMode wrapModeV)
 {
+    GX2TexAnisoRatio ratio = GX2_TEX_ANISO_1_TO_1;
+
     if (textureFilter == EFT_TEXTURE_FILTER_TYPE_LINEAR)
-        GX2InitSamplerXYFilter(&mTextureSampler, GX2_TEX_XY_FILTER_BILINEAR, GX2_TEX_XY_FILTER_BILINEAR, GX2_TEX_ANISO_1_TO_1);
+        GX2InitSamplerXYFilter(&mTextureSampler, GX2_TEX_XY_FILTER_BILINEAR, GX2_TEX_XY_FILTER_BILINEAR, ratio);
     else
-        GX2InitSamplerXYFilter(&mTextureSampler, GX2_TEX_XY_FILTER_POINT, GX2_TEX_XY_FILTER_POINT, GX2_TEX_ANISO_1_TO_1);
+        GX2InitSamplerXYFilter(&mTextureSampler, GX2_TEX_XY_FILTER_POINT, GX2_TEX_XY_FILTER_POINT, ratio);
 
     GX2TexClamp clampX = GX2_TEX_CLAMP_MIRROR;
     GX2TexClamp clampY = GX2_TEX_CLAMP_MIRROR;
@@ -148,7 +150,7 @@ bool TextureSampler::Setup(TextureFilterMode textureFilter, TextureWrapMode wrap
     {
     case EFT_TEXTURE_WRAP_TYPE_MIRROR:              clampY = GX2_TEX_CLAMP_MIRROR;      break;
     case EFT_TEXTURE_WRAP_TYPE_REPEAT:              clampY = GX2_TEX_CLAMP_WRAP;        break;
-    case EFT_TEXTURE_WRAP_TYPE_CLAMP:               clampY = GX2_TEX_CLAMP_CLAMP ;      break;
+    case EFT_TEXTURE_WRAP_TYPE_CLAMP:               clampY = GX2_TEX_CLAMP_CLAMP;       break;
     case EFT_TEXTURE_WRAP_TYPE_MIROOR_ONCE:         clampY = GX2_TEX_CLAMP_MIRROR_ONCE; break;
     }
 

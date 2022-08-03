@@ -131,7 +131,7 @@ void Renderer::GetPositionOnCubic(nw::math::VEC3* retPos, const nw::math::VEC3& 
 {
     // http://old.zaynar.co.uk/cppdoc/latest/projects/maths/NUSpline.cpp.html
 
-    static const nw::math::MTX44 hermite(
+    const static nw::math::MTX44 hermite(
          2.0f, -3.0f, 0.0f, 1.0f,
         -2.0f,  3.0f, 0.0f, 0.0f,
          1.0f, -2.0f, 1.0f, 0.0f,
@@ -142,7 +142,7 @@ void Renderer::GetPositionOnCubic(nw::math::VEC3* retPos, const nw::math::VEC3& 
         startPos.x, endPos.x, startVel.x, endVel.x,
         startPos.y, endPos.y, startVel.y, endVel.y,
         startPos.z, endPos.z, startVel.z, endVel.z,
-        0.0f, 0.0f, 0.0f, 1.0f
+        0.0f,       0.0f,     0.0f,       0.0f
     );
 
     MTX44Mult(&m, &m, &hermite);

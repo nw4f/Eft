@@ -2,10 +2,10 @@
 #include <nw/eft/eft_Emitter.h>
 #include <nw/eft/eft_Heap.h>
 
-#ifdef __GNUC__
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
-#endif // __GNUC__
+#endif
 
 namespace nw { namespace eft {
 
@@ -39,6 +39,6 @@ void EmitterCalc::CalcFluctuation(EmitterInstance* __restrict e, PtclInstance* _
 
 } } // namespace nw::eft
 
-#ifdef __GNUC__
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
 #pragma GCC diagnostic pop
-#endif // __GNUC__
+#endif

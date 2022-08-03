@@ -1561,8 +1561,8 @@ MTX34RotAxisRad_( MTX34* pOut, const VEC3 *pAxis, f32 fRad )
 
     f32 (*const m)[4] = pOut->m;
 
-    s = ::std::sinf(fRad);
-    c = ::std::cosf(fRad);
+    s = ::std::sin(fRad);
+    c = ::std::cos(fRad);
     t = 1.0f - c;
 
     VEC3Normalize( &vN, pAxis );

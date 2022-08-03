@@ -2,10 +2,10 @@
 #include <nw/eft/eft_EmitterSet.h>
 #include <nw/eft/eft_UniformBlock.h>
 
-#ifdef __GNUC__
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
-#endif // __GNUC__
+#endif
 
 namespace nw { namespace eft {
 
@@ -731,6 +731,6 @@ void EmitterCalc::MakeParticleAttributeBuffer(PtclAttributeBuffer* __restrict at
 
 } } // namespace nw::eft
 
-#ifdef __GNUC__
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
 #pragma GCC diagnostic pop
-#endif // __GNUC__
+#endif

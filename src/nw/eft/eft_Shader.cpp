@@ -1,10 +1,10 @@
 #include <nw/eft/eft_Data.h>
 #include <nw/eft/eft_Shader.h>
 
-#ifdef __GNUC__
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
-#endif // __GNUC__
+#endif
 
 namespace nw { namespace eft {
 
@@ -242,6 +242,6 @@ void ParticleShader::DisableInstanced()
 
 } } // namespace nw::eft
 
-#ifdef __GNUC__
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
 #pragma GCC diagnostic pop
-#endif // __GNUC__
+#endif

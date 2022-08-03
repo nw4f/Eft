@@ -1042,7 +1042,7 @@ MTX44PerspectiveRadNew(MTX44* pOut, f32 fovyRad, f32 aspect, f32 n, f32 f)
 
     const f32 angle = fovyRad * 0.5f;
 
-    const f32 cot = 1.0f / ::std::tanf(angle);
+    const f32 cot = 1.0f / ::std::tan(angle);
 
     m[0][0] =  cot / aspect;
     m[0][1] =  0.0f;
@@ -1078,7 +1078,7 @@ MTX44PerspectiveRadOld(MTX44* pOut, f32 fovyRad, f32 aspect, f32 n, f32 f)
 
     const f32 angle = fovyRad * 0.5f;
 
-    const f32 cot = 1.0f / ::std::tanf(angle);
+    const f32 cot = 1.0f / ::std::tan(angle);
 
     m[0][0] =  cot / aspect;
     m[0][1] =  0.0f;
@@ -1442,8 +1442,8 @@ MTX44RotAxisRad_( MTX44* pOut, const VEC3 *pAxis, f32 fRad )
 
     f32 (*const m)[4] = pOut->m;
 
-    s = ::std::sinf(fRad);
-    c = ::std::cosf(fRad);
+    s = ::std::sin(fRad);
+    c = ::std::cos(fRad);
     t = 1.0f - c;
 
     VEC3Normalize( &vN, pAxis );

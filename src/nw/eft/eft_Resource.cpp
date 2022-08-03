@@ -5,10 +5,10 @@
 
 #include <new>
 
-#ifdef __GNUC__
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
-#endif // __GNUC__
+#endif
 
 namespace nw { namespace eft {
 
@@ -679,6 +679,6 @@ ParticleShader* Resource::GetShader(s32 emitterSetID, const VertexShaderKey* ver
 
 } } // namespace nw::eft
 
-#ifdef __GNUC__
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
 #pragma GCC diagnostic pop
-#endif // __GNUC__
+#endif

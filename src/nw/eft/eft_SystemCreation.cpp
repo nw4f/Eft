@@ -7,10 +7,10 @@
 #include <nw/eft/eft_Shader.h>
 #include <nw/eft/eft_System.h>
 
-#ifdef __GNUC__
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsign-compare"
-#endif // __GNUC__
+#endif
 
 namespace nw { namespace eft {
 
@@ -321,6 +321,6 @@ void System::ReCreateEmitter(EmitterSet* set, s32 resourceID, s32 emitterSetID, 
 
 } } // namespace nw::eft
 
-#ifdef __GNUC__
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
 #pragma GCC diagnostic pop
-#endif // __GNUC__
+#endif

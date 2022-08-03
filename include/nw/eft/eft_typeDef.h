@@ -5,6 +5,9 @@
 
 #ifdef _WIN32
     #include <GL/glew.h>
+#endif // _WIN32
+
+#if defined(_WIN32) || defined(__WUT__)
     #include <cafe/gfd.h>
     #include <cafe.h>
 #else

@@ -3002,21 +3002,48 @@ PtclInstance* EmitterCalc::_emitBox(EmitterInstance* __restrict e)
 
         if (coord < 0xffffffff / 3 * 1)
         {
-            ptcl->pos.x = scaleX * radRnd.x;
-            ptcl->pos.y = scaleY * radRnd.y;
-            ptcl->pos.z = (sign < 0xffffffff / 2) ? scaleZ : -scaleZ;
+            if (sign < 0xffffffff / 2)
+            {
+                ptcl->pos.x = scaleX * radRnd.x;
+                ptcl->pos.y = scaleY * radRnd.y;
+                ptcl->pos.z = scaleZ;
+            }
+            else
+            {
+                ptcl->pos.x =  scaleX * radRnd.x;
+                ptcl->pos.y =  scaleY * radRnd.y;
+                ptcl->pos.z = -scaleZ;
+            }
         }
         else if (coord < 0xffffffff / 3 * 2)
         {
-            ptcl->pos.x = scaleX * radRnd.x;
-            ptcl->pos.y = (sign < 0xffffffff / 2) ? scaleY : -scaleY;
-            ptcl->pos.z = scaleZ * radRnd.z;
+            if (sign < 0xffffffff / 2)
+            {
+                ptcl->pos.x = scaleX * radRnd.x;
+                ptcl->pos.y = scaleY;
+                ptcl->pos.z = scaleZ * radRnd.z;
+            }
+            else
+            {
+                ptcl->pos.x =  scaleX * radRnd.x;
+                ptcl->pos.y = -scaleY;
+                ptcl->pos.z =  scaleZ * radRnd.z;
+            }
         }
         else // if (coord < 0xffffffff / 3 * 3)
         {
-            ptcl->pos.x = (sign < 0xffffffff / 2) ? scaleX : -scaleX;
-            ptcl->pos.y = scaleY * radRnd.y;
-            ptcl->pos.z = scaleZ * radRnd.z;
+            if (sign < 0xffffffff / 2)
+            {
+                ptcl->pos.x = scaleX;
+                ptcl->pos.y = scaleY * radRnd.y;
+                ptcl->pos.z = scaleZ * radRnd.z;
+            }
+            else
+            {
+                ptcl->pos.x = -scaleX;
+                ptcl->pos.y =  scaleY * radRnd.y;
+                ptcl->pos.z =  scaleZ * radRnd.z;
+            }
         }
 
 #if (EFT_IS_CAFE_WUT || !EFT_IS_CAFE) // Fix undefined behavior
@@ -3199,15 +3226,33 @@ PtclInstance* EmitterCalc::_emitRectangle(EmitterInstance* __restrict e)
 
         if (coord < 0xffffffff / 2)
         {
-            ptcl->pos.x = scaleX * x;
-            ptcl->pos.y = 0.0f;
-            ptcl->pos.z = (sign < 0xffffffff / 2) ? scaleZ : -scaleZ;
+            if (sign < 0xffffffff / 2)
+            {
+                ptcl->pos.x = scaleX * x;
+                ptcl->pos.y = 0.0f;
+                ptcl->pos.z = scaleZ;
+            }
+            else
+            {
+                ptcl->pos.x =  scaleX * x;
+                ptcl->pos.y =  0.0f;
+                ptcl->pos.z = -scaleZ;
+            }
         }
         else // if (coord < 0xffffffff)
         {
-            ptcl->pos.x = (sign < 0xffffffff / 2) ? scaleX : -scaleX;
-            ptcl->pos.y = 0.0f;
-            ptcl->pos.z = scaleZ * z;
+            if (sign < 0xffffffff / 2)
+            {
+                ptcl->pos.x = scaleX;
+                ptcl->pos.y = 0.0f;
+                ptcl->pos.z = scaleZ * z;
+            }
+            else
+            {
+                ptcl->pos.x = -scaleX;
+                ptcl->pos.y =  0.0f;
+                ptcl->pos.z =  scaleZ * z;
+            }
         }
 
 #if (EFT_IS_CAFE_WUT || !EFT_IS_CAFE) // Fix undefined behavior

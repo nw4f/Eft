@@ -102,14 +102,19 @@ void EmitterComplexCalc::CalcComplex(EmitterInstance* e, PtclInstance* ptcl, Cpu
                 }
             }
 
-            if (++stripe->histQEnd >= sres->stripeNumHistory)
+            stripe->histQEnd++;
+            if (stripe->histQEnd >= sres->stripeNumHistory)
                 stripe->histQEnd = 0;
 
-            if (stripe->histQEnd == stripe->histQStart
-                && ++stripe->histQStart >= sres->stripeNumHistory)
-                stripe->histQStart = 0;
+            if (stripe->histQEnd == stripe->histQStart)
+            {
+                stripe->histQStart++;
+                if (stripe->histQStart >= sres->stripeNumHistory)
+                    stripe->histQStart = 0;
+            }
 
-            if (++stripe->numHistory >= sres->stripeNumHistory)
+            stripe->numHistory++;
+            if (stripe->numHistory >= sres->stripeNumHistory)
                 stripe->numHistory = sres->stripeNumHistory;
 
             stripe->emitterSRT = e->emitterSRT;
@@ -279,7 +284,8 @@ u32 EmitterComplexCalc::CalcParticle(EmitterInstance* emitter, CpuCore core, boo
                         }
                         else
                         {
-                            if (++stripe->histQStart >= sres->stripeNumHistory)
+                            stripe->histQStart++;
+                            if (stripe->histQStart >= sres->stripeNumHistory)
                                 stripe->histQStart = 0;
 
                             stripe->numHistory--;

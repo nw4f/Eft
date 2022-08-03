@@ -16,7 +16,18 @@ void EmitterCalc::InitializeFluctuation_(Heap* heap)
     sFluctuationTbl = static_cast<f32*>(heap->Alloc(sizeof(f32) * EFT_FLUCTUATION_TABLE_NUM));
 
     for (s32 i = 0; i < EFT_FLUCTUATION_TABLE_NUM; i++)
-        sFluctuationTbl[i] = nw::math::CosRad((f32)i / (f32)EFT_FLUCTUATION_TABLE_NUM * 2.0f * 3.14159f) * 0.5f + 0.5f;
+    {
+        f32 sinVal;
+
+        sinVal = nw::math::CosRad((f32)i / (f32)EFT_FLUCTUATION_TABLE_NUM * 2.0f * 3.14159f) * 0.5f + 0.5f;
+        sFluctuationTbl[i] = sinVal;
+    }
+}
+
+void EmitterCalc::FinalzieFluctuation_(Heap* heap)
+{
+    heap->Free(sFluctuationTbl);
+    mSys = NULL;
 }
 
 void EmitterCalc::FinalzieFluctuation_(Heap* heap)

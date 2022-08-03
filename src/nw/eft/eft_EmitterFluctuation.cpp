@@ -2,6 +2,11 @@
 #include <nw/eft/eft_Emitter.h>
 #include <nw/eft/eft_Heap.h>
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif // __GNUC__
+
 namespace nw { namespace eft {
 
 f32* EmitterCalc::sFluctuationTbl = NULL;
@@ -12,6 +17,12 @@ void EmitterCalc::InitializeFluctuation_(Heap* heap)
 
     for (s32 i = 0; i < EFT_FLUCTUATION_TABLE_NUM; i++)
         sFluctuationTbl[i] = nw::math::CosRad((f32)i / (f32)EFT_FLUCTUATION_TABLE_NUM * 2.0f * 3.14159f) * 0.5f + 0.5f;
+}
+
+void EmitterCalc::FinalzieFluctuation_(Heap* heap)
+{
+    heap->Free(sFluctuationTbl);
+    mSys = NULL;
 }
 
 void EmitterCalc::CalcFluctuation(EmitterInstance* __restrict e, PtclInstance* __restrict ptcl)
@@ -27,3 +38,7 @@ void EmitterCalc::CalcFluctuation(EmitterInstance* __restrict e, PtclInstance* _
 }
 
 } } // namespace nw::eft
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif // __GNUC__

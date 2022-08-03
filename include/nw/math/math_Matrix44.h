@@ -3,7 +3,7 @@
 
 //#define NW_MATH_USE_OLDMTX
 
-#if defined(NW_PLATFORM_CAFE)
+#if defined(NW_PLATFORM_CAFE) && !defined(__WUT__)
     #include <cafe/mtx/mtx44.h>
 #endif
 
@@ -239,18 +239,6 @@ public:
     ToPtr Cast() const
     {
         return reinterpret_cast<ToPtr>( this );
-    }
-
-    template <typename ToRef>
-    ToRef CastToRef()
-    {
-        return *reinterpret_cast<typename ut::PeelReference<ToRef>::Type*>( this );
-    }
-
-    template <typename ToRef>
-    ToRef CastToRef() const
-    {
-        return *reinterpret_cast<const typename ut::PeelReference<ToRef>::Type*>( this );
     }
 
     template <typename FromPtr>

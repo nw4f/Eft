@@ -3,6 +3,11 @@
 
 #include <nw/eft/eft_typeDef.h>
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif // __GNUC__
+
 namespace nw { namespace eft {
 
 class Heap;
@@ -152,5 +157,9 @@ protected:
 static_assert(sizeof(Config) == 0x20, "nw::eft::Config size mismatch");
 
 } } // namespace nw::eft
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif // __GNUC__
 
 #endif // EFT_CONFIG_H_

@@ -1,5 +1,7 @@
 #include <nw/eft/cafe/eft_CafeWrapper.h>
 
+#if EFT_IS_CAFE
+
 BOOL _DEMOGFDReadVertexShader(nw::eft::Heap* heap, GX2VertexShader** ppShader, u32 index, const void* pData)
 {
     GX2VertexShader* pHeader;
@@ -435,7 +437,11 @@ bool UniformBlock::InitializeVertexUniformBlock(Shader* shader, const char* name
         return false;
     }
 
+#if EFT_IS_CAFE_WUT
+    mUniformLoc = block->offset;
+#else
     mUniformLoc = block->location;
+#endif
     mBufferSize = block->size;
     mUniformBlockMode = EFT_UNIFORM_BLOCK_MODE_VERTEX;
     mInitialized = true;
@@ -452,7 +458,11 @@ bool UniformBlock::InitializePixelUniformBlock(Shader* shader, const char* name,
         return false;
     }
 
+#if EFT_IS_CAFE_WUT
+    mUniformLoc = block->offset;
+#else
     mUniformLoc = block->location;
+#endif
     mBufferSize = block->size;
     mUniformBlockMode = EFT_UNIFORM_BLOCK_MODE_FRAGMENT;
     mInitialized = true;
@@ -480,3 +490,5 @@ void UniformBlock::BindUniformBlock(const void* param)
 }
 
 } } // namespace nw::eft
+
+#endif

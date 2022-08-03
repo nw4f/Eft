@@ -7,6 +7,11 @@
 #include <nw/eft/eft_Shader.h>
 #include <nw/eft/eft_System.h>
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif // __GNUC__
+
 namespace nw { namespace eft {
 
 void System::InitializeEmitter(EmitterInstance* emitter, const SimpleEmitterData* res, s32 resourceID, s32 emitterSetID, u32 setRndSeed, bool nonUpdateCreateID)
@@ -315,3 +320,7 @@ void System::ReCreateEmitter(EmitterSet* set, s32 resourceID, s32 emitterSetID, 
 }
 
 } } // namespace nw::eft
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif // __GNUC__

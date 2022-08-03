@@ -1,7 +1,14 @@
 #include <nw/eft/eft_Resource.h>
 #include <nw/eft/eft_Shader.h>
 
+#include <nw/eft/eft_Data.hpp>
+
 #include <new>
+
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif // __GNUC__
 
 namespace nw { namespace eft {
 
@@ -14,6 +21,183 @@ Resource::~Resource()
 {
     Finalize(NULL);
 }
+
+
+
+#if EFT_IS_WIN
+
+static const GX2SurfaceFormat TextureFormat2GX2Tbl[] = {
+    GX2_SURFACE_FORMAT_UNORM_RGBA8,
+    GX2_SURFACE_FORMAT_UNORM_RGBA8,
+    GX2_SURFACE_FORMAT_UNORM_RGBA8,
+    GX2_SURFACE_FORMAT_UNORM_BC1,
+    GX2_SURFACE_FORMAT_SRGB_BC1,
+    GX2_SURFACE_FORMAT_UNORM_BC2,
+    GX2_SURFACE_FORMAT_SRGB_BC2,
+    GX2_SURFACE_FORMAT_UNORM_BC3,
+    GX2_SURFACE_FORMAT_SRGB_BC3,
+    GX2_SURFACE_FORMAT_UNORM_BC4,
+    GX2_SURFACE_FORMAT_SNORM_BC4,
+    GX2_SURFACE_FORMAT_UNORM_BC5,
+    GX2_SURFACE_FORMAT_SNORM_BC5,
+    GX2_SURFACE_FORMAT_UNORM_R8,
+    GX2_SURFACE_FORMAT_UNORM_RG8,
+    GX2_SURFACE_FORMAT_SRGB_RGBA8
+};
+
+struct GLTexFormat
+{
+    GLint internalformat;
+    GLenum format;
+    GLenum type;
+};
+
+static const GLTexFormat TextureFormat2GLTbl[] = {
+    { GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE },
+    { GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE },
+    { GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE },
+    { GL_COMPRESSED_RGBA_S3TC_DXT1_EXT },
+    { GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT },
+    { GL_COMPRESSED_RGBA_S3TC_DXT3_EXT },
+    { GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT },
+    { GL_COMPRESSED_RGBA_S3TC_DXT5_EXT },
+    { GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT },
+    { GL_COMPRESSED_RED_RGTC1 },
+    { GL_COMPRESSED_SIGNED_RED_RGTC1 },
+    { GL_COMPRESSED_RG_RGTC2 },
+    { GL_COMPRESSED_SIGNED_RG_RGTC2 },
+    { GL_R8, GL_RED, GL_UNSIGNED_BYTE },
+    { GL_RG8, GL_RG, GL_UNSIGNED_BYTE },
+    { GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE }
+};
+
+static const GLint GX2CompSel2GLTbl[6] = {
+    GL_RED, GL_GREEN, GL_BLUE,
+    GL_ALPHA, GL_ZERO, GL_ONE
+};
+
+void Resource::CreateFtexbTextureHandle(Heap* heap, void* texture_data, TextureRes& texRes)
+{
+    GX2SurfaceFormat texformat = GX2_SURFACE_FORMAT_UNORM_RGBA8;
+    if (texRes.nativeDataFormat <= EFT_TEXTURE_FORMAT_SRGB_8_8_8_8 && texRes.nativeDataFormat > EFT_TEXTURE_FORMAT_NONE)
+        texformat = TextureFormat2GX2Tbl[texRes.nativeDataFormat];
+
+    GX2Surface surface;
+    surface.dim = GX2_SURFACE_DIM_2D;
+    surface.width = texRes.width;
+    surface.height = texRes.height;
+    surface.depth = 1;
+    surface.numMips = texRes.mipLevel;
+    surface.format = texformat;
+    surface.aa = GX2_AA_MODE_1X;
+    surface.use = GX2_SURFACE_USE_TEXTURE;
+    surface.tileMode = texRes.tileMode;
+    surface.swizzle = texRes.swizzle << 8;
+    GX2CalcSurfaceSizeAndAlignment(&surface);
+
+    surface.imagePtr = texture_data;
+    surface.mipPtr = (surface.numMips > 1) ? (u8*)texture_data + surface.imageSize : NULL;
+
+    for (s32 i = 0; i < 13; i++)
+        surface.mipOffset[i] = texRes.mipOffset[i];
+
+    GLint compSel[4] = {
+        GX2CompSel2GLTbl[texRes.compSel >> 24 & 0xFF],
+        GX2CompSel2GLTbl[texRes.compSel >> 16 & 0xFF],
+        GX2CompSel2GLTbl[texRes.compSel >>  8 & 0xFF],
+        GX2CompSel2GLTbl[texRes.compSel >>  0 & 0xFF]
+    };
+
+    glGenTextures(1, &texRes.handle);
+    glBindTexture(GL_TEXTURE_2D, texRes.handle);
+    glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, compSel);
+
+    GX2Surface& linear_surface = texRes.gx2Texture.surface;
+    linear_surface.dim = GX2_SURFACE_DIM_2D;
+    linear_surface.width = texRes.width;
+    linear_surface.height = texRes.height;
+    linear_surface.depth = 1;
+    linear_surface.numMips = 1;
+    linear_surface.format = texformat;
+    linear_surface.aa = GX2_AA_MODE_1X;
+    linear_surface.use = GX2_SURFACE_USE_TEXTURE;
+    linear_surface.tileMode = GX2_TILE_MODE_LINEAR_SPECIAL;
+    linear_surface.swizzle = 0;
+    GX2CalcSurfaceSizeAndAlignment(&linear_surface);
+
+    linear_surface.imagePtr = heap->Alloc(linear_surface.imageSize);
+    linear_surface.mipPtr = NULL;
+
+    GX2CopySurface(&surface, 0, 0, &linear_surface, 0, 0);
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    const GLTexFormat* glFormat = &TextureFormat2GLTbl[0];
+    if (texRes.nativeDataFormat <= EFT_TEXTURE_FORMAT_SRGB_8_8_8_8 && texRes.nativeDataFormat > EFT_TEXTURE_FORMAT_NONE)
+        glFormat = &TextureFormat2GLTbl[texRes.nativeDataFormat];
+
+    if (EFT_TEXTURE_FORMAT_UNORM_BC1 <= texRes.nativeDataFormat && texRes.nativeDataFormat <= EFT_TEXTURE_FORMAT_SRGB_BC3)
+        glCompressedTexImage2DARB(GL_TEXTURE_2D, 0, glFormat->internalformat, texRes.width, texRes.height, 0, linear_surface.imageSize, linear_surface.imagePtr);
+
+    else if (EFT_TEXTURE_FORMAT_UNORM_BC4 <= texRes.nativeDataFormat && texRes.nativeDataFormat <= EFT_TEXTURE_FORMAT_SNORM_BC5)
+        glCompressedTexImage2D(GL_TEXTURE_2D, 0, glFormat->internalformat, texRes.width, texRes.height, 0, linear_surface.imageSize, linear_surface.imagePtr);
+
+    else
+        glTexImage2D(GL_TEXTURE_2D, 0, glFormat->internalformat, texRes.width, texRes.height, 0, glFormat->format, glFormat->type, linear_surface.imagePtr);
+}
+
+void Resource::CreateOriginalTextureHandle(Heap* heap, void* texture_data, TextureRes& texRes)
+{
+    GX2Surface& linear_surface = texRes.gx2Texture.surface;
+    linear_surface.dim = GX2_SURFACE_DIM_2D;
+    linear_surface.width = texRes.width;
+    linear_surface.height = texRes.height;
+    linear_surface.depth = 1;
+    linear_surface.numMips = 1;
+    linear_surface.format = GX2_SURFACE_FORMAT_UNORM_RGBA8;
+    linear_surface.aa = GX2_AA_MODE_1X;
+    linear_surface.use = GX2_SURFACE_USE_TEXTURE;
+    linear_surface.tileMode = GX2_TILE_MODE_LINEAR_SPECIAL;
+    linear_surface.swizzle = 0;
+    GX2CalcSurfaceSizeAndAlignment(&linear_surface);
+
+    linear_surface.imagePtr = heap->Alloc(linear_surface.imageSize);
+    linear_surface.mipPtr = NULL;
+
+    if (texRes.originalDataFormat == EFT_TEXTURE_FORMAT_32BIT_COLOR)
+        std::memcpy(linear_surface.imagePtr, texture_data, linear_surface.imageSize);
+
+    else
+    {
+        u8* const texAddr = (u8*)linear_surface.imagePtr;
+
+        for (u32 i = 0; i < texRes.width * texRes.height; i++)
+        {
+            texAddr[i * 4 + 0] = ((u8*)texture_data)[i * 3 + 0];
+            texAddr[i * 4 + 1] = ((u8*)texture_data)[i * 3 + 1];
+            texAddr[i * 4 + 2] = ((u8*)texture_data)[i * 3 + 2];
+            texAddr[i * 4 + 3] = 0xFF;
+        }
+    }
+
+    GLint compSel[4] = {
+        GX2CompSel2GLTbl[texRes.compSel >> 24 & 0xFF],
+        GX2CompSel2GLTbl[texRes.compSel >> 16 & 0xFF],
+        GX2CompSel2GLTbl[texRes.compSel >>  8 & 0xFF],
+        GX2CompSel2GLTbl[texRes.compSel >>  0 & 0xFF]
+    };
+
+    glGenTextures(1, &texRes.handle);
+    glBindTexture(GL_TEXTURE_2D, texRes.handle);
+    glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, compSel);
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, texRes.width, texRes.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, linear_surface.imagePtr);
+}
+
+#endif // EFT_IS_WIN
+
+#if EFT_IS_CAFE
 
 void Resource::CreateFtexbTextureHandle(Heap* heap, void* texture_data, TextureRes& texRes)
 {
@@ -117,6 +301,8 @@ void Resource::CreateOriginalTextureHandle(Heap* heap, void* texture_data, Textu
     texRes.handle = 1;
 }
 
+#endif // EFT_IS_CAFE
+
 void Resource::Initialize(Heap* heap, void* bin, s32 resourceID, System* ptclSys)
 {
     mSystem       = ptclSys;
@@ -128,7 +314,7 @@ void Resource::Initialize(Heap* heap, void* bin, s32 resourceID, System* ptclSys
 
     mResourceID = resourceID;
 
-    mHeader     = reinterpret_cast<HeaderData*>(bin);
+    mHeader     = LoadNwEftHeaderData(bin);
     mNameTbl    = reinterpret_cast<char*>((u32)bin + mHeader->nameTblPos);
     mTextureTbl = reinterpret_cast<char*>((u32)bin + mHeader->textureTblPos);
 
@@ -136,7 +322,7 @@ void Resource::Initialize(Heap* heap, void* bin, s32 resourceID, System* ptclSys
         return;
 
     {
-        ShaderImageInformation* shaderImageInfo = reinterpret_cast<ShaderImageInformation*>((u32)bin + mHeader->shaderTblPos);
+        ShaderImageInformation* shaderImageInfo = LoadNwEftShaderImageInformation((void*)((u32)bin + mHeader->shaderTblPos));
         ShaderInformation* shaderInfo = reinterpret_cast<ShaderInformation*>((u32)shaderImageInfo + shaderImageInfo->offsetShaderBinInfo);
         char* binTop = reinterpret_cast<char*>(shaderInfo + shaderImageInfo->shaderNum);
 
@@ -145,6 +331,8 @@ void Resource::Initialize(Heap* heap, void* bin, s32 resourceID, System* ptclSys
 
         for (u32 i = 0; i < mShaderNum; i++)
         {
+            (void)LoadNwEftShaderInformation(shaderInfo);
+
             mShader[i] = new (heap->Alloc(sizeof(ParticleShader))) ParticleShader();
             mShader[i]->SetVertexShaderKey(&shaderInfo->vertexShaderKey);
             mShader[i]->SetFragmentShaderKey(&shaderInfo->fragmentShaderKey);
@@ -155,7 +343,7 @@ void Resource::Initialize(Heap* heap, void* bin, s32 resourceID, System* ptclSys
     }
 
     {
-        PrimitiveImageInformation* imageInfo = reinterpret_cast<PrimitiveImageInformation*>((u32)bin + mHeader->primitiveTblPos);
+        PrimitiveImageInformation* imageInfo = LoadNwEftPrimitiveImageInformation((void*)((u32)bin + mHeader->primitiveTblPos));
         PrimitiveTableInfo* infoTop = reinterpret_cast<PrimitiveTableInfo*>((u32)imageInfo + imageInfo->offsetPrimitiveTableInfo);
         char* primitiveTableStart = reinterpret_cast<char*>(infoTop + imageInfo->primitiveNum);
 
@@ -169,6 +357,7 @@ void Resource::Initialize(Heap* heap, void* bin, s32 resourceID, System* ptclSys
                 mPrimitive[i] = new (heap->Alloc(sizeof(Primitive))) Primitive();
 
                 PrimitiveTableInfo* info = &infoTop[i];
+                (void)LoadNwEftPrimitiveTableInfo(info);
 
                 f32* position = reinterpret_cast<f32*>(info->pos.offset      + primitiveTableStart);
                 f32* texCrd   = reinterpret_cast<f32*>(info->texCoord.offset + primitiveTableStart);
@@ -199,7 +388,7 @@ void Resource::Initialize(Heap* heap, void* bin, s32 resourceID, System* ptclSys
         ResourceEmitterSet* resSet = &mResEmitterSet[i];
         void* texture_addr = NULL;
 
-        resSet->setData        = &((reinterpret_cast<EmitterSetData*>(mHeader + 1))[i]);
+        resSet->setData        = LoadNwEftEmitterSetData(&((reinterpret_cast<EmitterSetData*>(mHeader + 1))[i]));
         resSet->setData->name  = &mNameTbl[resSet->setData->namePos];
         resSet->setName        = resSet->setData->name;
         resSet->numEmitter     = resSet->setData->numEmitter;
@@ -218,35 +407,35 @@ void Resource::Initialize(Heap* heap, void* bin, s32 resourceID, System* ptclSys
 
             for (s32 j = 0; j < resSet->numEmitter; j++)
             {
-                EmitterTblData* e = &resSet->tblData[j];
+                EmitterTblData* e = LoadNwEftEmitterTblData(&resSet->tblData[j]);
 
                 if (e->emitterPos == 0)
                     e->emitter = NULL;
 
                 else
                 {
-                    e->emitter = reinterpret_cast<CommonEmitterData*>((u32)bin + e->emitterPos);
+                    e->emitter = LoadNwEftEmitterData((void*)((u32)bin + e->emitterPos));
                     e->emitter->name = &mNameTbl[e->emitter->namePos];
 
                     if (e->emitter->texRes[EFT_TEXTURE_SLOT_0].nativeDataSize > 0)
                     {
-                        texture_addr = mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_0].nativeDataPos;
+                        texture_addr = reinterpret_cast<void*>((u32)mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_0].nativeDataPos);
                         CreateFtexbTextureHandle(heap, texture_addr, e->emitter->texRes[EFT_TEXTURE_SLOT_0]);
                     }
                     else if (e->emitter->texRes[EFT_TEXTURE_SLOT_0].originalDataSize > 0)
                     {
-                        texture_addr = mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_0].originalDataPos;
+                        texture_addr = reinterpret_cast<void*>((u32)mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_0].originalDataPos);
                         CreateOriginalTextureHandle(heap, texture_addr, e->emitter->texRes[EFT_TEXTURE_SLOT_0]);
                     }
 
                     if (e->emitter->texRes[EFT_TEXTURE_SLOT_1].nativeDataSize > 0)
                     {
-                        texture_addr = mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_1].nativeDataPos;
+                        texture_addr = reinterpret_cast<void*>((u32)mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_1].nativeDataPos);
                         CreateFtexbTextureHandle(heap, texture_addr, e->emitter->texRes[EFT_TEXTURE_SLOT_1]);
                     }
                     else if (e->emitter->texRes[EFT_TEXTURE_SLOT_1].originalDataSize > 0)
                     {
-                        texture_addr = mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_1].originalDataPos;
+                        texture_addr = reinterpret_cast<void*>((u32)mTextureTbl + e->emitter->texRes[EFT_TEXTURE_SLOT_1].originalDataPos);
                         CreateOriginalTextureHandle(heap, texture_addr, e->emitter->texRes[EFT_TEXTURE_SLOT_1]);
                     }
 
@@ -258,12 +447,12 @@ void Resource::Initialize(Heap* heap, void* bin, s32 resourceID, System* ptclSys
                             ChildData* cres = reinterpret_cast<ChildData*>(complex + 1);
                             if (cres->childTex.nativeDataSize > 0)
                             {
-                                texture_addr = mTextureTbl + cres->childTex.nativeDataPos;
+                                texture_addr = reinterpret_cast<void*>((u32)mTextureTbl + cres->childTex.nativeDataPos);
                                 CreateFtexbTextureHandle(heap, texture_addr, cres->childTex);
                             }
                             else if (cres->childTex.originalDataSize > 0)
                             {
-                                texture_addr = mTextureTbl + cres->childTex.originalDataPos;
+                                texture_addr = reinterpret_cast<void*>((u32)mTextureTbl + cres->childTex.originalDataPos);
                                 CreateOriginalTextureHandle(heap, texture_addr, cres->childTex);
                             }
                         }
@@ -272,7 +461,7 @@ void Resource::Initialize(Heap* heap, void* bin, s32 resourceID, System* ptclSys
                     if (e->emitter->animKeyTable.dataSize)
                     {
                         char* animkeyTble = reinterpret_cast<char*>((u32)bin + mHeader->animkeyTblPos);
-                        e->emitter->animKeyTable.animKeyTable = animkeyTble + e->emitter->animKeyTable.animPos;
+                        e->emitter->animKeyTable.animKeyTable = LoadNwEftKeyFrameAnimArray(animkeyTble + e->emitter->animKeyTable.animPos);
                     }
                 }
             }
@@ -291,8 +480,17 @@ void Resource::Initialize(Heap* heap, void* bin, s32 resourceID, System* ptclSys
 
 void Resource::DeleteTextureHandle(Heap* heap, TextureRes& texRes, bool isOriginalTexture)
 {
+#if EFT_IS_WIN
+    if (heap != NULL)
+        heap->Free(texRes.gx2Texture.surface.imagePtr);
+
+    glDeleteTextures(1, &texRes.handle);
+#endif // EFT_IS_WIN
+
+#if EFT_IS_CAFE
     if (heap != NULL && isOriginalTexture)
         heap->Free(texRes.gx2Texture.surface.imagePtr);
+#endif // EFT_IS_CAFE
 
     texRes.handle = 0;
 }
@@ -480,3 +678,7 @@ ParticleShader* Resource::GetShader(s32 emitterSetID, const VertexShaderKey* ver
 }
 
 } } // namespace nw::eft
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif // __GNUC__

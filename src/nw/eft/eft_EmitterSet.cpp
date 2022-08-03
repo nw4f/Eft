@@ -2,6 +2,11 @@
 #include <nw/eft/eft_EmitterSet.h>
 #include <nw/eft/eft_System.h>
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif // __GNUC__
+
 namespace nw { namespace eft {
 
 void EmitterController::SetFollowType(PtclFollowType type)
@@ -156,3 +161,7 @@ void EmitterSet::SetRandomSeed(u32 seed)
 }
 
 } } // namespace nw::eft
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif // __GNUC__

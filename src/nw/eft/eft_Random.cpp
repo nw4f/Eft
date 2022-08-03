@@ -33,4 +33,10 @@ void PtclRandom::CreateRandomTbl(Heap* heap)
     }
 }
 
+void PtclRandom::DestroyRandomTbl(Heap* heap)
+{
+    heap->Free(mVec3Tbl);
+    heap->Free(mNormalizedVec3Tbl);
+}
+
 } } // namespace nw::eft

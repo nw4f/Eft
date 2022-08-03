@@ -88,10 +88,10 @@ Transform3Identity(Transform3* pOut)
     return pOut;
 }
 
-NW_MATH_INLINE VEC3* VEC3Transform(VEC3* pOut, const MTX34* pM, const VEC3* pV);
-NW_MATH_INLINE VEC3* VEC3Transform(VEC3* pOut, const MTX44* pM, const VEC3* pV);
+// NW_MATH_INLINE VEC3* VEC3Transform(VEC3* pOut, const MTX34* pM, const VEC3* pV); <-- Redundant redeclaration
+// NW_MATH_INLINE VEC3* VEC3Transform(VEC3* pOut, const MTX44* pM, const VEC3* pV); <-- Redundant redeclaration
 
-NW_MATH_INLINE VEC4* VEC3Transform(VEC4* pOut, const MTX44* pM, const VEC3* pV);
+// NW_MATH_INLINE VEC4* VEC3Transform(VEC4* pOut, const MTX44* pM, const VEC3* pV); <-- Redundant redeclaration
 NW_MATH_INLINE VEC3* VEC3TransformArray(VEC3* pOut, const MTX34* pM, const VEC3* pV, s32 count);
 NW_MATH_INLINE VEC4* VEC3TransformArray(VEC4* pOut, const MTX44* pM, const VEC3* pV, u32 count);
 

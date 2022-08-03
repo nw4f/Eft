@@ -1,8 +1,12 @@
 #ifndef EFT_SHADER_H_
 #define EFT_SHADER_H_
 
-#include <nw/eft/eft_typeDef.h>
+#if EFT_IS_WIN
+#include <nw/eft/gl/eft_GLWrapper.h>
+#endif // EFT_IS_WIN
+#if EFT_IS_CAFE
 #include <nw/eft/cafe/eft_CafeWrapper.h>
+#endif // EFT_IS_CAFE
 #include <nw/eft/eft_UniformBlock.h>
 
 namespace nw { namespace eft {
@@ -92,7 +96,9 @@ struct VertexShaderKey
         mUserShaderFlag               = res->userShaderFlag;
         mUserShaderSwitchFlag         = res->userShaderSwitchFlag;
         mStripeTypeVariation          = EFT_STRIPE_TYPE_BILLBOARD;
-      //mStripeEmitterCoord           = false; <-- Nintendo forgot to do this
+#if (EFT_IS_CAFE_WUT || !EFT_IS_CAFE)
+        mStripeEmitterCoord           = false; // <-- Nintendo forgot to do this
+#endif
         mUsePrimitive                 = (res->meshType == EFT_MESH_TYPE_PRIMITIVE) ? true : false;
 
         if (userDef)
@@ -135,7 +141,9 @@ struct VertexShaderKey
         mUserShaderFlag               = res->childUserShaderFlag;
         mUserShaderSwitchFlag         = res->childUserShaderSwitchFlag;
         mStripeTypeVariation          = EFT_STRIPE_TYPE_MAX;
-      //mStripeEmitterCoord           = false; <-- Nintendo forgot to do this
+#if (EFT_IS_CAFE_WUT || !EFT_IS_CAFE)
+        mStripeEmitterCoord           = false; // <-- Nintendo forgot to do this
+#endif
         mUsePrimitive                 = (res->childMeshType == EFT_MESH_TYPE_PRIMITIVE) ? true : false;
 
         if (userDef)
@@ -596,10 +604,11 @@ public:
     VertexTextureLocation GetUserVertexSamplerLocation(UserSamplerSlot userSamplerSlot, const char* name);
 
 private:
+#if EFT_IS_CAFE
     enum {  DISPLAY_LSIT_SIZE = 512 };
     u8  mDisplayListBuffer[DISPLAY_LSIT_SIZE];
     u32 mDisplayListBufferUsed;
-
+#endif // EFT_IS_CAFE
     Shader                  mShader;
     VertexShaderKey         mVertexShaderKey;
     FragmentShaderKey       mFragmentShaderKey;
@@ -640,7 +649,9 @@ private:
     VertexTextureLocation   mUserVertexSamplerLocation[USER_SAMPLER_SLOT_MAX];
     FragmentTextureLocation mUserFragmentSamplerLocation[USER_SAMPLER_SLOT_MAX];
 };
+#if EFT_IS_CAFE
 static_assert(sizeof(ParticleShader) == 0x61C, "nw::eft::ParticleShader size mismatch");
+#endif // EFT_IS_CAFE
 
 } } // namespace nw::eft
 

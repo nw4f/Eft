@@ -6,6 +6,89 @@
 
 #include <cmath>
 
+#ifdef __GNUC__
+
+namespace std {
+
+inline f32 fabsf(f32 x)
+{
+    return ::std::fabs(x);
+}
+
+inline f32 expf(f32 x)
+{
+    return ::std::exp(x);
+}
+
+inline f32 logf(f32 x)
+{
+    return ::std::log(x);
+}
+
+inline f32 log10f(f32 x)
+{
+    return ::std::log10(x);
+}
+
+inline f32 fmodf(f32 x, f32 y)
+{
+    return ::std::fmod(x, y);
+}
+
+inline f32 modff(f32 x, f32* y)
+{
+    return ::std::modf(x, y);
+}
+
+inline f32 ceilf(f32 x)
+{
+    return ::std::ceil(x);
+}
+
+inline f32 floorf(f32 x)
+{
+    return ::std::floor(x);
+}
+
+inline f32 sqrtf(f32 x)
+{
+    return ::std::sqrt(x);
+}
+
+inline f32 sinf(f32 x)
+{
+    return ::std::sin(x);
+}
+
+inline f32 cosf(f32 x)
+{
+    return ::std::cos(x);
+}
+
+inline f32 tanf(f32 x)
+{
+    return ::std::tan(x);
+}
+
+inline f32 asinf(f32 x)
+{
+    return ::std::asin(x);
+}
+
+inline f32 acosf(f32 x)
+{
+    return ::std::acos(x);
+}
+
+inline f32 atan2f(f32 y, f32 x)
+{
+    return ::std::atan2(y, x);
+}
+
+}
+
+#endif // __GNUC__
+
 namespace nw { namespace math {
 
 inline f32

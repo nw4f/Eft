@@ -41,12 +41,12 @@ namespace internal { namespace intrinsics {
 NW_MATH_INLINE MTX34* MTX34Zero(MTX34* pOut);
 NW_MATH_INLINE bool MTX34IsIdentity(const MTX34* p);
 NW_MATH_INLINE MTX34* MTX34Identity(MTX34* pOut);
-NW_MATH_INLINE MTX34* MTX34Copy(MTX34* pOut, const MTX34* p);
+// NW_MATH_INLINE MTX34* MTX34Copy(MTX34* pOut, const MTX34* p); <-- Redeclaration below
 
 NW_MATH_INLINE MTX34* MTX34Add(MTX34* pOut, const MTX34* p1, const MTX34* p2);
 NW_MATH_INLINE MTX34* MTX34Sub(MTX34* pOut, const MTX34* p1, const MTX34* p2);
 NW_MATH_INLINE MTX34* MTX34Mult(MTX34* pOut, const MTX34* p, f32 f);
-NW_MATH_INLINE MTX34* MTX34Mult(MTX34* pOut, const MTX34* p1, const MTX34* p2);
+// NW_MATH_INLINE MTX34* MTX34Mult(MTX34* pOut, const MTX34* p1, const MTX34* p2); <-- Redeclaration below
 NW_MATH_INLINE MTX34* MTX34MAdd(MTX34* pOut, f32 t, const MTX34* p1, const MTX34* p2);
 
 NW_MATH_INLINE MTX34* MTX34MultArray(MTX34* pOut, const MTX34* p1, const MTX34* pSrc, s32 count);
@@ -169,18 +169,6 @@ public:
 
     f32* ToF32() { return this->a; }
     const f32* ToF32() const { return this->a; }
-
-    template <typename ToRef>
-    ToRef CastToRef()
-    {
-        return *reinterpret_cast<typename ut::PeelReference<ToRef>::Type*>( this );
-    }
-
-    template <typename ToRef>
-    ToRef CastToRef() const
-    {
-        return *reinterpret_cast<const typename ut::PeelReference<ToRef>::Type*>( this );
-    }
 
     template <typename FromPtr>
     static MTX34* CastFrom(FromPtr* fromPtr)

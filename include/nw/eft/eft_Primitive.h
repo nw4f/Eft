@@ -2,7 +2,12 @@
 #define EFT_PRIMITIVE_H_
 
 #include <nw/eft/eft_typeDef.h>
+#if EFT_IS_WIN
+#include <nw/eft/gl/eft_GLWrapper.h>
+#endif // EFT_IS_WIN
+#if EFT_IS_CAFE
 #include <nw/eft/cafe/eft_CafeWrapper.h>
+#endif // EFT_IS_CAFE
 
 namespace nw { namespace eft {
 
@@ -56,7 +61,9 @@ public:
         {
             nw::math::VEC4* col = static_cast<nw::math::VEC4*>(
                 mPrimitiveColorVB.AllocateVertexBuffer(heap, mPrimitiveIndexNum * sizeof(nw::math::VEC4), 4));
-            //fCol = &col->x; <-- NSMBU doesn't do this, but MK8 does. Bug in older Eft?
+#if (EFT_IS_CAFE_WUT || !EFT_IS_CAFE)
+            fCol = &col->x; // <-- NSMBU doesn't do this, but MK8 does. Bug in older Eft?
+#endif
             for (u32 i = 0; i < mPrimitiveIndexNum; ++i)
             {
                 col->x = 1.0f;
@@ -163,7 +170,9 @@ private:
     f32* fUv;
     u32* uIdx;
 };
+#if EFT_IS_CAFE
 static_assert(sizeof(Primitive) == 0x6C, "nw::eft::Primitive size mismatch");
+#endif // EFT_IS_CAFE
 
 } } // namespace nw::eft
 

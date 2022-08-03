@@ -12,6 +12,11 @@
 #include <cstring>
 #include <new>
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif // __GNUC__
+
 namespace nw { namespace eft {
 
 System::System(const Config& config)
@@ -558,3 +563,7 @@ void System::AddEmitterSetToDrawList(EmitterSet* set, u8 groupID)
 }
 
 } } // namespace nw::eft
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif // __GNUC__

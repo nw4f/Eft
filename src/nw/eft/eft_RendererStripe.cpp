@@ -510,6 +510,24 @@ s32 Renderer::MakeConnectionStripeAttributeBlockCore(EmitterInstance* emitter, s
     nw::math::VEC3 curVec, nowPos, nextPos;
     nw::math::VEC3 interpolateNextDir;
 
+#if (EFT_IS_CAFE_WUT || !EFT_IS_CAFE) // Fix undefined behavior
+    curVec.x = 0.0f;
+    curVec.y = 0.0f;
+    curVec.z = 0.0f;
+
+    nowPos.x = 0.0f;
+    nowPos.y = 0.0f;
+    nowPos.z = 0.0f;
+
+    nextPos.x = 0.0f;
+    nextPos.y = 0.0f;
+    nextPos.z = 0.0f;
+
+    interpolateNextDir.x = 0.0f;
+    interpolateNextDir.y = 0.0f;
+    interpolateNextDir.z = 0.0f;
+#endif
+
     for (s32 i = 0; i < numLoop; i++)
     {
         u32 index = wroteVertexNum + numDrawVertex;
@@ -739,6 +757,44 @@ s32 Renderer::MakeConnectionStripeAttributeBlockCoreDivide(EmitterInstance* emit
     nw::math::VEC3 prevPos, next2Pos;
     nw::math::VEC3 dir, firstDir;
     nw::math::VEC3 interpolateNextDir;
+
+#if (EFT_IS_CAFE_WUT || !EFT_IS_CAFE) // Fix undefined behavior
+    curVec.x = 0.0f;
+    curVec.y = 0.0f;
+    curVec.z = 0.0f;
+
+    prevCurVec.x = 0.0f;
+    prevCurVec.y = 0.0f;
+    prevCurVec.z = 0.0f;
+
+    nowPos.x = 0.0f;
+    nowPos.y = 0.0f;
+    nowPos.z = 0.0f;
+
+    nextPos.x = 0.0f;
+    nextPos.y = 0.0f;
+    nextPos.z = 0.0f;
+
+    prevPos.x = 0.0f;
+    prevPos.y = 0.0f;
+    prevPos.z = 0.0f;
+
+    next2Pos.x = 0.0f;
+    next2Pos.y = 0.0f;
+    next2Pos.z = 0.0f;
+
+    dir.x = 0.0f;
+    dir.y = 0.0f;
+    dir.z = 0.0f;
+
+    firstDir.x = 0.0f;
+    firstDir.y = 0.0f;
+    firstDir.z = 0.0f;
+
+    interpolateNextDir.x = 0.0f;
+    interpolateNextDir.y = 0.0f;
+    interpolateNextDir.z = 0.0f;
+#endif
 
     f32 divRateAdd = 1.0f / (f32)(numDivide + 1);
 
@@ -1040,8 +1096,10 @@ StripeVertexBuffer* Renderer::MakeConnectionStripeAttributeBlock(EmitterInstance
     else
         emitter->stripeVertexNum = MakeConnectionStripeAttributeBlockCoreDivide(emitter, numPtcl, pTailPtcl, pTail2ndPtcl, tailType, stripeVertex, 0);
 
+#if EFT_IS_CAFE
     if (cacheFlush)
         GX2Invalidate(GX2_INVALIDATE_CPU_ATTRIB_BUFFER, stripeVertex, attributeBufferSize);
+#endif // EFT_IS_CAFE
 
     return stripeVertex;
 }
@@ -1132,7 +1190,21 @@ void Renderer::EntryConnectionStripe(EmitterInstance* emitter, bool cacheFlush, 
     if (!SetupStripeDrawSetting(emitter, cacheFlush, userParam))
         return;
 
+#if EFT_IS_WIN
+    GLuint gl_vbo;
+    glGenBuffers(1, &gl_vbo);
+
+    glBindBuffer(GL_ARRAY_BUFFER, gl_vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(StripeVertexBuffer) * emitter->stripeVertexNum, stripeVertex, GL_STATIC_DRAW);
+
+    VertexBuffer::BindExtBuffer(stripeShader->GetPositionAttribute(),     4, sizeof(StripeVertexBuffer),  0 * 4);
+    VertexBuffer::BindExtBuffer(stripeShader->GetOuterAttribute(),        4, sizeof(StripeVertexBuffer),  4 * 4);
+    VertexBuffer::BindExtBuffer(stripeShader->GetTextureCoordAttribute(), 4, sizeof(StripeVertexBuffer),  8 * 4);
+    VertexBuffer::BindExtBuffer(stripeShader->GetDirAttribute(),          4, sizeof(StripeVertexBuffer), 12 * 4);
+#endif // EFT_IS_WIN
+#if EFT_IS_CAFE
     VertexBuffer::BindExtBuffer(0, sizeof(StripeVertexBuffer) * emitter->stripeVertexNum, 0, sizeof(StripeVertexBuffer), stripeVertex);
+#endif // EFT_IS_CAFE
 
     nw::ut::FloatColor setColor = emitter->emitterSet->GetColor();
     setColor.r *= emitter->res->colorScale;
@@ -1154,7 +1226,12 @@ void Renderer::EntryConnectionStripe(EmitterInstance* emitter, bool cacheFlush, 
 
     StripeUniformBlock* uniformBlock = static_cast<StripeUniformBlock*>(AllocFromDoubleBuffer(sizeof(StripeUniformBlock)));
     if (uniformBlock == NULL)
+    {
+#if EFT_IS_WIN
+        glDeleteBuffers(1, &gl_vbo);
+#endif
         return;
+    }
 
     uniformBlock->stParam.x = 1.0f;
     uniformBlock->stParam.y = 0.0f;
@@ -1181,9 +1258,11 @@ void Renderer::EntryConnectionStripe(EmitterInstance* emitter, bool cacheFlush, 
 
     uniformBlock->emitterMat = nw::math::MTX44(ptcl->emitter->emitterSRT);
 
+#if EFT_IS_CAFE
     GX2EndianSwap(uniformBlock, sizeof(StripeUniformBlock));
     if (cacheFlush)
         GX2Invalidate(GX2_INVALIDATE_CPU_UNIFORM_BLOCK, uniformBlock, sizeof(StripeUniformBlock));
+#endif // EFT_IS_CAFE
 
     stripeShader->mStripeUniformBlock.BindUniformBlock(uniformBlock);
     Draw::DrawPrimitive(Draw::PRIM_TYPE_TRIANGLE_STRIP, 0, numDrawVertex);
@@ -1192,7 +1271,12 @@ void Renderer::EntryConnectionStripe(EmitterInstance* emitter, bool cacheFlush, 
     {
         StripeUniformBlock* uniformBlock = static_cast<StripeUniformBlock*>(AllocFromDoubleBuffer(sizeof(StripeUniformBlock)));
         if (uniformBlock == NULL)
+        {
+#if EFT_IS_WIN
+            glDeleteBuffers(1, &gl_vbo);
+#endif
             return;
+        }
 
         uniformBlock->stParam.x = 0.0f;
         uniformBlock->stParam.y = 1.0f;
@@ -1219,13 +1303,19 @@ void Renderer::EntryConnectionStripe(EmitterInstance* emitter, bool cacheFlush, 
 
         uniformBlock->emitterMat = nw::math::MTX44(ptcl->emitter->emitterSRT);
 
+#if EFT_IS_CAFE
         GX2EndianSwap(uniformBlock, sizeof(StripeUniformBlock));
         if (cacheFlush)
             GX2Invalidate(GX2_INVALIDATE_CPU_UNIFORM_BLOCK, uniformBlock, sizeof(StripeUniformBlock));
+#endif // EFT_IS_CAFE
 
         stripeShader->mStripeUniformBlock.BindUniformBlock(uniformBlock);
         Draw::DrawPrimitive(Draw::PRIM_TYPE_TRIANGLE_STRIP, 0, numDrawVertex);
     }
+
+#if EFT_IS_WIN
+    glDeleteBuffers(1, &gl_vbo);
+#endif
 }
 
 void Renderer::EntryStripe(EmitterInstance* emitter, bool cacheFlush, void* userParam)
@@ -1249,7 +1339,21 @@ void Renderer::EntryStripe(EmitterInstance* emitter, bool cacheFlush, void* user
     if (!SetupStripeDrawSetting(emitter, cacheFlush, userParam))
         return;
 
+#if EFT_IS_WIN
+    GLuint gl_vbo;
+    glGenBuffers(1, &gl_vbo);
+
+    glBindBuffer(GL_ARRAY_BUFFER, gl_vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(StripeVertexBuffer) * emitter->stripeVertexNum, stripeVertex, GL_STATIC_DRAW);
+
+    VertexBuffer::BindExtBuffer(stripeShader->GetPositionAttribute(),     4, sizeof(StripeVertexBuffer),  0 * 4);
+    VertexBuffer::BindExtBuffer(stripeShader->GetOuterAttribute(),        4, sizeof(StripeVertexBuffer),  4 * 4);
+    VertexBuffer::BindExtBuffer(stripeShader->GetTextureCoordAttribute(), 4, sizeof(StripeVertexBuffer),  8 * 4);
+    VertexBuffer::BindExtBuffer(stripeShader->GetDirAttribute(),          4, sizeof(StripeVertexBuffer), 12 * 4);
+#endif // EFT_IS_WIN
+#if EFT_IS_CAFE
     VertexBuffer::BindExtBuffer(0, sizeof(StripeVertexBuffer) * emitter->stripeVertexNum, 0, sizeof(StripeVertexBuffer), stripeVertex);
+#endif // EFT_IS_CAFE
 
     nw::ut::FloatColor setColor = emitter->emitterSet->GetColor();
     setColor.r *= emitter->res->colorScale;
@@ -1318,9 +1422,11 @@ void Renderer::EntryStripe(EmitterInstance* emitter, bool cacheFlush, void* user
 
         uniformBlock->emitterMat = nw::math::MTX44(ptcl->emitter->emitterSRT);
 
+#if EFT_IS_CAFE
         GX2EndianSwap(uniformBlock, sizeof(StripeUniformBlock));
         if (cacheFlush)
             GX2Invalidate(GX2_INVALIDATE_CPU_UNIFORM_BLOCK, uniformBlock, sizeof(StripeUniformBlock));
+#endif // EFT_IS_CAFE
 
         stripeShader->mStripeUniformBlock.BindUniformBlock(uniformBlock);
         Draw::DrawPrimitive(Draw::PRIM_TYPE_TRIANGLE_STRIP, ptcl->stripe->startDrawVertex, ptcl->stripe->numDrawVertex);
@@ -1356,14 +1462,20 @@ void Renderer::EntryStripe(EmitterInstance* emitter, bool cacheFlush, void* user
 
             uniformBlock->emitterMat = nw::math::MTX44(ptcl->emitter->emitterSRT);
 
+#if EFT_IS_CAFE
             GX2EndianSwap(uniformBlock, sizeof(StripeUniformBlock));
             if (cacheFlush)
                 GX2Invalidate(GX2_INVALIDATE_CPU_UNIFORM_BLOCK, uniformBlock, sizeof(StripeUniformBlock));
+#endif // EFT_IS_CAFE
 
             stripeShader->mStripeUniformBlock.BindUniformBlock(uniformBlock);
             Draw::DrawPrimitive(Draw::PRIM_TYPE_TRIANGLE_STRIP, ptcl->stripe->startDrawVertex, ptcl->stripe->numDrawVertex);
         }
     }
+
+#if EFT_IS_WIN
+    glDeleteBuffers(1, &gl_vbo);
+#endif
 }
 
 } } // namespace nw::eft

@@ -70,7 +70,7 @@ public:
 
         if (texSrc && texSrcSize != 0)
         {
-            nw::math::VEC4* tex = static_cast<nw::math::VEC4*>(mPrimitiveTexCrdVB.AllocateVertexBuffer(heap, texSrcSize, 2));
+            nw::math::VEC2* tex = static_cast<nw::math::VEC2*>(mPrimitiveTexCrdVB.AllocateVertexBuffer(heap, texSrcSize, 2));
             /* MemUtil::Copy */ memcpy(tex, texSrc, texSrcSize);
             fUv = &tex->x;
             mPrimitiveTexCrdVB.Invalidate();
@@ -125,7 +125,7 @@ public:
     void BindTextureCrdBuffer(u32 attr)
     {
         if (attr != EFT_INVALID_ATTRIBUTE && mPrimitiveTexCrdVB.GetVertexBuffer())
-            mPrimitiveTexCrdVB.BindBuffer(attr, mPrimitiveTexCrdVB.GetVertexBufferSize(), sizeof(nw::math::VEC4));
+            mPrimitiveTexCrdVB.BindBuffer(attr, mPrimitiveTexCrdVB.GetVertexBufferSize(), sizeof(nw::math::VEC2));
     }
 
     void* GetIndexBuffer()

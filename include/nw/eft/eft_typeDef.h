@@ -3,9 +3,8 @@
 
 #include <nw/types.h>
 
-#include <types.h>
-#include <cafe/demo.h>
-#include <cafe/gx2.h>
+#include <cafe.h>
+#include <cafe/gfd.h>
 
 #define EFT_MEMUTIL_CAFE_DCBZ_OFFSET(addr, offset)	asm("	dcbz	%0,%1" : "+g"(addr), "+g"(offset) )
 

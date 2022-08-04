@@ -7,14 +7,8 @@
     #include <GL/glew.h>
 #endif // _WIN32
 
-#if defined(_WIN32) || defined(__WUT__)
-    #include <cafe/gfd.h>
-    #include <cafe.h>
-#else
-    #include <types.h>
-    #include <cafe/demo.h>
-    #include <cafe/gx2.h>
-#endif
+#include <cafe.h>
+#include <cafe/gfd.h>
 
 #ifdef _WIN32
     #define EFT_IS_WIN                  1

@@ -4,7 +4,7 @@
 #include <cstring>
 #include <nw/math/math_Config.h>
 
-#if defined(NW_PLATFORM_CAFE)
+#if defined(NW_PLATFORM_CAFE) && !defined(__WUT__)
     #include <cafe/mtx/mtxVec.h>
 #endif
 

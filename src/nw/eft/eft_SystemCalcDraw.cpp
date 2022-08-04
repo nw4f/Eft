@@ -150,10 +150,12 @@ void System::FlushCache()
 
 void System::FlushGpuCache()
 {
+#if EFT_IS_CAFE
     GX2Invalidate(static_cast<GX2InvalidateType>(GX2_INVALIDATE_ATTRIB_BUFFER
                                                  | GX2_INVALIDATE_TEXTURE
                                                  | GX2_INVALIDATE_UNIFORM_BLOCK
                                                  | GX2_INVALIDATE_SHADER), NULL, 0xFFFFFFFF);
+#endif // EFT_IS_CAFE
 }
 
 void System::CalcParticle(bool cacheFlush)

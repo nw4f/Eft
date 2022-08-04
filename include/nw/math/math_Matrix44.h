@@ -3,7 +3,7 @@
 
 //#define NW_MATH_USE_OLDMTX
 
-#if defined(NW_PLATFORM_CAFE)
+#if defined(NW_PLATFORM_CAFE) && !defined(__WUT__)
     #include <cafe/mtx/mtx44.h>
 #endif
 

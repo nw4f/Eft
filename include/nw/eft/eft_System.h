@@ -347,7 +347,9 @@ private:
     u32                         mCurrentDrawPathFlag[EFT_CPU_CORE_MAX];
     u32                         mCalcSwapFlag;
 };
+#if EFT_IS_CAFE && !EFT_IS_CAFE_WUT
 static_assert(sizeof(System) == 0xA28, "nw::eft::System size mismatch");
+#endif // EFT_IS_CAFE
 
 } } // namespace nw::eft
 

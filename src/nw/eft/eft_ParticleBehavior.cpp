@@ -2,6 +2,11 @@
 #include <nw/eft/eft_EmitterSet.h>
 #include <nw/eft/eft_UniformBlock.h>
 
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
+
 namespace nw { namespace eft {
 
 // No division-by-zero checks whatsoever...
@@ -725,3 +730,7 @@ void EmitterCalc::MakeParticleAttributeBuffer(PtclAttributeBuffer* __restrict at
 }
 
 } } // namespace nw::eft
+
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic pop
+#endif

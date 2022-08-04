@@ -3,6 +3,11 @@
 
 #include <nw/eft/eft_typeDef.h>
 
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
+
 namespace nw { namespace eft {
 
 class Heap;
@@ -152,5 +157,9 @@ protected:
 static_assert(sizeof(Config) == 0x20, "nw::eft::Config size mismatch");
 
 } } // namespace nw::eft
+
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic pop
+#endif
 
 #endif // EFT_CONFIG_H_

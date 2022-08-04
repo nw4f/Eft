@@ -6,7 +6,7 @@
 #define NW_MATH_AS_INLINE
 #define NW_MATH_INLINE inline
 
-#if defined(NW_PLATFORM_CAFE) && (__GHS_VERSION_NUMBER >= 536)
+#if defined(NW_PLATFORM_CAFE) && !defined(__WUT__) && (__GHS_VERSION_NUMBER >= 536)
   #define NW_MATH_ENABLE_INTRINSICS
   #define NW_MATH_USE_INTRINSICS
   #define NW_MATH_IMPL_NS ::nw::math::internal::intrinsics

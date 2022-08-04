@@ -7,6 +7,11 @@
 
 #include <new>
 
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
+
 namespace nw { namespace eft {
 
 void System::ClearResource(Heap* heap, s32 resId)
@@ -135,3 +140,7 @@ EmitterInstance* System::GetEmitter(u8 groupID, u32 idx)
 }
 
 } } // namespace nw::eft
+
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic pop
+#endif

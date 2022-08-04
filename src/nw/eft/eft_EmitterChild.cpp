@@ -39,7 +39,9 @@ u32 EmitterComplexCalc::CalcChildParticle(EmitterInstance* emitter, CpuCore core
         emitter->childEmitterDynamicUniformBlock->emitterColor1.z = setColor.b * emitter->emitAnimValue[EFT_ANIM_COLOR1_B];
         emitter->childEmitterDynamicUniformBlock->emitterColor1.w = setColor.a * emitter->emitAnimValue[EFT_ANIM_ALPHA] * emitter->fadeAlpha;
 
+#if EFT_IS_CAFE
         GX2EndianSwap(emitter->childEmitterDynamicUniformBlock, sizeof(EmitterDynamicUniformBlock));
+#endif // EFT_IS_CAFE
     }
     else
     {

@@ -3,7 +3,13 @@
 
 #include <cstddef>
 
-#define NW_PLATFORM_CAFE
+#if defined(_WIN32)
+    #define NW_PLATFORM_WIN32
+#elif (defined(__ghs__) || defined(__WUT__))
+    #define NW_PLATFORM_CAFE
+#else
+    #error "Unknown host platform"
+#endif
 
 #if !defined(NW_DEBUG) && !defined(NW_DEVELOP) && !defined(NW_RELEASE)
     #error "Build target is not defined."

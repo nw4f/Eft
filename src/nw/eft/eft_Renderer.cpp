@@ -10,6 +10,11 @@
 
 #include <cstdlib>
 
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
+
 namespace nw { namespace eft {
 
 s32 Renderer::ComparePtclViewZ(const void* a, const void* b)
@@ -58,6 +63,14 @@ Renderer::Renderer(Heap* heap, System* system, const Config& config)
     pos[1].x = -particleWH;
     pos[1].y = -particleWH;
     pos[1].z =  0.0f;
+#if EFT_IS_WIN
+    pos[2].x =  particleWH;
+    pos[2].y =  particleWH;
+    pos[2].z =  0.0f;
+    pos[3].x =  particleWH;
+    pos[3].y = -particleWH;
+    pos[3].z =  0.0f;
+#else
     pos[2].x =  particleWH;
     pos[2].y = -particleWH;
     pos[2].z =  0.0f;
@@ -65,13 +78,19 @@ Renderer::Renderer(Heap* heap, System* system, const Config& config)
     pos[3].y =  particleWH;
     pos[3].z =  0.0f;
     mPositionVB.Invalidate();
+#endif
 
     u32* index = static_cast<u32*>(mIndexVB.AllocateVertexBuffer(mHeap, sizeof(u32) * 4, 1));
     index[0] = 0;
     index[1] = 1;
+#if EFT_IS_WIN
+    index[2] = 3;
+    index[3] = 2;
+#else
     index[2] = 2;
     index[3] = 3;
     mIndexVB.Invalidate();
+#endif
 
     mCurrentPrimitive = NULL;
 
@@ -144,8 +163,10 @@ void Renderer::BeginRender(const nw::math::MTX44& proj, const nw::math::MTX34& v
         mViewUniformBlock->viewParam.z = 0.0f;
         mViewUniformBlock->viewParam.w = 0.0f;
 
+#if EFT_IS_CAFE
         GX2EndianSwap(mViewUniformBlock, sizeof(ViewUniformBlock));
         GX2Invalidate(GX2_INVALIDATE_CPU_UNIFORM_BLOCK, mViewUniformBlock, sizeof(ViewUniformBlock));
+#endif // EFT_IS_CAFE
     }
 }
 
@@ -160,7 +181,11 @@ bool Renderer::SetupParticleShaderAndVertex(ParticleShader* shader, MeshType mes
         if (shader->GetIndexAttribute() != EFT_INVALID_ATTRIBUTE)
             mIndexVB.BindBuffer(shader->GetIndexAttribute(), sizeof(u32) * 4, sizeof(u32));
 
+#if EFT_IS_WIN
+        mDrawPrimitiveType = Draw::PRIM_TYPE_TRIANGLE_STRIP;
+#else
         mDrawPrimitiveType = Draw::PRIM_TYPE_QUADS;
+#endif
 
         mCurrentPrimitive = NULL;
     }
@@ -261,6 +286,11 @@ void Renderer::RequestParticle(const EmitterInstance* emitter, ParticleShader* s
         mSystem->GetUserShaderRenderStateSetCallback(shaderCallback)(arg);
     }
 
+#if EFT_IS_WIN
+    GLuint gl_vbo;
+    glGenBuffers(1, &gl_vbo);
+#endif
+
     if (!bChild && res->flg & EFT_EMITTER_FLAG_ENABLE_SORTPARTICLE)
     {
         u32 cnt = 0;
@@ -287,6 +317,11 @@ void Renderer::RequestParticle(const EmitterInstance* emitter, ParticleShader* s
 
             for (u32 i = 0; i < cnt; i++)
             {
+#if EFT_IS_WIN
+                glBindBuffer(GL_ARRAY_BUFFER, gl_vbo);
+                glBufferData(GL_ARRAY_BUFFER, sizeof(PtclAttributeBuffer), &ptclAttributeBuffer[sortPtcls[i].index], GL_STATIC_DRAW);
+#endif
+
                 BindParticleAttributeBlock(&ptclAttributeBuffer[sortPtcls[i].index], shader, 1);
 
                 if (meshType == EFT_MESH_TYPE_PRIMITIVE && mCurrentPrimitive)
@@ -296,6 +331,9 @@ void Renderer::RequestParticle(const EmitterInstance* emitter, ParticleShader* s
                     Draw::DrawInstancePrimitive(mDrawPrimitiveType, 4, 1);
             }
         }
+#if EFT_IS_WIN
+        glDeleteBuffers(1, &gl_vbo);
+#endif
         return;
     }
 
@@ -305,11 +343,21 @@ void Renderer::RequestParticle(const EmitterInstance* emitter, ParticleShader* s
     {
         entryNum = emitter->childEntryNum;
 
+#if EFT_IS_WIN
+        glBindBuffer(GL_ARRAY_BUFFER, gl_vbo);
+        glBufferData(GL_ARRAY_BUFFER, entryNum * sizeof(PtclAttributeBuffer), emitter->childPtclAttributeBuffer, GL_STATIC_DRAW);
+#endif
+
         BindParticleAttributeBlock(emitter->childPtclAttributeBuffer, shader, entryNum);
     }
     else
     {
         entryNum = emitter->entryNum;
+
+#if EFT_IS_WIN
+        glBindBuffer(GL_ARRAY_BUFFER, gl_vbo);
+        glBufferData(GL_ARRAY_BUFFER, entryNum * sizeof(PtclAttributeBuffer), emitter->ptclAttributeBuffer, GL_STATIC_DRAW);
+#endif
 
         BindParticleAttributeBlock(emitter->ptclAttributeBuffer, shader, entryNum);
     }
@@ -319,6 +367,10 @@ void Renderer::RequestParticle(const EmitterInstance* emitter, ParticleShader* s
 
     else
         Draw::DrawInstancePrimitive(mDrawPrimitiveType, 4, entryNum);
+
+#if EFT_IS_WIN
+    glDeleteBuffers(1, &gl_vbo);
+#endif
 }
 
 void Renderer::EntryChildParticleSub(const EmitterInstance* emitter, bool cacheFlush, void* userParam)
@@ -468,3 +520,7 @@ void Renderer::EndRender()
 }
 
 } } // namespace nw::eft
+
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic pop
+#endif

@@ -12,6 +12,11 @@
 #include <cstring>
 #include <new>
 
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#endif
+
 namespace nw { namespace eft {
 
 System::System(const Config& config)
@@ -558,3 +563,7 @@ void System::AddEmitterSetToDrawList(EmitterSet* set, u8 groupID)
 }
 
 } } // namespace nw::eft
+
+#if EFT_IS_CAFE_WUT || !EFT_IS_CAFE
+#pragma GCC diagnostic pop
+#endif

@@ -4,6 +4,8 @@
 #include <nw/eft/eft_Data.h>
 #include <nw/eft/eft_Heap.h>
 
+#if EFT_IS_CAFE
+
 BOOL _DEMOGFDReadVertexShader(nw::eft::Heap* heap, GX2VertexShader** ppShader, u32 index, const void* pData);
 BOOL _DEMOGFDReadPixelShader(nw::eft::Heap* heap, GX2PixelShader** ppShader, u32 index, const void* pData);
 BOOL _DEMOGFDReadGeometryShader(nw::eft::Heap* heap, GX2GeometryShader** ppShader, u32 index, const void* pData);
@@ -222,5 +224,7 @@ private:
 static_assert(sizeof(UniformBlock) == 0x10, "nw::eft::UniformBlock size mismatch");
 
 } } // namespace nw::eft
+
+#endif // EFT_IS_CAFE
 
 #endif // EFT_CAFE_WRAPPER_H_

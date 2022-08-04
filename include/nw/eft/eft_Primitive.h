@@ -72,7 +72,9 @@ public:
                 col->w = 1.0f;
                 col++;
             }
+#if (!EFT_IS_WIN)
             mPrimitiveColorVB.Invalidate();
+#endif
         }
 
         if (texSrc && texSrcSize != 0)

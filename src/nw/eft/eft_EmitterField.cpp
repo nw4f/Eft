@@ -150,7 +150,13 @@ const void* EmitterCalc::_ptclField_Collision(EmitterInstance* __restrict e, Ptc
                 worldVel.y *= -dat->fieldCollisionCoef;
 
                 nw::math::MTX34 matEmitterInv;
+#if EFT_IS_CAFE && !EFT_IS_CAFE_WUT
                 matEmitterInv.SetInverse(*matEmitter);
+#else
+                // Compiler complains about possibility of matEmitterInv being uninitialized
+                if (!nw::math::MTX34Inverse(&matEmitterInv, *matEmitter))
+                    matEmitterInv.SetIdentity();
+#endif
 
                 ptcl->pos.SetTransform(matEmitterInv, worldPos);
                 {

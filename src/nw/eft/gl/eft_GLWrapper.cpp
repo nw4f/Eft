@@ -94,7 +94,7 @@ static size_t SaveGX2VertexShader(nw::eft::Heap* heap,
     shaderBufSize += shader->numInitialValues * sizeof(GX2UniformInitialValue);
 
     const size_t loopVarsOffs = shaderBufSize;
-    shaderBufSize += shader->numLoops * sizeof(u32) * 2;
+    shaderBufSize += shader->_numLoops * sizeof(u32) * 2;
 
     const size_t samplerVarsOffs = shaderBufSize;
     shaderBufSize += shader->numSamplers * sizeof(GX2SamplerVar);
@@ -169,13 +169,13 @@ static size_t SaveGX2VertexShader(nw::eft::Heap* heap,
         *(u32*)(shaderBuf + offsetof(GX2VertexShader, initialValues)) = initialValuesOffs;
     }
 
-    if (shader->numLoops != 0)
+    if (shader->_numLoops != 0)
     {
         std::memcpy(shaderBuf + loopVarsOffs,
-                    shader->loopVars,
-                    shader->numLoops * sizeof(u32) * 2);
+                    shader->_loopVars,
+                    shader->_numLoops * sizeof(u32) * 2);
 
-        *(u32*)(shaderBuf + offsetof(GX2VertexShader, loopVars)) = loopVarsOffs;
+        *(u32*)(shaderBuf + offsetof(GX2VertexShader, _loopVars)) = loopVarsOffs;
     }
 
     if (shader->numSamplers != 0)
@@ -286,7 +286,7 @@ static size_t SaveGX2PixelShader(nw::eft::Heap* heap,
     shaderBufSize += shader->numInitialValues * sizeof(GX2UniformInitialValue);
 
     const size_t loopVarsOffs = shaderBufSize;
-    shaderBufSize += shader->numLoops * sizeof(u32) * 2;
+    shaderBufSize += shader->_numLoops * sizeof(u32) * 2;
 
     const size_t samplerVarsOffs = shaderBufSize;
     shaderBufSize += shader->numSamplers * sizeof(GX2SamplerVar);
@@ -351,13 +351,13 @@ static size_t SaveGX2PixelShader(nw::eft::Heap* heap,
         *(u32*)(shaderBuf + offsetof(GX2PixelShader, initialValues)) = initialValuesOffs;
     }
 
-    if (shader->numLoops != 0)
+    if (shader->_numLoops != 0)
     {
         std::memcpy(shaderBuf + loopVarsOffs,
-                    shader->loopVars,
-                    shader->numLoops * sizeof(u32) * 2);
+                    shader->_loopVars,
+                    shader->_numLoops * sizeof(u32) * 2);
 
-        *(u32*)(shaderBuf + offsetof(GX2PixelShader, loopVars)) = loopVarsOffs;
+        *(u32*)(shaderBuf + offsetof(GX2PixelShader, _loopVars)) = loopVarsOffs;
     }
 
     if (shader->numSamplers != 0)

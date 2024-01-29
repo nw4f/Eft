@@ -1,6 +1,8 @@
 ﻿#ifndef NW_TYPES_H_
 #define NW_TYPES_H_
 
+#include <cafe/os.h>
+
 #include <cstddef>
 
 #define NW_PLATFORM_CAFE
